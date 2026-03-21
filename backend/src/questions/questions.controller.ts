@@ -29,6 +29,11 @@ export class QuestionsController {
    * Scores all predictions, updates coins/XP, and broadcasts results.
    * For testing: curl -X POST localhost:3000/questions/:id/resolve -d '{"correctOptionId":"..."}'
    */
+  @Post(':id/open')
+  async openQuestion(@Param('id') questionId: string) {
+    return this.questionsService.openQuestion(questionId);
+  }
+
   @Post(':id/resolve')
   async resolveQuestion(
     @Param('id') questionId: string,
