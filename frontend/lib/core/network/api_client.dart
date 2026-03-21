@@ -1,0 +1,84 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../storage/secure_storage.dart';
+import 'api_endpoints.dart';
+
+final apiClientProvider = Provider<ApiClient>((ref) {
+  final storage = ref.watch(secureStorageProvider);
+  return ApiClient(storage);
+});
+
+class ApiClient {
+  late final Dio _dio;
+  final SecureStorageService _storage;
+
+  ApiClient(this._storage) {
+    _dio = Dio(BaseOptions(
+      baseUrl: ApiEndpoints.baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+      headers: {'Content-Type': 'application/json'},
+    ));
+
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await _storage.getAccessToken();
+        if (token != null) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        handler.next(options);
+      },
+      onError: (error, handler) async {
+        if (error.response?.statusCode == 401) {
+          final refreshed = await _refreshToken();
+          if (refreshed) {
+            final token = await _storage.getAccessToken();
+            error.requestOptions.headers['Authorization'] = 'Bearer $token';
+            final response = await _dio.fetch(error.requestOptions);
+            handler.resolve(response);
+            return;
+          }
+        }
+        handler.next(error);
+      },
+    ));
+  }
+
+  Future<bool> _refreshToken() async {
+    try {
+      final refreshToken = await _storage.getRefreshToken();
+      if (refreshToken == null) return false;
+
+      final response = await Dio().post(
+        '${ApiEndpoints.baseUrl}${ApiEndpoints.refresh}',
+        data: {'refreshToken': refreshToken},
+      );
+
+      final data = response.data;
+      await _storage.saveTokens(
+        accessToken: data['accessToken'],
+        refreshToken: data['refreshToken'],
+      );
+      return true;
+    } catch (_) {
+      await _storage.clearTokens();
+      return false;
+    }
+  }
+
+  Future<Response> get(String path, {Map<String, dynamic>? queryParams}) {
+    return _dio.get(path, queryParameters: queryParams);
+  }
+
+  Future<Response> post(String path, {dynamic data}) {
+    return _dio.post(path, data: data);
+  }
+
+  Future<Response> put(String path, {dynamic data}) {
+    return _dio.put(path, data: data);
+  }
+
+  Future<Response> delete(String path) {
+    return _dio.delete(path);
+  }
+}

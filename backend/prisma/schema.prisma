@@ -1,0 +1,207 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum QuestionCategory {
+  GOAL
+  CARD
+  CORNER
+  VAR
+  HALFTIME
+  SUBSTITUTION
+}
+
+enum QuestionStatus {
+  PENDING
+  OPEN
+  CLOSED
+  RESOLVED
+}
+
+enum CoinTransactionType {
+  PREDICTION_WIN
+  PREDICTION_LOSS
+  ONBOARDING
+  ACHIEVEMENT
+  DAILY_BONUS
+}
+
+enum FeedEventType {
+  CORRECT
+  WRONG
+  RANK_CHANGE
+  SYSTEM
+}
+
+enum AchievementCondition {
+  STREAK
+  ACCURACY
+  TOTAL
+  CONSECUTIVE_CORRECT
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  passwordHash       String    @map("password_hash")
+  displayName        String?   @map("display_name")
+  avatarEmoji        String?   @default("\u26BD") @map("avatar_emoji")
+  countryCode        String?   @map("country_code")
+  favoriteTeamId     Int?      @map("favorite_team_id")
+  coins              Int       @default(500)
+  currentXp          Int       @default(0) @map("current_xp")
+  level              Int       @default(1)
+  streakDays         Int       @default(0) @map("streak_days")
+  lastActiveDate     DateTime? @map("last_active_date")
+  totalPredictions   Int       @default(0) @map("total_predictions")
+  correctPredictions Int       @default(0) @map("correct_predictions")
+  globalRank         Int?      @map("global_rank")
+  refreshToken       String?   @map("refresh_token")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  predictions      Prediction[]
+  coinTransactions CoinTransaction[]
+  feedEvents       FeedEvent[]
+  achievements     UserAchievement[]
+  devices          UserDevice[]
+
+  @@map("users")
+}
+
+model Question {
+  id               String           @id @default(uuid())
+  fixtureId        Int              @map("fixture_id")
+  category         QuestionCategory
+  text             String
+  rewardCoins      Int              @default(50) @map("reward_coins")
+  status           QuestionStatus   @default(PENDING)
+  correctOptionId  String?          @map("correct_option_id")
+  triggeredByEvent String?          @map("triggered_by_event")
+  opensAt          DateTime         @map("opens_at")
+  closesAt         DateTime         @map("closes_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  options     QuestionOption[]
+  predictions Prediction[]
+
+  @@index([fixtureId, status])
+  @@map("questions")
+}
+
+model QuestionOption {
+  id         String  @id @default(uuid())
+  questionId String  @map("question_id")
+  name       String
+  emoji      String?
+  info       String?
+  multiplier Float   @default(2.0)
+  fanCount   Int     @default(0) @map("fan_count")
+  isCorrect  Boolean @default(false) @map("is_correct")
+
+  question    Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  predictions Prediction[]
+
+  @@map("question_options")
+}
+
+model Prediction {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  questionId  String    @map("question_id")
+  optionId    String    @map("option_id")
+  coinsBet    Int       @default(50) @map("coins_bet")
+  coinsResult Int?      @map("coins_result")
+  xpEarned    Int?      @map("xp_earned")
+  isCorrect   Boolean?  @map("is_correct")
+  predictedAt DateTime  @default(now()) @map("predicted_at")
+  resolvedAt  DateTime? @map("resolved_at")
+
+  user     User           @relation(fields: [userId], references: [id])
+  question Question       @relation(fields: [questionId], references: [id])
+  option   QuestionOption @relation(fields: [optionId], references: [id])
+
+  @@unique([userId, questionId])
+  @@index([userId, questionId])
+  @@map("predictions")
+}
+
+model CoinTransaction {
+  id          String              @id @default(uuid())
+  userId      String              @map("user_id")
+  type        CoinTransactionType
+  amount      Int
+  balanceAfter Int                @map("balance_after")
+  referenceId String?             @map("reference_id")
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("coin_transactions")
+}
+
+model Achievement {
+  id             String               @id @default(uuid())
+  name           String               @unique
+  description    String
+  conditionType  AchievementCondition @map("condition_type")
+  conditionValue Int                  @map("condition_value")
+  rewardXp       Int                  @default(0) @map("reward_xp")
+  rewardFrame    String?              @map("reward_frame")
+
+  users UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  userId        String    @map("user_id")
+  achievementId String    @map("achievement_id")
+  progress      Int       @default(0)
+  earnedAt      DateTime? @map("earned_at")
+
+  user        User        @relation(fields: [userId], references: [id])
+  achievement Achievement @relation(fields: [achievementId], references: [id])
+
+  @@id([userId, achievementId])
+  @@map("user_achievements")
+}
+
+model FeedEvent {
+  id         String        @id @default(uuid())
+  fixtureId  Int           @map("fixture_id")
+  userId     String?       @map("user_id")
+  type       FeedEventType
+  message    String
+  coinsDelta Int?          @map("coins_delta")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([fixtureId, createdAt])
+  @@map("feed_events")
+}
+
+model UserDevice {
+  id        String         @id @default(uuid())
+  userId    String         @map("user_id")
+  fcmToken  String         @map("fcm_token")
+  platform  DevicePlatform
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, fcmToken])
+  @@map("user_devices")
+}
