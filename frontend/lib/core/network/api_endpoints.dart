@@ -1,6 +1,6 @@
 class ApiEndpoints {
   // 10.0.2.2 = host machine from Android emulator; change to localhost for iOS
-  static const String baseUrl = 'http://localhost:3000';
+  static const String baseUrl = 'https://fanzone-api-6ula.onrender.com';
 
   // Auth
   static const String register = '/auth/register';
