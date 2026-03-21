@@ -8,6 +8,7 @@ import '../widgets/predict_card.dart';
 import '../widgets/option_button.dart';
 import '../widgets/coin_stake_display.dart';
 import '../widgets/question_queue.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../widgets/result_overlay.dart';
 
 class PredictScreen extends ConsumerWidget {
@@ -15,33 +16,34 @@ class PredictScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = AppStrings.current;
     final predictState = ref.watch(predictStateProvider);
     final activeMatch = ref.watch(liveStateProvider).activeMatch;
 
     if (predictState.isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('DU DOAN')),
+        appBar: AppBar(title: Text(s.predict)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (predictState.activeQuestion == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('DU DOAN')),
+        appBar: AppBar(title: Text(s.predict)),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.bolt, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
               const SizedBox(height: 16),
-              const Text(
-                'Chua co cau hoi nao',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 18),
+              Text(
+                s.noQuestions,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 18),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Doi tran dau dien ra de du doan nhe!',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              Text(
+                s.waitForMatch,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
               ),
             ],
           ),
@@ -52,7 +54,7 @@ class PredictScreen extends ConsumerWidget {
     final question = predictState.activeQuestion!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('DU DOAN')),
+      appBar: AppBar(title: Text(s.predict)),
       body: Stack(
         children: [
           RefreshIndicator(
@@ -180,7 +182,7 @@ class PredictScreen extends ConsumerWidget {
                             letterSpacing: 2,
                           ),
                         ),
-                        child: const Text('XAC NHAN DU DOAN'),
+                        child: Text(s.confirmPrediction),
                       ),
                     ),
                   if (predictState.isLocked && predictState.lastResult == null)
@@ -192,9 +194,9 @@ class PredictScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppColors.neonGreen.withOpacity(0.3)),
                       ),
-                      child: const Text(
-                        'DA XAC NHAN — CHO KET QUA...',
-                        style: TextStyle(
+                      child: Text(
+                        s.confirmed,
+                        style: const TextStyle(
                           fontFamily: AppFonts.bebasNeue,
                           fontSize: 20,
                           color: AppColors.neonGreen,

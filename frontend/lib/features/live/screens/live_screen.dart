@@ -8,6 +8,7 @@ import '../widgets/scoreboard.dart';
 import '../widgets/stats_grid.dart';
 import '../widgets/fan_support_bar.dart';
 import '../widgets/predict_banner.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../widgets/match_card.dart';
 
 class LiveScreen extends ConsumerWidget {
@@ -15,6 +16,7 @@ class LiveScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = AppStrings.current;
     final liveState = ref.watch(liveStateProvider);
     final coins = ref.watch(userCoinsProvider);
 
@@ -80,14 +82,14 @@ class LiveScreen extends ConsumerWidget {
                     children: [
                       Icon(Icons.sports_soccer, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
                       const SizedBox(height: 16),
-                      const Text(
-                        'Khong co tran dau nao dang dien ra',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                      Text(
+                        s.noLiveMatches,
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Quay lai sau nhe!',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                      Text(
+                        s.comeBackLater,
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                       ),
                     ],
                   ),
@@ -99,7 +101,7 @@ class LiveScreen extends ConsumerWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(
-                    liveState.liveMatches.isNotEmpty ? 'TRAN DAU DANG DIEN RA' : 'TRAN DAU HOM NAY',
+                    liveState.liveMatches.isNotEmpty ? s.liveMatches : s.todayMatches,
                     style: const TextStyle(
                       fontFamily: AppFonts.bebasNeue,
                       fontSize: 20,

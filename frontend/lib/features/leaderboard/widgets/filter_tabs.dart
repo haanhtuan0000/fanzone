@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class FilterTabs extends StatelessWidget {
   final String selectedScope;
@@ -13,10 +14,11 @@ class FilterTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     final tabs = [
-      ('match', 'Tran nay'),
-      ('week', 'Tuan nay'),
-      ('global', 'Toan cau'),
+      ('match', s.tabMatch),
+      ('week', s.tabWeek),
+      ('global', s.tabGlobal),
       ('country', '🇻🇳'),
     ];
 

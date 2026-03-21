@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../providers/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -36,6 +37,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     final authState = ref.watch(authStateProvider);
 
     return Scaffold(
@@ -44,7 +46,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/welcome'),
         ),
-        title: const Text('DANG KY'),
+        title: Text(s.register),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -57,24 +59,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 32),
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(
-                    hintText: 'Ten hien thi (tuy chon)',
-                    prefixIcon: Icon(Icons.person_outline, color: AppColors.textSecondary),
+                  decoration: InputDecoration(
+                    hintText: s.displayNameHint,
+                    prefixIcon: const Icon(Icons.person_outline, color: AppColors.textSecondary),
                   ),
                   style: const TextStyle(color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(
-                    hintText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined, color: AppColors.textSecondary),
+                  decoration: InputDecoration(
+                    hintText: s.email,
+                    prefixIcon: const Icon(Icons.email_outlined, color: AppColors.textSecondary),
                   ),
                   keyboardType: TextInputType.emailAddress,
                   style: const TextStyle(color: AppColors.textPrimary),
                   validator: (value) {
                     if (value == null || !value.contains('@')) {
-                      return 'Email khong hop le';
+                      return s.emailInvalid;
                     }
                     return null;
                   },
@@ -82,15 +84,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(
-                    hintText: 'Mat khau (6+ ky tu)',
-                    prefixIcon: Icon(Icons.lock_outline, color: AppColors.textSecondary),
+                  decoration: InputDecoration(
+                    hintText: s.passwordHint,
+                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textSecondary),
                   ),
                   obscureText: true,
                   style: const TextStyle(color: AppColors.textPrimary),
                   validator: (value) {
                     if (value == null || value.length < 6) {
-                      return 'Mat khau phai co it nhat 6 ky tu';
+                      return s.passwordTooShort;
                     }
                     return null;
                   },
@@ -124,7 +126,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               color: AppColors.background,
                             ),
                           )
-                        : const Text('TAO TAI KHOAN', style: TextStyle(letterSpacing: 2)),
+                        : Text(s.createAccount, style: const TextStyle(letterSpacing: 2)),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -132,13 +134,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   onPressed: () => context.go('/login'),
                   child: RichText(
                     textAlign: TextAlign.center,
-                    text: const TextSpan(
-                      text: 'Da co tai khoan? ',
-                      style: TextStyle(color: AppColors.textSecondary),
+                    text: TextSpan(
+                      text: s.alreadyHaveAccount,
+                      style: const TextStyle(color: AppColors.textSecondary),
                       children: [
                         TextSpan(
-                          text: 'Dang nhap',
-                          style: TextStyle(color: AppColors.neonGreen, fontWeight: FontWeight.w700),
+                          text: s.loginLink,
+                          style: const TextStyle(color: AppColors.neonGreen, fontWeight: FontWeight.w700),
                         ),
                       ],
                     ),

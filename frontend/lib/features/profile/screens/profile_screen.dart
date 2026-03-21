@@ -9,6 +9,7 @@ import '../widgets/xp_bar.dart';
 import '../widgets/stat_tile.dart';
 import '../widgets/streak_calendar.dart';
 import '../widgets/badge_grid.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../widgets/activity_history.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -16,18 +17,19 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = AppStrings.current;
     final profileState = ref.watch(profileStateProvider);
 
     if (profileState.isLoading && profileState.user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('CA NHAN')),
+        appBar: AppBar(title: Text(s.profile)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CA NHAN'),
+        title: Text(s.profile),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: AppColors.red),
@@ -36,12 +38,12 @@ class ProfileScreen extends ConsumerWidget {
                 context: context,
                 builder: (ctx) => AlertDialog(
                   backgroundColor: AppColors.cardSurface,
-                  title: const Text('Dang xuat', style: TextStyle(color: AppColors.textPrimary)),
-                  content: const Text('Ban co chac muon dang xuat?', style: TextStyle(color: AppColors.textSecondary)),
+                  title: Text(s.logout, style: const TextStyle(color: AppColors.textPrimary)),
+                  content: Text(s.logoutConfirm, style: const TextStyle(color: AppColors.textSecondary)),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Huy', style: TextStyle(color: AppColors.textSecondary)),
+                      child: Text(s.cancel, style: const TextStyle(color: AppColors.textSecondary)),
                     ),
                     TextButton(
                       onPressed: () {
@@ -49,7 +51,7 @@ class ProfileScreen extends ConsumerWidget {
                         ref.read(authStateProvider.notifier).logout();
                         context.go('/welcome');
                       },
-                      child: const Text('Dang xuat', style: TextStyle(color: AppColors.red)),
+                      child: Text(s.logout, style: const TextStyle(color: AppColors.red)),
                     ),
                   ],
                 ),
@@ -85,7 +87,7 @@ class ProfileScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: StatTile(
-                      label: 'Chinh xac',
+                      label: s.accuracy,
                       value: '${profileState.user?.accuracy ?? 0}%',
                       color: AppColors.neonGreen,
                       icon: Icons.gps_fixed,
@@ -94,7 +96,7 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: StatTile(
-                      label: 'Du doan',
+                      label: s.predictions,
                       value: '${profileState.user?.totalPredictions ?? 0}',
                       color: AppColors.amber,
                       icon: Icons.bolt,
@@ -107,7 +109,7 @@ class ProfileScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: StatTile(
-                      label: 'Hang',
+                      label: s.rank,
                       value: '#${profileState.user?.globalRank ?? "-"}',
                       color: AppColors.blue,
                       icon: Icons.emoji_events,
@@ -116,7 +118,7 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: StatTile(
-                      label: 'Streak',
+                      label: s.streak,
                       value: '${profileState.user?.streakDays ?? 0}',
                       color: AppColors.purple,
                       icon: Icons.local_fire_department,
@@ -127,9 +129,9 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               StreakCalendar(streakDays: profileState.user?.streakDays ?? 0),
               const SizedBox(height: 16),
-              const Text(
-                'THANH TICH',
-                style: TextStyle(
+              Text(
+                s.achievements,
+                style: const TextStyle(
                   fontFamily: AppFonts.bebasNeue,
                   fontSize: 20,
                   color: AppColors.textSecondary,
@@ -139,9 +141,9 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 8),
               BadgeGrid(achievements: profileState.achievements),
               const SizedBox(height: 16),
-              const Text(
-                'HOAT DONG GAN DAY',
-                style: TextStyle(
+              Text(
+                s.recentActivity,
+                style: const TextStyle(
                   fontFamily: AppFonts.bebasNeue,
                   fontSize: 20,
                   color: AppColors.textSecondary,

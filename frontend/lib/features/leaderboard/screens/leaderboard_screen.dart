@@ -5,6 +5,7 @@ import '../providers/leaderboard_provider.dart';
 import '../widgets/filter_tabs.dart';
 import '../widgets/podium_top3.dart';
 import '../widgets/my_position_card.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../widgets/rank_row.dart';
 
 class LeaderboardScreen extends ConsumerWidget {
@@ -12,10 +13,11 @@ class LeaderboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = AppStrings.current;
     final lbState = ref.watch(leaderboardStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('BANG XEP HANG')),
+      appBar: AppBar(title: Text(s.leaderboard)),
       body: Column(
         children: [
           FilterTabs(
@@ -34,14 +36,14 @@ class LeaderboardScreen extends ConsumerWidget {
                           children: [
                             Icon(Icons.emoji_events, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
                             const SizedBox(height: 16),
-                            const Text(
-                              'Chua co du lieu',
-                              style: TextStyle(color: AppColors.textSecondary),
+                            Text(
+                              s.noData,
+                              style: const TextStyle(color: AppColors.textSecondary),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
-                              'Du doan de len bang xep hang!',
-                              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                            Text(
+                              s.predictToRank,
+                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                             ),
                           ],
                         ),

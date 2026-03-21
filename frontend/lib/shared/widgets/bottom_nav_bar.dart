@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/constants.dart';
+import '../../core/l10n/app_strings.dart';
 
 class ScaffoldWithNav extends StatelessWidget {
   final Widget child;
@@ -30,6 +31,7 @@ class ScaffoldWithNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     final currentIndex = _getCurrentIndex(context);
 
     return Scaffold(
@@ -47,31 +49,31 @@ class ScaffoldWithNav extends StatelessWidget {
               children: [
                 _NavItem(
                   icon: Icons.live_tv,
-                  label: 'Live',
+                  label: s.navLive,
                   isActive: currentIndex == 0,
                   onTap: () => _onTap(context, 0),
                 ),
                 _NavItem(
                   icon: Icons.bolt,
-                  label: 'Du doan',
+                  label: s.navPredict,
                   isActive: currentIndex == 1,
                   onTap: () => _onTap(context, 1),
                 ),
                 _NavItem(
                   icon: Icons.emoji_events,
-                  label: 'BXH',
+                  label: s.navLeaderboard,
                   isActive: currentIndex == 2,
                   onTap: () => _onTap(context, 2),
                 ),
                 _NavItem(
                   icon: Icons.local_fire_department,
-                  label: 'Feed',
+                  label: s.navFeed,
                   isActive: currentIndex == 3,
                   onTap: () => _onTap(context, 3),
                 ),
                 _NavItem(
                   icon: Icons.person,
-                  label: 'Ca nhan',
+                  label: s.navProfile,
                   isActive: currentIndex == 4,
                   onTap: () => _onTap(context, 4),
                 ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../providers/auth_provider.dart';
 
 class WelcomeScreen extends ConsumerWidget {
@@ -9,6 +10,7 @@ class WelcomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = AppStrings.current;
     final authState = ref.watch(authStateProvider);
 
     return Scaffold(
@@ -59,8 +61,8 @@ class WelcomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Du doan. Canh tranh. Thong tri.',
-                style: TextStyle(
+                s.tagline,
+                style: const TextStyle(
                   fontFamily: AppFonts.barlowCondensed,
                   fontSize: 18,
                   color: AppColors.textSecondary,
@@ -82,9 +84,9 @@ class WelcomeScreen extends ConsumerWidget {
                     height: 20,
                     errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 24),
                   ),
-                  label: const Text(
-                    'DANG NHAP VOI GOOGLE',
-                    style: TextStyle(letterSpacing: 1, fontSize: 14),
+                  label: Text(
+                    s.loginWithGoogle,
+                    style: const TextStyle(letterSpacing: 1, fontSize: 14),
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary,
@@ -102,9 +104,9 @@ class WelcomeScreen extends ConsumerWidget {
                 height: 52,
                 child: ElevatedButton(
                   onPressed: () => context.go('/register'),
-                  child: const Text(
-                    'DANG KY VOI EMAIL',
-                    style: TextStyle(fontSize: 14, letterSpacing: 2),
+                  child: Text(
+                    s.registerWithEmail,
+                    style: const TextStyle(fontSize: 14, letterSpacing: 2),
                   ),
                 ),
               ),
@@ -123,13 +125,13 @@ class WelcomeScreen extends ConsumerWidget {
               TextButton(
                 onPressed: () => context.go('/login'),
                 child: RichText(
-                  text: const TextSpan(
-                    text: 'Da co tai khoan? ',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                  text: TextSpan(
+                    text: s.alreadyHaveAccount,
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
                     children: [
                       TextSpan(
-                        text: 'Dang nhap',
-                        style: TextStyle(color: AppColors.neonGreen, fontWeight: FontWeight.w700),
+                        text: s.loginLink,
+                        style: const TextStyle(color: AppColors.neonGreen, fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),

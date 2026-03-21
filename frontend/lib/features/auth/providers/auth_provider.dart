@@ -1,9 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import '../../../core/models/user.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/secure_storage.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../services/auth_service.dart';
 
 class AuthState {
@@ -121,14 +122,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
     } catch (e) {
-      String error = 'Khong the ket noi den may chu';
+      final _s = AppStrings.current;
+      String error = _s.errorConnection;
       final msg = e.toString();
       if (msg.contains('409') || msg.contains('Conflict')) {
-        error = 'Email da duoc su dung';
+        error = _s.errorEmailTaken;
       } else if (msg.contains('400')) {
-        error = 'Thong tin khong hop le';
+        error = _s.errorInvalidInfo;
       } else if (msg.contains('connection') || msg.contains('SocketException')) {
-        error = 'Khong the ket noi den may chu. Thu lai sau.';
+        error = _s.errorConnection;
       }
       state = state.copyWith(isLoading: false, error: error);
     }
@@ -151,12 +153,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
     } catch (e) {
-      String error = 'Khong the ket noi den may chu';
+      final _s = AppStrings.current;
+      String error = _s.errorConnection;
       final msg = e.toString();
       if (msg.contains('401') || msg.contains('Unauthorized')) {
-        error = 'Email hoac mat khau khong dung';
+        error = _s.errorInvalidCredentials;
       } else if (msg.contains('connection') || msg.contains('SocketException')) {
-        error = 'Khong the ket noi den may chu. Thu lai sau.';
+        error = _s.errorConnection;
       }
       state = state.copyWith(isLoading: false, error: error);
     }
@@ -165,25 +168,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> loginWithGoogle() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final googleSignIn = GoogleSignIn();
-      final account = await googleSignIn.signIn();
-      if (account == null) {
-        state = state.copyWith(isLoading: false);
-        return; // User cancelled
-      }
+      final googleSignIn = gsi.GoogleSignIn.instance;
+      await googleSignIn.initialize(
+        serverClientId: '400880210585-rkbgtue22ttng1oo19ov9op3shm1a5es.apps.googleusercontent.com',
+      );
+      final account = await googleSignIn.authenticate();
 
-      final auth = await account.authentication;
+      final auth = account.authentication;
       final idToken = auth.idToken;
       if (idToken == null) {
         throw Exception('No ID token from Google');
       }
 
-      final result = await _authService.googleLogin(idToken);
+      final loginResult = await _authService.googleLogin(idToken);
       await _storage.saveTokens(
-        accessToken: result['accessToken'],
-        refreshToken: result['refreshToken'],
+        accessToken: loginResult['accessToken'],
+        refreshToken: loginResult['refreshToken'],
       );
-      final user = User.fromJson(result['user']);
+      final user = User.fromJson(loginResult['user']);
       final onboarded = await _storage.isOnboarded();
       state = state.copyWith(
         user: user,
@@ -192,10 +194,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
     } catch (e) {
-      String error = 'Dang nhap Google that bai';
+      final _s = AppStrings.current;
+      String error = _s.errorGoogleFailed;
       final msg = e.toString();
       if (msg.contains('connection') || msg.contains('SocketException')) {
-        error = 'Khong the ket noi den may chu. Thu lai sau.';
+        error = _s.errorConnection;
       }
       state = state.copyWith(isLoading: false, error: error);
     }

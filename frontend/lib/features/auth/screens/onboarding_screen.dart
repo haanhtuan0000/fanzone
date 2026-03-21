@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../providers/auth_provider.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -35,6 +36,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -69,7 +71,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: ElevatedButton(
                   onPressed: _nextStep,
                   child: Text(
-                    _step < 2 ? 'TIEP TUC' : 'BAT DAU CHOI',
+                    _step < 2 ? s.continueBtn : s.startPlaying,
                     style: const TextStyle(letterSpacing: 2),
                   ),
                 ),
@@ -96,12 +98,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildAvatarStep() {
+    final s = AppStrings.current;
     return Column(
       key: const ValueKey(0),
       children: [
-        const Text(
-          'CHON AVATAR',
-          style: TextStyle(
+        Text(
+          s.chooseAvatar,
+          style: const TextStyle(
             fontFamily: AppFonts.bebasNeue,
             fontSize: 36,
             color: AppColors.textPrimary,
@@ -109,9 +112,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Chon bieu tuong dai dien cho ban',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+        Text(
+          s.chooseAvatarDesc,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
         ),
         const SizedBox(height: 32),
         // Selected avatar large
@@ -165,12 +168,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildNameStep() {
+    final s = AppStrings.current;
     return Column(
       key: const ValueKey(1),
       children: [
-        const Text(
-          'TEN CUA BAN',
-          style: TextStyle(
+        Text(
+          s.yourName,
+          style: const TextStyle(
             fontFamily: AppFonts.bebasNeue,
             fontSize: 36,
             color: AppColors.textPrimary,
@@ -178,16 +182,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Ten se hien thi tren bang xep hang',
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+        Text(
+          s.nameOnLeaderboard,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
         ),
         const SizedBox(height: 32),
         TextFormField(
           controller: _nameController,
-          decoration: const InputDecoration(
-            hintText: 'Nhap ten hien thi',
-            prefixIcon: Icon(Icons.edit, color: AppColors.textSecondary),
+          decoration: InputDecoration(
+            hintText: s.enterDisplayName,
+            prefixIcon: const Icon(Icons.edit, color: AppColors.textSecondary),
           ),
           style: const TextStyle(color: AppColors.textPrimary, fontSize: 18),
           textAlign: TextAlign.center,
@@ -197,12 +201,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Widget _buildTutorialStep() {
+    final s = AppStrings.current;
     return Column(
       key: const ValueKey(2),
       children: [
-        const Text(
-          'CACH CHOI',
-          style: TextStyle(
+        Text(
+          s.howToPlay,
+          style: const TextStyle(
             fontFamily: AppFonts.bebasNeue,
             fontSize: 36,
             color: AppColors.textPrimary,
@@ -213,22 +218,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         _buildTutorialItem(
           Icons.sports_soccer,
           AppColors.neonGreen,
-          'Du doan su kien',
-          'Tra loi cau hoi ve cac su kien trong tran dau',
+          s.tutPredictTitle,
+          s.tutPredictDesc,
         ),
         const SizedBox(height: 24),
         _buildTutorialItem(
           Icons.monetization_on,
           AppColors.amber,
-          'Nhan coins',
-          'Du doan dung de nhan coins va tang hang',
+          s.tutCoinsTitle,
+          s.tutCoinsDesc,
         ),
         const SizedBox(height: 24),
         _buildTutorialItem(
           Icons.emoji_events,
           AppColors.blue,
-          'Leo bang xep hang',
-          'Canh tranh voi fan khac tren toan cau',
+          s.tutLeaderboardTitle,
+          s.tutLeaderboardDesc,
         ),
       ],
     );

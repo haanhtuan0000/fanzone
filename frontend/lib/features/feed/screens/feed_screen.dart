@@ -7,6 +7,7 @@ import '../widgets/online_counter.dart';
 import '../widgets/feed_card_correct.dart';
 import '../widgets/feed_card_wrong.dart';
 import '../widgets/feed_card_rank.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../widgets/feed_card_system.dart';
 
 class FeedScreen extends ConsumerWidget {
@@ -14,11 +15,12 @@ class FeedScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = AppStrings.current;
     final feedState = ref.watch(feedStateProvider);
     final liveState = ref.watch(liveStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('HOAT DONG')),
+      appBar: AppBar(title: Text(s.activity)),
       body: Column(
         children: [
           OnlineCounter(count: liveState.liveMatches.length),
@@ -33,9 +35,9 @@ class FeedScreen extends ConsumerWidget {
                             Icon(Icons.local_fire_department, size: 64,
                                 color: AppColors.textSecondary.withOpacity(0.5)),
                             const SizedBox(height: 16),
-                            const Text(
-                              'Chua co hoat dong nao',
-                              style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                            Text(
+                              s.noActivity,
+                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
                             ),
                           ],
                         ),

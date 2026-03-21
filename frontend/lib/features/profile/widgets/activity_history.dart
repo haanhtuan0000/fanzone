@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class ActivityHistory extends StatelessWidget {
   final List<dynamic> activity;
@@ -18,6 +19,7 @@ class ActivityHistory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     if (activity.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
@@ -25,10 +27,10 @@ class ActivityHistory extends StatelessWidget {
           color: AppColors.cardSurface,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
-            'Chua co hoat dong nao',
-            style: TextStyle(color: AppColors.textSecondary),
+            s.noRecentActivity,
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
         ),
       );

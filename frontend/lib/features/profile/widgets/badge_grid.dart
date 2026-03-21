@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/achievement.dart';
 import 'badge_detail_modal.dart';
 
@@ -19,6 +20,7 @@ class BadgeGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     if (achievements.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
@@ -26,10 +28,10 @@ class BadgeGrid extends StatelessWidget {
           color: AppColors.cardSurface,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
-            'Chua co thanh tich nao',
-            style: TextStyle(color: AppColors.textSecondary),
+            s.noAchievements,
+            style: const TextStyle(color: AppColors.textSecondary),
           ),
         ),
       );

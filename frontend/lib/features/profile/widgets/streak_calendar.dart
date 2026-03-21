@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class StreakCalendar extends StatelessWidget {
   final int streakDays;
@@ -7,6 +8,7 @@ class StreakCalendar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     final days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     final todayIndex = DateTime.now().weekday - 1; // 0 = Monday
 
@@ -24,7 +26,7 @@ class StreakCalendar extends StatelessWidget {
               const Icon(Icons.local_fire_department, color: AppColors.amber, size: 18),
               const SizedBox(width: 6),
               Text(
-                'Streak: $streakDays ngay',
+                s.streakDays(streakDays),
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w600,

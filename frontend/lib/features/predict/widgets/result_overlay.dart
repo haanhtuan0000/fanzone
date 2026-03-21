@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class ResultOverlay extends StatefulWidget {
   final bool isCorrect;
@@ -35,6 +36,7 @@ class _ResultOverlayState extends State<ResultOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     return GestureDetector(
       onTap: widget.onDismiss,
       child: Container(
@@ -52,7 +54,7 @@ class _ResultOverlayState extends State<ResultOverlay> {
               ),
               const SizedBox(height: 16),
               Text(
-                widget.isCorrect ? 'CHINH XAC!' : 'SAI ROI!',
+                widget.isCorrect ? s.correct : s.wrong,
                 style: TextStyle(
                   fontFamily: AppFonts.bebasNeue,
                   fontSize: 36,
@@ -71,9 +73,9 @@ class _ResultOverlayState extends State<ResultOverlay> {
               ),
               if (!widget.isCorrect) ...[
                 const SizedBox(height: 16),
-                const Text(
-                  'Tiec qua! Thu lai cau tiep nhe',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                Text(
+                  s.tryNextOne,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
                 ),
               ],
             ],

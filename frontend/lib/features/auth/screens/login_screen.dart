@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -33,6 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     final authState = ref.watch(authStateProvider);
 
     ref.listen<AuthState>(authStateProvider, (prev, next) {
@@ -47,7 +49,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/welcome'),
         ),
-        title: const Text('DANG NHAP'),
+        title: Text(s.login),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -73,28 +75,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 48),
                 TextFormField(
                   controller: _emailController,
-                  decoration: const InputDecoration(
-                    hintText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined, color: AppColors.textSecondary),
+                  decoration: InputDecoration(
+                    hintText: s.email,
+                    prefixIcon: const Icon(Icons.email_outlined, color: AppColors.textSecondary),
                   ),
                   keyboardType: TextInputType.emailAddress,
                   style: const TextStyle(color: AppColors.textPrimary),
                   validator: (value) {
-                    if (value == null || !value.contains('@')) return 'Email khong hop le';
+                    if (value == null || !value.contains('@')) return s.emailInvalid;
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
-                  decoration: const InputDecoration(
-                    hintText: 'Mat khau',
-                    prefixIcon: Icon(Icons.lock_outline, color: AppColors.textSecondary),
+                  decoration: InputDecoration(
+                    hintText: s.password,
+                    prefixIcon: const Icon(Icons.lock_outline, color: AppColors.textSecondary),
                   ),
                   obscureText: true,
                   style: const TextStyle(color: AppColors.textPrimary),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'Nhap mat khau';
+                    if (value == null || value.isEmpty) return s.enterPassword;
                     return null;
                   },
                 ),
@@ -124,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             height: 24,
                             child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.background),
                           )
-                        : const Text('DANG NHAP', style: TextStyle(letterSpacing: 2)),
+                        : Text(s.login, style: const TextStyle(letterSpacing: 2)),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -132,13 +134,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   onPressed: () => context.go('/register'),
                   child: RichText(
                     textAlign: TextAlign.center,
-                    text: const TextSpan(
-                      text: 'Chua co tai khoan? ',
-                      style: TextStyle(color: AppColors.textSecondary),
+                    text: TextSpan(
+                      text: s.noAccount,
+                      style: const TextStyle(color: AppColors.textSecondary),
                       children: [
                         TextSpan(
-                          text: 'Dang ky ngay',
-                          style: TextStyle(color: AppColors.neonGreen, fontWeight: FontWeight.w700),
+                          text: s.registerLink,
+                          style: const TextStyle(color: AppColors.neonGreen, fontWeight: FontWeight.w700),
                         ),
                       ],
                     ),
