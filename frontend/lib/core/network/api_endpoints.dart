@@ -6,6 +6,7 @@ class ApiEndpoints {
   static const String register = '/auth/register';
   static const String login = '/auth/login';
   static const String refresh = '/auth/refresh';
+  static const String googleLogin = '/auth/google';
 
   // Matches
   static const String liveMatches = '/matches/live';

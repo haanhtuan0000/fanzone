@@ -16,13 +16,24 @@ import '../shared/widgets/bottom_nav_bar.dart';
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+/// Listenable that notifies GoRouter when auth state changes
+class _AuthNotifierListenable extends ChangeNotifier {
+  _AuthNotifierListenable(Ref ref) {
+    ref.listen<AuthState>(authStateProvider, (_, __) {
+      notifyListeners();
+    });
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final authListenable = _AuthNotifierListenable(ref);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/welcome',
+    refreshListenable: authListenable,
     redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
       final isAuth = authState.isAuthenticated;
       final isOnboarded = authState.isOnboarded;
       final isAuthRoute = state.matchedLocation == '/welcome' ||

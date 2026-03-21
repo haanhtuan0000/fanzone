@@ -57,6 +57,46 @@ export class AuthService {
     };
   }
 
+  async googleLogin(idToken: string) {
+    // Verify Google ID token
+    const googleResponse = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`,
+    );
+    if (!googleResponse.ok) {
+      throw new UnauthorizedException('Invalid Google token');
+    }
+
+    const googleUser = await googleResponse.json() as any;
+    const email = googleUser.email;
+    const name = googleUser.name || email.split('@')[0];
+    const picture = googleUser.picture;
+
+    if (!email) {
+      throw new UnauthorizedException('Google account has no email');
+    }
+
+    // Find or create user
+    let user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          passwordHash: '', // No password for social login
+          displayName: name,
+          avatarEmoji: '⚽',
+        },
+      });
+    }
+
+    const tokens = await this.generateTokens(user.id, user.email);
+    await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+    return {
+      user: this.sanitizeUser(user),
+      ...tokens,
+    };
+  }
+
   async refreshTokens(refreshToken: string) {
     try {
       const payload = this.jwtService.verify(refreshToken, {

@@ -31,6 +31,14 @@ class AuthService {
     return response.data as Map<String, dynamic>;
   }
 
+  Future<Map<String, dynamic>> googleLogin(String idToken) async {
+    final response = await _dio.post(
+      '${ApiEndpoints.baseUrl}/auth/google',
+      data: {'idToken': idToken},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   Future<Map<String, dynamic>> refreshToken(String refreshToken) async {
     final response = await _dio.post(
       ApiEndpoints.refresh,

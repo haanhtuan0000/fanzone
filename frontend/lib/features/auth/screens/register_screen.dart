@@ -38,12 +38,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
 
-    ref.listen<AuthState>(authStateProvider, (prev, next) {
-      if (next.isAuthenticated && !next.isOnboarded) {
-        context.go('/onboarding');
-      }
-    });
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(

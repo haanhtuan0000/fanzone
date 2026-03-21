@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/profile_hero.dart';
 import '../widgets/xp_bar.dart';
@@ -28,8 +30,31 @@ class ProfileScreen extends ConsumerWidget {
         title: const Text('CA NHAN'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings, color: AppColors.textSecondary),
-            onPressed: () {},
+            icon: const Icon(Icons.logout, color: AppColors.red),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: AppColors.cardSurface,
+                  title: const Text('Dang xuat', style: TextStyle(color: AppColors.textPrimary)),
+                  content: const Text('Ban co chac muon dang xuat?', style: TextStyle(color: AppColors.textSecondary)),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Huy', style: TextStyle(color: AppColors.textSecondary)),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        ref.read(authStateProvider.notifier).logout();
+                        context.go('/welcome');
+                      },
+                      child: const Text('Dang xuat', style: TextStyle(color: AppColors.red)),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),

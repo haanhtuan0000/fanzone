@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../core/models/user.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/secure_storage.dart';
@@ -47,9 +48,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _checkAuth() async {
     final token = await _storage.getAccessToken();
-    final onboarded = await _storage.isOnboarded();
-    if (token != null) {
-      state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded);
+    if (token == null) return;
+
+    // Validate token against the server
+    try {
+      final response = await Dio().get(
+        '${ApiEndpoints.baseUrl}${ApiEndpoints.profileMe}',
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          receiveTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 30),
+        ),
+      );
+      if (response.statusCode == 200) {
+        final onboarded = await _storage.isOnboarded();
+        state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded);
+      } else {
+        await _storage.clearTokens();
+      }
+    } catch (_) {
+      // Token invalid or server unreachable — try refresh
+      try {
+        final refreshToken = await _storage.getRefreshToken();
+        if (refreshToken != null) {
+          final response = await Dio().post(
+            '${ApiEndpoints.baseUrl}${ApiEndpoints.refresh}',
+            data: {'refreshToken': refreshToken},
+          );
+          await _storage.saveTokens(
+            accessToken: response.data['accessToken'],
+            refreshToken: response.data['refreshToken'],
+          );
+          final onboarded = await _storage.isOnboarded();
+          state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded);
+        } else {
+          await _storage.clearTokens();
+        }
+      } catch (_) {
+        await _storage.clearTokens();
+      }
     }
   }
 
@@ -84,7 +121,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      String error = 'Khong the ket noi den may chu';
+      final msg = e.toString();
+      if (msg.contains('409') || msg.contains('Conflict')) {
+        error = 'Email da duoc su dung';
+      } else if (msg.contains('400')) {
+        error = 'Thong tin khong hop le';
+      } else if (msg.contains('connection') || msg.contains('SocketException')) {
+        error = 'Khong the ket noi den may chu. Thu lai sau.';
+      }
+      state = state.copyWith(isLoading: false, error: error);
     }
   }
 
@@ -105,7 +151,53 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      String error = 'Khong the ket noi den may chu';
+      final msg = e.toString();
+      if (msg.contains('401') || msg.contains('Unauthorized')) {
+        error = 'Email hoac mat khau khong dung';
+      } else if (msg.contains('connection') || msg.contains('SocketException')) {
+        error = 'Khong the ket noi den may chu. Thu lai sau.';
+      }
+      state = state.copyWith(isLoading: false, error: error);
+    }
+  }
+
+  Future<void> loginWithGoogle() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final googleSignIn = GoogleSignIn();
+      final account = await googleSignIn.signIn();
+      if (account == null) {
+        state = state.copyWith(isLoading: false);
+        return; // User cancelled
+      }
+
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        throw Exception('No ID token from Google');
+      }
+
+      final result = await _authService.googleLogin(idToken);
+      await _storage.saveTokens(
+        accessToken: result['accessToken'],
+        refreshToken: result['refreshToken'],
+      );
+      final user = User.fromJson(result['user']);
+      final onboarded = await _storage.isOnboarded();
+      state = state.copyWith(
+        user: user,
+        isAuthenticated: true,
+        isOnboarded: onboarded,
+        isLoading: false,
+      );
+    } catch (e) {
+      String error = 'Dang nhap Google that bai';
+      final msg = e.toString();
+      if (msg.contains('connection') || msg.contains('SocketException')) {
+        error = 'Khong the ket noi den may chu. Thu lai sau.';
+      }
+      state = state.copyWith(isLoading: false, error: error);
     }
   }
 

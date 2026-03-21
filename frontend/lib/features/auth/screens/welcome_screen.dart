@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../providers/auth_provider.dart';
 
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -64,19 +68,57 @@ class WelcomeScreen extends StatelessWidget {
                 ),
               ),
               const Spacer(flex: 3),
-              // Start button
+              // Google Sign-In button
               SizedBox(
                 width: double.infinity,
-                height: 56,
+                height: 52,
+                child: OutlinedButton.icon(
+                  onPressed: authState.isLoading
+                      ? null
+                      : () => ref.read(authStateProvider.notifier).loginWithGoogle(),
+                  icon: Image.network(
+                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                    width: 20,
+                    height: 20,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 24),
+                  ),
+                  label: const Text(
+                    'DANG NHAP VOI GOOGLE',
+                    style: TextStyle(letterSpacing: 1, fontSize: 14),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textPrimary,
+                    side: const BorderSide(color: AppColors.divider),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Email register button
+              SizedBox(
+                width: double.infinity,
+                height: 52,
                 child: ElevatedButton(
                   onPressed: () => context.go('/register'),
                   child: const Text(
-                    'BAT DAU',
-                    style: TextStyle(fontSize: 18, letterSpacing: 2),
+                    'DANG KY VOI EMAIL',
+                    style: TextStyle(fontSize: 14, letterSpacing: 2),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
+              // Error message
+              if (authState.error != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    authState.error!,
+                    style: const TextStyle(color: AppColors.red, fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               // Login link
               TextButton(
                 onPressed: () => context.go('/login'),

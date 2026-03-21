@@ -3,7 +3,11 @@ import '../../../core/models/match.dart';
 import '../../../core/network/api_endpoints.dart';
 
 class MatchService {
-  final Dio _dio = Dio(BaseOptions(baseUrl: ApiEndpoints.baseUrl));
+  final Dio _dio = Dio(BaseOptions(
+    baseUrl: ApiEndpoints.baseUrl,
+    connectTimeout: const Duration(seconds: 60),
+    receiveTimeout: const Duration(seconds: 60),
+  ));
 
   Future<List<MatchData>> getLiveMatches() async {
     try {
