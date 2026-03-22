@@ -4,6 +4,7 @@ import '../../../app/constants.dart';
 import '../../../shared/widgets/coin_display.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../../core/models/match.dart';
+import '../../predict/providers/predict_provider.dart';
 import '../providers/live_provider.dart';
 import '../widgets/scoreboard.dart';
 import '../widgets/stats_grid.dart';
@@ -19,6 +20,7 @@ class LiveScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = AppStrings.current;
     final liveState = ref.watch(liveStateProvider);
+    final predictState = ref.watch(predictStateProvider);
     final coins = ref.watch(userCoinsProvider);
 
     // Fetch coins once if not loaded yet
@@ -69,12 +71,13 @@ class LiveScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: PredictBanner(),
+              if (predictState.activeQuestion != null)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: PredictBanner(),
+                  ),
                 ),
-              ),
             ],
             // Empty state when no matches
             if (liveState.activeMatch == null && liveState.matches.isEmpty)
