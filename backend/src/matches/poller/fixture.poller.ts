@@ -5,6 +5,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { WebsocketGateway } from '../../websocket/websocket.gateway';
 import { QuestionResolverService } from '../../questions/question-resolver.service';
 import { QuestionGeneratorService } from '../../questions/question-generator.service';
+import { PrismaService } from '../../common/prisma.service';
 import { TRACKED_LEAGUE_IDS } from '../leagues.config';
 
 /**
@@ -29,6 +30,7 @@ export class FixturePoller implements OnModuleInit, OnModuleDestroy {
     private ws: WebsocketGateway,
     private questionResolver: QuestionResolverService,
     private questionGenerator: QuestionGeneratorService,
+    private prisma: PrismaService,
     private config: ConfigService,
   ) {
     this.mockMode = this.config.get('MOCK_MODE') === 'true';
@@ -97,6 +99,10 @@ export class FixturePoller implements OnModuleInit, OnModuleDestroy {
    * Detect HT / FT / phase changes by comparing current status to the
    * last-seen status stored in Redis.  Fires resolution + generation hooks
    * exactly once per transition.
+   *
+   * Also ensures every live match has questions — if a match is first seen
+   * mid-game (server restart, new match kicks off), generates questions
+   * for the current phase immediately.
    */
   private async handlePeriodTransition(
     fixtureId: number,
@@ -108,8 +114,11 @@ export class FixturePoller implements OnModuleInit, OnModuleDestroy {
     const redisKey = `cache:fixture:${fixtureId}:period`;
     const prevPeriod = await this.redis.get(redisKey);
 
-    // No change — skip
-    if (prevPeriod === period) return;
+    // No change — but still check if questions need generating
+    if (prevPeriod === period) {
+      await this.ensureQuestionsExist(fixtureId, period, elapsed, teams, score);
+      return;
+    }
 
     // Persist the new status (TTL 3h to survive long matches / extra time)
     await this.redis.set(redisKey, period, 10_800);
@@ -127,9 +136,7 @@ export class FixturePoller implements OnModuleInit, OnModuleDestroy {
 
     // ── Full-time: resolve all remaining questions with final stats ──
     if (FINISHED_STATUSES.has(period) && !FINISHED_STATUSES.has(prevPeriod ?? '')) {
-      // Try to determine added time from elapsed clock (e.g. 95 → 5 min stoppage)
       const stoppageMinutes = elapsed > 90 ? elapsed - 90 : undefined;
-
       this.logger.log(`Triggering full-time resolution for fixture ${fixtureId}`);
       await this.questionResolver.onFullTime(fixtureId, teams, score, stoppageMinutes);
       await this.questionGenerator.cleanupFixture(fixtureId);
@@ -141,10 +148,43 @@ export class FixturePoller implements OnModuleInit, OnModuleDestroy {
       await this.questionGenerator.generateForPhase(fixtureId, elapsed, teams, score, '2H');
     }
 
-    // ── Phase-based question generation for in-play periods ──
-    if (period === '1H' && !prevPeriod) {
-      this.logger.log(`Match started for fixture ${fixtureId} — generating 1H questions`);
-      await this.questionGenerator.generateForPhase(fixtureId, elapsed, teams, score, '1H');
+    // ── New match or first-seen match: generate for current phase ──
+    if (['1H', '2H'].includes(period) && !prevPeriod) {
+      this.logger.log(`First seen fixture ${fixtureId} in ${period} ${elapsed}' — generating questions`);
+      await this.questionGenerator.generateForPhase(fixtureId, elapsed, teams, score, period);
+    }
+  }
+
+  /**
+   * If a live match has NO open or pending questions, generate for
+   * the current phase. This handles mid-phase gaps — e.g. all questions
+   * expired but the phase hasn't changed yet.
+   */
+  private async ensureQuestionsExist(
+    fixtureId: number,
+    period: string,
+    elapsed: number,
+    teams: { home: string; away: string },
+    score: { home: number; away: number },
+  ) {
+    // Only for in-play periods
+    if (!['1H', '2H'].includes(period)) return;
+
+    // Check Redis cooldown — don't check DB every 15s
+    const cooldownKey = `fixture:${fixtureId}:question-check`;
+    const lastCheck = await this.redis.get(cooldownKey);
+    if (lastCheck) return; // Checked recently
+    await this.redis.set(cooldownKey, '1', 60); // Check at most once per minute
+
+    const activeCount = await this.prisma.question.count({
+      where: { fixtureId, status: { in: ['OPEN', 'PENDING'] } },
+    });
+
+    if (activeCount === 0) {
+      this.logger.log(
+        `Fixture ${fixtureId}: no active questions at ${period} ${elapsed}' — generating`,
+      );
+      await this.questionGenerator.generateForPhase(fixtureId, elapsed, teams, score, period);
     }
   }
 }
