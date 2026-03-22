@@ -41,8 +41,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isOnboarding = loc == '/onboarding';
 
       if (!isAuth && !isAuthRoute && !isOnboarding) return '/welcome';
-      // After register: let onboarding screen handle the transition, don't force redirect
-      if (isAuth && !isOnboarded && !isOnboarding && !isAuthRoute) return '/onboarding';
+      if (isAuth && !isOnboarded && !isOnboarding) return '/onboarding';
       if (isAuth && isOnboarded && (isAuthRoute || isOnboarding)) return '/live';
       return null;
     },

@@ -4,7 +4,9 @@ import '../../../app/constants.dart';
 
 class CountdownStrip extends StatefulWidget {
   final DateTime closesAt;
-  const CountdownStrip({super.key, required this.closesAt});
+  final VoidCallback? onExpired;
+
+  const CountdownStrip({super.key, required this.closesAt, this.onExpired});
 
   @override
   State<CountdownStrip> createState() => _CountdownStripState();
@@ -13,20 +15,52 @@ class CountdownStrip extends StatefulWidget {
 class _CountdownStripState extends State<CountdownStrip> {
   late Timer _timer;
   late Duration _remaining;
+  bool _expired = false;
 
   @override
   void initState() {
     super.initState();
     _remaining = widget.closesAt.difference(DateTime.now());
+    if (_remaining.isNegative) {
+      _remaining = Duration.zero;
+      _expired = true;
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
         _remaining = widget.closesAt.difference(DateTime.now());
-        if (_remaining.isNegative) {
+        if (_remaining.isNegative || _remaining == Duration.zero) {
           _remaining = Duration.zero;
           _timer.cancel();
+          if (!_expired) {
+            _expired = true;
+            widget.onExpired?.call();
+          }
         }
       });
     });
+  }
+
+  @override
+  void didUpdateWidget(CountdownStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.closesAt != widget.closesAt) {
+      _expired = false;
+      _remaining = widget.closesAt.difference(DateTime.now());
+      _timer.cancel();
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        setState(() {
+          _remaining = widget.closesAt.difference(DateTime.now());
+          if (_remaining.isNegative || _remaining == Duration.zero) {
+            _remaining = Duration.zero;
+            _timer.cancel();
+            if (!_expired) {
+              _expired = true;
+              widget.onExpired?.call();
+            }
+          }
+        });
+      });
+    }
   }
 
   @override
@@ -37,10 +71,11 @@ class _CountdownStripState extends State<CountdownStrip> {
 
   @override
   Widget build(BuildContext context) {
-    final totalSeconds = 30.0; // Default countdown duration
+    final totalSeconds = 30.0;
     final remainingSeconds = _remaining.inSeconds.toDouble().clamp(0, totalSeconds);
     final progress = remainingSeconds / totalSeconds;
     final isUrgent = remainingSeconds <= 10;
+    final isExpired = remainingSeconds <= 0;
 
     return Column(
       children: [
@@ -48,17 +83,17 @@ class _CountdownStripState extends State<CountdownStrip> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.timer,
-              color: isUrgent ? AppColors.red : AppColors.amber,
+              isExpired ? Icons.timer_off : Icons.timer,
+              color: isExpired ? AppColors.textSecondary : (isUrgent ? AppColors.red : AppColors.amber),
               size: 20,
             ),
             const SizedBox(width: 8),
             Text(
-              '${remainingSeconds.toInt()}s',
+              isExpired ? 'TIME UP' : '${remainingSeconds.toInt()}s',
               style: TextStyle(
                 fontFamily: AppFonts.bebasNeue,
                 fontSize: 32,
-                color: isUrgent ? AppColors.red : AppColors.amber,
+                color: isExpired ? AppColors.textSecondary : (isUrgent ? AppColors.red : AppColors.amber),
                 letterSpacing: 2,
               ),
             ),
@@ -72,7 +107,7 @@ class _CountdownStripState extends State<CountdownStrip> {
             minHeight: 6,
             backgroundColor: AppColors.cardSurface,
             valueColor: AlwaysStoppedAnimation(
-              isUrgent ? AppColors.red : AppColors.amber,
+              isExpired ? AppColors.textSecondary : (isUrgent ? AppColors.red : AppColors.amber),
             ),
           ),
         ),

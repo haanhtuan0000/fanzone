@@ -1,12 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { QuestionGeneratorService } from './question-generator.service';
 import { QuestionsService } from './questions.service';
+import { MatchScenarioEngine } from './scenario/match-scenario.engine';
 
 describe('QuestionGeneratorService', () => {
   let service: QuestionGeneratorService;
 
   const mockQuestionsService = {
-    createQuestion: jest.fn(),
+    openQuestion: jest.fn(),
+  };
+
+  const mockScenarioEngine = {
+    onMatchEvent: jest.fn(),
+    onPhaseChange: jest.fn(),
+    determinePhase: jest.fn(),
+    cleanup: jest.fn(),
   };
 
   const teams = { home: 'Vietnam', away: 'Thailand' };
@@ -19,169 +27,103 @@ describe('QuestionGeneratorService', () => {
       providers: [
         QuestionGeneratorService,
         { provide: QuestionsService, useValue: mockQuestionsService },
+        { provide: MatchScenarioEngine, useValue: mockScenarioEngine },
       ],
     }).compile();
 
     service = module.get<QuestionGeneratorService>(QuestionGeneratorService);
-
-    // Reset the cooldown map between tests by creating a fresh instance
-    // Access the private map to clear it for test isolation
-    (service as any).lastQuestionTime = new Map();
-
-    mockQuestionsService.createQuestion.mockImplementation((data) => ({
-      id: 'q-1',
-      ...data,
-    }));
   });
 
   describe('generateFromEvent', () => {
-    it('should generate GOAL category question with 3 options for goal event', async () => {
+    it('should delegate to MatchScenarioEngine.onMatchEvent', async () => {
       const event = { type: 'Goal', player: { name: 'Nguyen' }, time: { elapsed: 45 } };
+      const mockQuestion = { id: 'q-1', text: 'Test question' };
+      mockScenarioEngine.onMatchEvent.mockResolvedValue(mockQuestion);
 
-      await service.generateFromEvent(fixtureId, event, teams);
+      const result = await service.generateFromEvent(fixtureId, event, teams);
 
-      expect(mockQuestionsService.createQuestion).toHaveBeenCalledWith(
-        expect.objectContaining({
-          fixtureId: 100,
-          category: 'GOAL',
-          text: 'Ai ghi ban tiep theo?',
-          options: expect.arrayContaining([
-            expect.objectContaining({ name: 'Vietnam' }),
-            expect.objectContaining({ name: 'Thailand' }),
-            expect.objectContaining({ name: 'Khong co ban nao' }),
-          ]),
-        }),
+      expect(mockScenarioEngine.onMatchEvent).toHaveBeenCalledWith(
+        fixtureId,
+        event,
+        teams,
+        undefined,
       );
-
-      const callArg = mockQuestionsService.createQuestion.mock.calls[0][0];
-      expect(callArg.options).toHaveLength(3);
+      expect(result).toEqual(mockQuestion);
     });
 
-    it('should generate CARD category question for yellow card event', async () => {
-      const event = { type: 'Card', detail: 'Yellow Card', player: { name: 'Tran' } };
+    it('should pass score to the engine when provided', async () => {
+      const event = { type: 'Goal' };
+      const score = { home: 1, away: 0 };
+      mockScenarioEngine.onMatchEvent.mockResolvedValue(null);
 
-      await service.generateFromEvent(fixtureId, event, teams);
+      await service.generateFromEvent(fixtureId, event, teams, score);
 
-      expect(mockQuestionsService.createQuestion).toHaveBeenCalledWith(
-        expect.objectContaining({
-          fixtureId: 100,
-          category: 'CARD',
-          rewardCoins: 75,
-          options: expect.arrayContaining([
-            expect.objectContaining({ name: 'Vietnam player' }),
-            expect.objectContaining({ name: 'Thailand player' }),
-            expect.objectContaining({ name: 'Khong ai' }),
-          ]),
-        }),
+      expect(mockScenarioEngine.onMatchEvent).toHaveBeenCalledWith(
+        fixtureId,
+        event,
+        teams,
+        score,
       );
     });
 
-    it('should generate SUBSTITUTION question with yes/no options for subst event', async () => {
-      const event = { type: 'Subst', player: { name: 'Le' } };
-
-      await service.generateFromEvent(fixtureId, event, teams);
-
-      expect(mockQuestionsService.createQuestion).toHaveBeenCalledWith(
-        expect.objectContaining({
-          fixtureId: 100,
-          category: 'SUBSTITUTION',
-          rewardCoins: 100,
-          options: [
-            expect.objectContaining({ name: 'Co' }),
-            expect.objectContaining({ name: 'Khong' }),
-          ],
-        }),
-      );
-
-      const callArg = mockQuestionsService.createQuestion.mock.calls[0][0];
-      expect(callArg.options).toHaveLength(2);
-    });
-
-    it('should generate VAR question with yes/no options for var event', async () => {
-      const event = { type: 'Var' };
-
-      await service.generateFromEvent(fixtureId, event, teams);
-
-      expect(mockQuestionsService.createQuestion).toHaveBeenCalledWith(
-        expect.objectContaining({
-          fixtureId: 100,
-          category: 'VAR',
-          rewardCoins: 75,
-          options: [
-            expect.objectContaining({ name: 'Co' }),
-            expect.objectContaining({ name: 'Khong' }),
-          ],
-        }),
-      );
-    });
-
-    it('should return null for unknown event type', async () => {
+    it('should return null when engine returns null (cooldown or no template)', async () => {
       const event = { type: 'unknown_event' };
+      mockScenarioEngine.onMatchEvent.mockResolvedValue(null);
 
       const result = await service.generateFromEvent(fixtureId, event, teams);
 
       expect(result).toBeNull();
-      expect(mockQuestionsService.createQuestion).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('generateForPhase', () => {
+    it('should determine phase and delegate to engine.onPhaseChange', async () => {
+      mockScenarioEngine.determinePhase.mockReturnValue('MID_H1');
+      mockScenarioEngine.onPhaseChange.mockResolvedValue([{ id: 'q-1' }]);
+
+      const result = await service.generateForPhase(fixtureId, 25, teams);
+
+      expect(mockScenarioEngine.determinePhase).toHaveBeenCalledWith(25, undefined);
+      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(
+        fixtureId,
+        'MID_H1',
+        teams,
+        25,
+        undefined,
+      );
+      expect(result).toEqual([{ id: 'q-1' }]);
     });
 
-    it('should respect 60s cooldown between questions for the same fixture', async () => {
-      const event = { type: 'Goal' };
+    it('should pass score and period info', async () => {
+      const score = { home: 2, away: 1 };
+      mockScenarioEngine.determinePhase.mockReturnValue('HALF_TIME');
+      mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
 
-      // First call should succeed
-      const result1 = await service.generateFromEvent(fixtureId, event, teams);
-      expect(result1).not.toBeNull();
-      expect(mockQuestionsService.createQuestion).toHaveBeenCalledTimes(1);
+      await service.generateForPhase(fixtureId, 45, teams, score, 'HT');
 
-      // Second call within cooldown should return null
-      const result2 = await service.generateFromEvent(fixtureId, event, teams);
-      expect(result2).toBeNull();
-      expect(mockQuestionsService.createQuestion).toHaveBeenCalledTimes(1); // Still 1
-
-      // Simulate cooldown passing by manipulating the internal map
-      (service as any).lastQuestionTime.set(fixtureId, Date.now() - 61000);
-
-      // Third call after cooldown should succeed
-      const result3 = await service.generateFromEvent(fixtureId, event, teams);
-      expect(result3).not.toBeNull();
-      expect(mockQuestionsService.createQuestion).toHaveBeenCalledTimes(2);
+      expect(mockScenarioEngine.determinePhase).toHaveBeenCalledWith(45, 'HT');
     });
+  });
 
-    it('should allow questions for different fixtures without cooldown conflict', async () => {
-      const event = { type: 'Goal' };
+  describe('cleanupFixture', () => {
+    it('should delegate to engine.cleanup', async () => {
+      mockScenarioEngine.cleanup.mockResolvedValue(undefined);
 
-      await service.generateFromEvent(100, event, teams);
-      await service.generateFromEvent(200, event, teams);
+      await service.cleanupFixture(fixtureId);
 
-      expect(mockQuestionsService.createQuestion).toHaveBeenCalledTimes(2);
+      expect(mockScenarioEngine.cleanup).toHaveBeenCalledWith(fixtureId);
     });
+  });
 
-    it('should set correct opensAt and closesAt (30s window)', async () => {
-      const event = { type: 'Goal' };
-      const beforeCall = Date.now();
+  describe('openQuestion', () => {
+    it('should delegate to questionsService.openQuestion', async () => {
+      const mockQuestion = { id: 'q-1', status: 'OPEN' };
+      mockQuestionsService.openQuestion.mockResolvedValue(mockQuestion);
 
-      await service.generateFromEvent(fixtureId, event, teams);
+      const result = await service.openQuestion('q-1');
 
-      const callArg = mockQuestionsService.createQuestion.mock.calls[0][0];
-      const opensAt = new Date(callArg.opensAt).getTime();
-      const closesAt = new Date(callArg.closesAt).getTime();
-      const afterCall = Date.now();
-
-      // opensAt should be approximately now
-      expect(opensAt).toBeGreaterThanOrEqual(beforeCall - 100);
-      expect(opensAt).toBeLessThanOrEqual(afterCall + 100);
-
-      // closesAt should be approximately 30s after now
-      expect(closesAt - opensAt).toBeGreaterThanOrEqual(29000);
-      expect(closesAt - opensAt).toBeLessThanOrEqual(31000);
-    });
-
-    it('should return null for card event that is not Yellow Card', async () => {
-      const event = { type: 'Card', detail: 'Red Card' };
-
-      const result = await service.generateFromEvent(fixtureId, event, teams);
-
-      expect(result).toBeNull();
-      expect(mockQuestionsService.createQuestion).not.toHaveBeenCalled();
+      expect(mockQuestionsService.openQuestion).toHaveBeenCalledWith('q-1');
+      expect(result).toEqual(mockQuestion);
     });
   });
 });

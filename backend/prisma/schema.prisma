@@ -12,6 +12,10 @@ enum QuestionCategory {
   CARD
   CORNER
   VAR
+  SUB
+  TIME
+  STAT
+  MOMENTUM
   HALFTIME
   SUBSTITUTION
 }
@@ -21,6 +25,24 @@ enum QuestionStatus {
   OPEN
   CLOSED
   RESOLVED
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+enum MatchPhase {
+  PRE_MATCH
+  EARLY_H1
+  MID_H1
+  LATE_H1
+  HALF_TIME
+  EARLY_H2
+  MID_H2
+  LATE_H2
 }
 
 enum CoinTransactionType {
@@ -79,18 +101,45 @@ model User {
   @@map("users")
 }
 
+model QuestionTemplate {
+  id                 String             @id @default(uuid())
+  code               String             @unique
+  category           QuestionCategory
+  difficulty         QuestionDifficulty
+  trigger            String             @default("SCHEDULED")
+  phases             MatchPhase[]
+  textVi             String             @map("text_vi")
+  textEn             String             @map("text_en")
+  rewardCoins        Int                @map("reward_coins")
+  answerWindowSec    Int                @default(30) @map("answer_window_sec")
+  options            Json
+  defaultFanPcts     Json?              @map("default_fan_pcts")
+  resolutionStrategy String             @default("AUTO") @map("resolution_strategy")
+  weight             Int                @default(100)
+  isActive           Boolean            @default(true) @map("is_active")
+  createdAt          DateTime           @default(now()) @map("created_at")
+
+  @@index([category, difficulty])
+  @@index([trigger])
+  @@map("question_templates")
+}
+
 model Question {
-  id               String           @id @default(uuid())
-  fixtureId        Int              @map("fixture_id")
+  id               String              @id @default(uuid())
+  fixtureId        Int                 @map("fixture_id")
   category         QuestionCategory
+  difficulty       QuestionDifficulty?
+  matchPhase       MatchPhase?         @map("match_phase")
+  matchMinute      Int?                @map("match_minute")
+  templateId       String?             @map("template_id")
   text             String
-  rewardCoins      Int              @default(50) @map("reward_coins")
-  status           QuestionStatus   @default(PENDING)
-  correctOptionId  String?          @map("correct_option_id")
-  triggeredByEvent String?          @map("triggered_by_event")
-  opensAt          DateTime         @map("opens_at")
-  closesAt         DateTime         @map("closes_at")
-  createdAt        DateTime         @default(now()) @map("created_at")
+  rewardCoins      Int                 @default(50) @map("reward_coins")
+  status           QuestionStatus      @default(PENDING)
+  correctOptionId  String?             @map("correct_option_id")
+  triggeredByEvent String?             @map("triggered_by_event")
+  opensAt          DateTime            @map("opens_at")
+  closesAt         DateTime            @map("closes_at")
+  createdAt        DateTime            @default(now()) @map("created_at")
 
   options     QuestionOption[]
   predictions Prediction[]

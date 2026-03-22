@@ -172,7 +172,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final googleSignIn = gsi.GoogleSignIn.instance;
       if (!_googleInitialized) {
         await googleSignIn.initialize(
-          serverClientId: '400880210585-ics6f7g2odg693q7veqj4087uve1oaeq.apps.googleusercontent.com',
+          clientId: '400880210585-ics6f7g2odg693q7veqj4087uve1oaeq.apps.googleusercontent.com',
+          serverClientId: '400880210585-rkbgtue22ttng1oo19ov9op3shm1a5es.apps.googleusercontent.com',
         );
         _googleInitialized = true;
       }

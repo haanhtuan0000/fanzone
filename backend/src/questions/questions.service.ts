@@ -44,14 +44,24 @@ export class QuestionsService {
     category: string;
     text: string;
     rewardCoins?: number;
+    difficulty?: string;
+    matchPhase?: string;
+    matchMinute?: number;
+    templateId?: string;
+    triggeredByEvent?: string;
     opensAt: string;
     closesAt: string;
-    options: Array<{ name: string; emoji?: string; info?: string }>;
+    options: Array<{ name: string; emoji?: string; info?: string; multiplier?: number }>;
   }) {
     const question = await this.prisma.question.create({
       data: {
         fixtureId: data.fixtureId,
         category: data.category as any,
+        difficulty: (data.difficulty as any) || undefined,
+        matchPhase: (data.matchPhase as any) || undefined,
+        matchMinute: data.matchMinute,
+        templateId: data.templateId,
+        triggeredByEvent: data.triggeredByEvent,
         text: data.text,
         rewardCoins: data.rewardCoins || 50,
         opensAt: new Date(data.opensAt),
@@ -61,7 +71,7 @@ export class QuestionsService {
             name: opt.name,
             emoji: opt.emoji,
             info: opt.info,
-            multiplier: data.options.length > 0 ? data.options.length : 2.0,
+            multiplier: opt.multiplier ?? (data.options.length > 0 ? data.options.length : 2.0),
           })),
         },
       },

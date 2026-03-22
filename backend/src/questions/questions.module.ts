@@ -3,6 +3,9 @@ import { QuestionsController } from './questions.controller';
 import { QuestionsService } from './questions.service';
 import { QuestionGeneratorService } from './question-generator.service';
 import { QuestionResolverService } from './question-resolver.service';
+import { TemplateService } from './templates/template.service';
+import { VariableResolverService } from './templates/variable-resolver.service';
+import { MatchScenarioEngine } from './scenario/match-scenario.engine';
 import { PredictionsModule } from '../predictions/predictions.module';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { FeedModule } from '../feed/feed.module';
@@ -14,7 +17,19 @@ import { FeedModule } from '../feed/feed.module';
     FeedModule,
   ],
   controllers: [QuestionsController],
-  providers: [QuestionsService, QuestionGeneratorService, QuestionResolverService],
-  exports: [QuestionsService, QuestionGeneratorService, QuestionResolverService],
+  providers: [
+    QuestionsService,
+    QuestionGeneratorService,
+    QuestionResolverService,
+    TemplateService,
+    VariableResolverService,
+    MatchScenarioEngine,
+  ],
+  exports: [
+    QuestionsService,
+    QuestionGeneratorService,
+    QuestionResolverService,
+    MatchScenarioEngine,
+  ],
 })
 export class QuestionsModule {}

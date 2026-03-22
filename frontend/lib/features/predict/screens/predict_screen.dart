@@ -132,7 +132,12 @@ class PredictScreen extends ConsumerWidget {
                     ),
                   ),
                 // Countdown
-                CountdownStrip(closesAt: question.closesAt),
+                CountdownStrip(
+                  closesAt: question.closesAt,
+                  onExpired: () {
+                    ref.read(predictStateProvider.notifier).expireQuestion();
+                  },
+                ),
                 const SizedBox(height: 16),
                 // Question card
                 PredictCard(question: question),
@@ -146,7 +151,7 @@ class PredictScreen extends ConsumerWidget {
                       isSelected: predictState.selectedOptionId == option.id,
                       isLocked: predictState.isLocked,
                       onTap: () {
-                        if (!predictState.isLocked) {
+                        if (!predictState.isLocked && !predictState.isExpired) {
                           ref.read(predictStateProvider.notifier).selectOption(option.id);
                         }
                       },
@@ -154,7 +159,29 @@ class PredictScreen extends ConsumerWidget {
                   );
                 }),
                 // Stake display + Confirm button
-                if (predictState.selectedOptionId != null) ...[
+                // Expired message
+                if (predictState.isExpired && !predictState.isLocked) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    height: 52,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.red.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.red.withOpacity(0.3)),
+                    ),
+                    child: const Text(
+                      'TIME UP — LOADING NEXT...',
+                      style: TextStyle(
+                        fontFamily: AppFonts.bebasNeue,
+                        fontSize: 20,
+                        color: AppColors.red,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                ],
+                if (predictState.selectedOptionId != null && !predictState.isExpired) ...[
                   const SizedBox(height: 8),
                   CoinStakeDisplay(
                     coinsBet: question.rewardCoins,

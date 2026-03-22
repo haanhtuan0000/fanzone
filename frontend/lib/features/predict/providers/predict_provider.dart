@@ -13,6 +13,7 @@ class PredictState {
   final List<Question> upcomingQuestions;
   final String? selectedOptionId;
   final bool isLocked;
+  final bool isExpired;
   final bool? lastResult; // true = correct, false = wrong, null = pending
   final int? lastCoinsResult;
   final bool isLoading;
@@ -23,6 +24,7 @@ class PredictState {
     this.upcomingQuestions = const [],
     this.selectedOptionId,
     this.isLocked = false,
+    this.isExpired = false,
     this.lastResult,
     this.lastCoinsResult,
     this.isLoading = false,
@@ -34,6 +36,7 @@ class PredictState {
     List<Question>? upcomingQuestions,
     String? selectedOptionId,
     bool? isLocked,
+    bool? isExpired,
     bool? lastResult,
     int? lastCoinsResult,
     bool? isLoading,
@@ -44,6 +47,7 @@ class PredictState {
       upcomingQuestions: upcomingQuestions ?? this.upcomingQuestions,
       selectedOptionId: selectedOptionId ?? this.selectedOptionId,
       isLocked: isLocked ?? this.isLocked,
+      isExpired: isExpired ?? this.isExpired,
       lastResult: lastResult,
       lastCoinsResult: lastCoinsResult,
       isLoading: isLoading ?? this.isLoading,
@@ -93,8 +97,17 @@ class PredictNotifier extends StateNotifier<PredictState> {
     );
   }
 
+  void expireQuestion() {
+    if (state.isExpired) return;
+    state = state.copyWith(isExpired: true, isLocked: true);
+    // Auto-advance to next question after 3 seconds
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) advanceToNext();
+    });
+  }
+
   void selectOption(String optionId) {
-    if (state.isLocked) return;
+    if (state.isLocked || state.isExpired) return;
     state = state.copyWith(
       selectedOptionId: optionId,
     );
