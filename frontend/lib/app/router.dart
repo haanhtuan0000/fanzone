@@ -6,6 +6,7 @@ import '../features/auth/screens/login_screen.dart';
 import '../features/auth/screens/register_screen.dart';
 import '../features/auth/screens/onboarding_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
+import '../core/network/match_socket_service.dart';
 import '../features/live/screens/live_screen.dart';
 import '../features/predict/screens/predict_screen.dart';
 import '../features/leaderboard/screens/leaderboard_screen.dart';
@@ -27,6 +28,16 @@ class _AuthNotifierListenable extends ChangeNotifier {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authListenable = _AuthNotifierListenable(ref);
+
+  // Start WebSocket service when authenticated
+  ref.listen<AuthState>(authStateProvider, (prev, next) {
+    if (next.isAuthenticated && !(prev?.isAuthenticated ?? false)) {
+      ref.read(matchSocketServiceProvider).start();
+    }
+    if (!next.isAuthenticated && (prev?.isAuthenticated ?? false)) {
+      ref.read(matchSocketServiceProvider).stop();
+    }
+  });
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,

@@ -63,6 +63,10 @@ class PredictNotifier extends StateNotifier<PredictState> {
   PredictNotifier(this._apiClient, this._onCoinsChanged) : super(const PredictState());
 
   Future<void> loadQuestions(int fixtureId) async {
+    // Don't overwrite state if user submitted a prediction and is waiting for result
+    // (isLocked from confirm, not from expiry)
+    if (state.isLocked && !state.isExpired && state.lastResult == null && state.selectedOptionId != null) return;
+
     state = state.copyWith(isLoading: true);
     try {
       final response = await _apiClient.get(
@@ -80,11 +84,21 @@ class PredictNotifier extends StateNotifier<PredictState> {
           .map((q) => Question.fromJson(q as Map<String, dynamic>))
           .toList();
 
-      state = PredictState(
-        activeQuestion: active,
-        upcomingQuestions: upcoming,
-        isLoading: false,
-      );
+      // Preserve user interaction state if the same question is still active
+      final sameQuestion = active != null && active.id == state.activeQuestion?.id;
+      if (sameQuestion) {
+        state = state.copyWith(
+          activeQuestion: active,
+          upcomingQuestions: upcoming,
+          isLoading: false,
+        );
+      } else {
+        state = PredictState(
+          activeQuestion: active,
+          upcomingQuestions: upcoming,
+          isLoading: false,
+        );
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
@@ -107,10 +121,12 @@ class PredictNotifier extends StateNotifier<PredictState> {
   }
 
   void selectOption(String optionId) {
+    print('[PREDICT] selectOption: $optionId, isLocked=${state.isLocked}, isExpired=${state.isExpired}');
     if (state.isLocked || state.isExpired) return;
     state = state.copyWith(
       selectedOptionId: optionId,
     );
+    print('[PREDICT] selectedOptionId is now: ${state.selectedOptionId}');
   }
 
   Future<void> confirmPrediction() async {
@@ -120,6 +136,7 @@ class PredictNotifier extends StateNotifier<PredictState> {
     state = state.copyWith(isLocked: true);
 
     try {
+      print('[PREDICT] Submitting: question=${state.activeQuestion!.id}, option=${state.selectedOptionId}');
       final response = await _apiClient.post(
         ApiEndpoints.submitPrediction,
         data: {
@@ -127,6 +144,7 @@ class PredictNotifier extends StateNotifier<PredictState> {
           'optionId': state.selectedOptionId,
         },
       );
+      print('[PREDICT] Response: ${response.statusCode}');
 
       // Update multipliers from server response
       final data = response.data as Map<String, dynamic>;
@@ -145,6 +163,7 @@ class PredictNotifier extends StateNotifier<PredictState> {
         pollForResult(prediction['id'] as String);
       }
     } catch (e) {
+      print('[PREDICT] Error submitting prediction: $e');
       // If submission fails, unlock so user can retry
       state = state.copyWith(isLocked: false, error: e.toString());
     }
@@ -186,12 +205,36 @@ class PredictNotifier extends StateNotifier<PredictState> {
     _onCoinsChanged(coinsResult);
   }
 
-  /// Poll the server to check if our prediction has been resolved
+  /// Handle a real-time prediction_result from WebSocket.
+  /// If the resolved question matches our active prediction, show the result
+  /// immediately without waiting for the poll.
+  void onPredictionResult(Map<String, dynamic> data) {
+    if (state.activeQuestion == null) return;
+    if (data['questionId'] != state.activeQuestion!.id) return;
+    if (!state.isLocked || state.lastResult != null) return;
+
+    // Find our result in the broadcast
+    final results = data['results'] as List<dynamic>? ?? [];
+    // We don't know our userId here, so just reload questions.
+    // The pollForResult will catch it, or we trigger an immediate check.
+    final correctOptionId = data['correctOptionId'] as String?;
+    if (correctOptionId != null && state.selectedOptionId != null) {
+      final isCorrect = state.selectedOptionId == correctOptionId;
+      // Find coins from results if possible, otherwise use question reward
+      final coinsResult = isCorrect ? state.activeQuestion!.rewardCoins : 0;
+      showResult(isCorrect, coinsResult);
+    }
+  }
+
+  /// Poll the server to check if our prediction has been resolved.
+  /// Stops early if WebSocket already delivered the result.
   Future<void> pollForResult(String predictionId) async {
     // Poll every 3 seconds for up to 5 minutes
     for (var i = 0; i < 100; i++) {
       await Future.delayed(const Duration(seconds: 3));
       if (!mounted) return;
+      // Stop if WebSocket already delivered the result
+      if (state.lastResult != null) return;
 
       try {
         final response = await _apiClient.get(
@@ -244,12 +287,17 @@ final predictStateProvider = StateNotifierProvider<PredictNotifier, PredictState
     ref.read(userCoinsProvider.notifier).state += delta;
   });
 
-  // Auto-load questions when there's a live match
-  final liveState = ref.watch(liveStateProvider);
-  final activeMatch = liveState.activeMatch;
-  if (activeMatch != null && activeMatch.isLive) {
-    Future.microtask(() => notifier.loadQuestions(activeMatch.fixtureId));
-  }
+  // Load questions once when a live match becomes available — use listen, not watch,
+  // so the notifier isn't recreated on every score update
+  ref.listen<LiveState>(liveStateProvider, (prev, next) {
+    final match = next.activeMatch;
+    if (match != null && match.isLive) {
+      final prevMatchId = prev?.activeMatch?.fixtureId;
+      if (prevMatchId != match.fixtureId) {
+        notifier.loadQuestions(match.fixtureId);
+      }
+    }
+  }, fireImmediately: true);
 
   return notifier;
 });

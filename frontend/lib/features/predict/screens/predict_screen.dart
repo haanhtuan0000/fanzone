@@ -134,6 +134,7 @@ class PredictScreen extends ConsumerWidget {
                 // Countdown
                 CountdownStrip(
                   closesAt: question.closesAt,
+                  opensAt: question.opensAt,
                   onExpired: () {
                     ref.read(predictStateProvider.notifier).expireQuestion();
                   },
@@ -195,6 +196,7 @@ class PredictScreen extends ConsumerWidget {
                       height: 52,
                       child: ElevatedButton(
                         onPressed: () {
+                          print('[UI] Confirm button TAPPED. selectedOptionId=${predictState.selectedOptionId}, isLocked=${predictState.isLocked}');
                           ref.read(predictStateProvider.notifier).confirmPrediction();
                         },
                         style: ElevatedButton.styleFrom(

@@ -4,9 +4,10 @@ import '../../../app/constants.dart';
 
 class CountdownStrip extends StatefulWidget {
   final DateTime closesAt;
+  final DateTime? opensAt;
   final VoidCallback? onExpired;
 
-  const CountdownStrip({super.key, required this.closesAt, this.onExpired});
+  const CountdownStrip({super.key, required this.closesAt, this.opensAt, this.onExpired});
 
   @override
   State<CountdownStrip> createState() => _CountdownStripState();
@@ -20,14 +21,14 @@ class _CountdownStripState extends State<CountdownStrip> {
   @override
   void initState() {
     super.initState();
-    _remaining = widget.closesAt.difference(DateTime.now());
+    _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc());
     if (_remaining.isNegative) {
       _remaining = Duration.zero;
       _expired = true;
     }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
-        _remaining = widget.closesAt.difference(DateTime.now());
+        _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc());
         if (_remaining.isNegative || _remaining == Duration.zero) {
           _remaining = Duration.zero;
           _timer.cancel();
@@ -45,11 +46,11 @@ class _CountdownStripState extends State<CountdownStrip> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.closesAt != widget.closesAt) {
       _expired = false;
-      _remaining = widget.closesAt.difference(DateTime.now());
+      _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc());
       _timer.cancel();
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         setState(() {
-          _remaining = widget.closesAt.difference(DateTime.now());
+          _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc());
           if (_remaining.isNegative || _remaining == Duration.zero) {
             _remaining = Duration.zero;
             _timer.cancel();
@@ -71,7 +72,9 @@ class _CountdownStripState extends State<CountdownStrip> {
 
   @override
   Widget build(BuildContext context) {
-    final totalSeconds = 30.0;
+    final totalSeconds = widget.opensAt != null
+        ? widget.closesAt.toUtc().difference(widget.opensAt!.toUtc()).inSeconds.toDouble()
+        : _remaining.inSeconds > 0 ? _remaining.inSeconds.toDouble() : 30.0;
     final remainingSeconds = _remaining.inSeconds.toDouble().clamp(0, totalSeconds);
     final progress = remainingSeconds / totalSeconds;
     final isUrgent = remainingSeconds <= 10;

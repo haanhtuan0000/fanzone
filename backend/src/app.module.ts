@@ -9,6 +9,7 @@ import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { FeedModule } from './feed/feed.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { CommonModule } from './common/common.module';
+import { MockModule } from './mock/mock.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { CommonModule } from './common/common.module';
     LeaderboardModule,
     FeedModule,
     WebsocketModule,
+    MockModule,
   ],
 })
 export class AppModule {}
