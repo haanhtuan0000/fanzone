@@ -59,7 +59,7 @@ final fanZoneTheme = ThemeData(
       letterSpacing: 1,
     ),
   ),
-  cardTheme: CardTheme(
+  cardTheme: CardThemeData(
     color: AppColors.cardSurface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(AppSizes.cardRadius),

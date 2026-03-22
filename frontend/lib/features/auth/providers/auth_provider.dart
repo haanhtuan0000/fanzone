@@ -197,9 +197,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isOnboarded: onboarded,
         isLoading: false,
       );
-    } catch (e) {
+    } catch (e, st) {
       // Show actual error for debugging — remove in production
-      state = state.copyWith(isLoading: false, error: 'Google: ${e.toString().substring(0, e.toString().length > 200 ? 200 : e.toString().length)}');
+      print('Google Sign-In error: $e');
+      print('Stack trace: $st');
+      state = state.copyWith(isLoading: false, error: 'Google: ${e.runtimeType}: $e');
     }
   }
 
