@@ -55,7 +55,7 @@ export class EventPoller implements OnModuleInit, OnModuleDestroy {
           away: fixture?.goals?.away ?? 0,
         };
 
-        await this.questionResolver.closeExpiredQuestions(fixtureId);
+        await this.questionResolver.lockExpiredQuestions(fixtureId);
 
         const events = await this.apiFootball.getFixtureEvents(fixtureId);
         const prevEvents = await this.redis.getJson<any[]>(`cache:fixture:${fixtureId}:events`);

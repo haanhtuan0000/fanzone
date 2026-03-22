@@ -43,8 +43,9 @@ export class QuestionResolverService {
     event: MatchEvent,
     teams: { home: string; away: string },
   ): Promise<boolean> {
+    // Check both OPEN and LOCKED questions — LOCKED ones are waiting for this event
     const openQuestions = await this.prisma.question.findMany({
-      where: { fixtureId, status: 'OPEN' },
+      where: { fixtureId, status: { in: ['OPEN', 'LOCKED'] } },
       include: { options: true },
     });
 
@@ -83,9 +84,9 @@ export class QuestionResolverService {
       this.logger.warn(`Failed to fetch HT stats for ${fixtureId}: ${e}`);
     }
 
-    // Resolve OPEN + close PENDING 1H questions (don't let them leak into 2H)
+    // Resolve OPEN/LOCKED + close PENDING 1H questions (don't let them leak into 2H)
     const htQuestions = await this.prisma.question.findMany({
-      where: { fixtureId, status: { in: ['OPEN', 'PENDING'] } },
+      where: { fixtureId, status: { in: ['OPEN', 'LOCKED', 'PENDING'] } },
       include: { options: true },
     });
 
@@ -136,9 +137,9 @@ export class QuestionResolverService {
       this.logger.warn(`Failed to fetch events for ${fixtureId}: ${e}`);
     }
 
-    // Resolve all remaining open questions
+    // Resolve all remaining questions (OPEN, LOCKED waiting for result, and PENDING)
     const openQuestions = await this.prisma.question.findMany({
-      where: { fixtureId, status: { in: ['OPEN', 'PENDING'] } },
+      where: { fixtureId, status: { in: ['OPEN', 'LOCKED', 'PENDING'] } },
       include: { options: true },
     });
 
@@ -170,44 +171,43 @@ export class QuestionResolverService {
     });
   }
 
-  // ─── Expired questions ───
+  // ─── Expired answer windows ───
 
-  async closeExpiredQuestions(fixtureId: number) {
+  /**
+   * When a question's answer window expires (closesAt < now):
+   * - Move it to LOCKED (waiting for match event / FT to resolve)
+   * - Open the next PENDING question immediately
+   * The LOCKED question will be resolved later by tryResolveFromEvent(),
+   * onHalfTime(), or onFullTime().
+   */
+  async lockExpiredQuestions(fixtureId: number) {
     const expired = await this.prisma.question.findMany({
       where: {
         fixtureId,
         status: 'OPEN',
         closesAt: { lt: new Date() },
       },
-      include: { options: true },
     });
 
     for (const question of expired) {
-      const defaultOption = this.findDefaultOption(question.options);
+      const locked = await this.prisma.question.updateMany({
+        where: { id: question.id, status: 'OPEN' },
+        data: { status: 'LOCKED' },
+      });
 
-      if (defaultOption) {
-        this.logger.log(`Auto-closing expired question "${question.text}" with default option`);
-        // resolveQuestion already opens the next pending question internally
-        await this.resolveQuestion(fixtureId, question, defaultOption, 'EXPIRED');
-      } else {
-        this.logger.log(`Closing expired question "${question.text}" — no default, skipping scoring`);
-        // Race-safe: only close if still OPEN
-        const closed = await this.prisma.question.updateMany({
-          where: { id: question.id, status: 'OPEN' },
-          data: { status: 'CLOSED' },
+      if (locked.count > 0) {
+        this.logger.log(`Locked question "${question.text}" — waiting for result`);
+
+        // Open next pending question so the user always has something to predict
+        const next = await this.prisma.question.findFirst({
+          where: { fixtureId, status: 'PENDING' },
+          orderBy: { opensAt: 'asc' },
         });
-        // Only open next if we actually closed this one
-        if (closed.count > 0) {
-          const next = await this.prisma.question.findFirst({
-            where: { fixtureId, status: 'PENDING' },
-            orderBy: { opensAt: 'asc' },
+        if (next) {
+          await this.prisma.question.update({
+            where: { id: next.id },
+            data: { status: 'OPEN' },
           });
-          if (next) {
-            await this.prisma.question.update({
-              where: { id: next.id },
-              data: { status: 'OPEN' },
-            });
-          }
         }
       }
     }
@@ -223,9 +223,9 @@ export class QuestionResolverService {
   ) {
     this.logger.log(`Resolving "${question.text}" (${question.id}) — trigger: ${trigger}`);
 
-    // ── Race-safe: only update if question is still OPEN/PENDING ──
+    // ── Race-safe: only update if question is still OPEN/LOCKED/PENDING ──
     const updated = await this.prisma.question.updateMany({
-      where: { id: question.id, status: { in: ['OPEN', 'PENDING'] } },
+      where: { id: question.id, status: { in: ['OPEN', 'LOCKED', 'PENDING'] } },
       data: { status: 'RESOLVED', correctOptionId },
     });
 
@@ -471,7 +471,7 @@ export class QuestionResolverService {
       )?.id ?? null;
     }
 
-    // Questions asked in first half with TIMEOUT_DEFAULT — let closeExpiredQuestions handle
+    // Questions asked in first half with TIMEOUT_DEFAULT — let lockExpiredQuestions handle
 
     return null;
   }

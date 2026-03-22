@@ -23,6 +23,7 @@ enum QuestionCategory {
 enum QuestionStatus {
   PENDING
   OPEN
+  LOCKED
   CLOSED
   RESOLVED
 }

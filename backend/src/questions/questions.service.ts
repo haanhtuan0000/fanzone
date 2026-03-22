@@ -25,6 +25,14 @@ export class QuestionsService {
       take: 3,
     });
 
+    // Questions waiting for match result (answer window closed, not yet resolved)
+    const pendingResults = await this.prisma.question.findMany({
+      where: { fixtureId, status: 'LOCKED' },
+      include: { options: true },
+      orderBy: { closesAt: 'desc' },
+      take: 5,
+    });
+
     // Enrich open question with fan percentages from Redis
     if (openQuestion) {
       const fanData = await this.redis.hgetall(`question:${openQuestion.id}:fans`);
@@ -36,7 +44,7 @@ export class QuestionsService {
       })) as any;
     }
 
-    return { active: openQuestion, upcoming: upcomingQuestions };
+    return { active: openQuestion, upcoming: upcomingQuestions, pendingResults };
   }
 
   async createQuestion(data: {
