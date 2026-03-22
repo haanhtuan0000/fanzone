@@ -36,13 +36,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authStateProvider);
       final isAuth = authState.isAuthenticated;
       final isOnboarded = authState.isOnboarded;
-      final isAuthRoute = state.matchedLocation == '/welcome' ||
-          state.matchedLocation == '/login' ||
-          state.matchedLocation == '/register';
-      final isOnboarding = state.matchedLocation == '/onboarding';
+      final loc = state.matchedLocation;
+      final isAuthRoute = loc == '/welcome' || loc == '/login' || loc == '/register';
+      final isOnboarding = loc == '/onboarding';
 
       if (!isAuth && !isAuthRoute && !isOnboarding) return '/welcome';
-      if (isAuth && !isOnboarded && !isOnboarding) return '/onboarding';
+      // After register: let onboarding screen handle the transition, don't force redirect
+      if (isAuth && !isOnboarded && !isOnboarding && !isAuthRoute) return '/onboarding';
       if (isAuth && isOnboarded && (isAuthRoute || isOnboarding)) return '/live';
       return null;
     },

@@ -42,6 +42,7 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
   final SecureStorageService _storage;
+  bool _googleInitialized = false;
 
   AuthNotifier(this._authService, this._storage) : super(const AuthState()) {
     _checkAuth();
@@ -169,15 +170,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final googleSignIn = gsi.GoogleSignIn.instance;
-      await googleSignIn.initialize(
-        serverClientId: '400880210585-rkbgtue22ttng1oo19ov9op3shm1a5es.apps.googleusercontent.com',
-      );
+      if (!_googleInitialized) {
+        await googleSignIn.initialize(
+          serverClientId: '400880210585-ics6f7g2odg693q7veqj4087uve1oaeq.apps.googleusercontent.com',
+        );
+        _googleInitialized = true;
+      }
       final account = await googleSignIn.authenticate();
 
       final auth = account.authentication;
       final idToken = auth.idToken;
       if (idToken == null) {
-        throw Exception('No ID token from Google');
+        throw Exception('No ID token received. Check Google Cloud OAuth setup.');
       }
 
       final loginResult = await _authService.googleLogin(idToken);
@@ -194,13 +198,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
     } catch (e) {
-      final _s = AppStrings.current;
-      String error = _s.errorGoogleFailed;
-      final msg = e.toString();
-      if (msg.contains('connection') || msg.contains('SocketException')) {
-        error = _s.errorConnection;
-      }
-      state = state.copyWith(isLoading: false, error: error);
+      // Show actual error for debugging — remove in production
+      state = state.copyWith(isLoading: false, error: 'Google: ${e.toString().substring(0, e.toString().length > 200 ? 200 : e.toString().length)}');
     }
   }
 

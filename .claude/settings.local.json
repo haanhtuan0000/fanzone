@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter devices:*)",
+      "Bash(where flutter:*)",
+      "Bash(where.exe flutter:*)",
+      "Read(//c/D/D/fanzone/$LOCALAPPDATA/flutter/bin/**)",
+      "Read(//c/D/D/fanzone/$HOME/flutter/bin/**)",
+      "Read(//c/flutter/bin/**)",
+      "Bash(cmd.exe /c \"where flutter\" 2>&1)",
+      "Read(//c/Users/$USER/AppData/Local/Pub/**)",
+      "Read(//c/Users/**)",
+      "Read(//c//**)",
+      "Bash(echo $PATH)",
+      "Read(//c/development/flutter/bin/**)",
+      "Read(//c/tools/flutter/bin/**)",
+      "Read(//c/dev/flutter/bin/**)",
+      "Bash(powershell.exe -Command \"Get-Command flutter -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\" 2>&1)",
+      "Bash(cmd.exe /c \"where flutter\")",
+      "Bash(powershell.exe -Command \"\\(Get-ChildItem -Path C:\\\\Users -Recurse -Filter flutter.bat -Depth 5 -ErrorAction SilentlyContinue | Select-Object -First 1\\).FullName\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem -Path 'C:\\\\' -Recurse -Filter 'flutter.bat' -Depth 4 -ErrorAction SilentlyContinue | Select-Object -First 3 -ExpandProperty FullName\" 2>&1)",
+      "Read(//c/src/flutter/bin/**)",
+      "Read(//c/Program Files/flutter/bin/**)",
+      "Read(//d/flutter/bin/**)",
+      "Read(//d/dev/flutter/bin/**)",
+      "Read(//d/D/flutter/bin/**)"
+    ]
+  }
+}
