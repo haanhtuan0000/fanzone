@@ -6,6 +6,7 @@ import { QuestionResolverService } from './question-resolver.service';
 import { TemplateService } from './templates/template.service';
 import { VariableResolverService } from './templates/variable-resolver.service';
 import { MatchScenarioEngine } from './scenario/match-scenario.engine';
+import { StartupService } from './startup.service';
 import { PredictionsModule } from '../predictions/predictions.module';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { FeedModule } from '../feed/feed.module';
@@ -24,6 +25,7 @@ import { FeedModule } from '../feed/feed.module';
     TemplateService,
     VariableResolverService,
     MatchScenarioEngine,
+    StartupService,
   ],
   exports: [
     QuestionsService,
