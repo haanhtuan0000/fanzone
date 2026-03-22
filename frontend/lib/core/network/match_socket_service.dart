@@ -90,6 +90,7 @@ class MatchSocketService with WidgetsBindingObserver {
       _ws.off('new_question');
       _ws.off('prediction_result');
       _ws.off('score_update');
+      _ws.off('stats_update');
       _ws.leaveMatch(_currentFixtureId!);
       _currentFixtureId = null;
     }
@@ -122,6 +123,16 @@ class MatchSocketService with WidgetsBindingObserver {
           _ref.read(liveStateProvider.notifier).updateMatchScore(
             fixtureId, homeScore, awayScore, elapsed,
           );
+        }
+      }
+    });
+
+    // Stats update — possession, shots, cards, corners
+    _ws.on('stats_update', (data) {
+      if (data is Map<String, dynamic>) {
+        final fixtureId = data['fixtureId'] as int?;
+        if (fixtureId != null) {
+          _ref.read(liveStateProvider.notifier).updateMatchStats(fixtureId, data);
         }
       }
     });

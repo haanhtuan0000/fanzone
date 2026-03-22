@@ -92,6 +92,22 @@ class LiveNotifier extends StateNotifier<LiveState> {
       state = state.copyWith(activeMatch: updated);
     }
   }
+
+  void updateMatchStats(int fixtureId, Map<String, dynamic> stats) {
+    final updatedMatches = state.matches.map((m) {
+      if (m.fixtureId == fixtureId) {
+        return m.withStats(stats);
+      }
+      return m;
+    }).toList();
+
+    state = state.copyWith(matches: updatedMatches);
+
+    if (state.activeMatch?.fixtureId == fixtureId) {
+      final updated = updatedMatches.firstWhere((m) => m.fixtureId == fixtureId);
+      state = state.copyWith(activeMatch: updated);
+    }
+  }
 }
 
 final matchServiceProvider = Provider<MatchService>((ref) => MatchService());

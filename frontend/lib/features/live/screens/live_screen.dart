@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/constants.dart';
 import '../../../shared/widgets/coin_display.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../../core/models/match.dart';
 import '../providers/live_provider.dart';
 import '../widgets/scoreboard.dart';
 import '../widgets/stats_grid.dart';
@@ -60,10 +61,12 @@ class LiveScreen extends ConsumerWidget {
                   child: StatsGrid(match: liveState.activeMatch!),
                 ),
               ),
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: FanSupportBar(homePercent: 62),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: FanSupportBar(
+                    homePercent: _parsePossession(liveState.activeMatch!),
+                  ),
                 ),
               ),
               const SliverToBoxAdapter(
@@ -166,5 +169,12 @@ class LiveScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  int _parsePossession(MatchData match) {
+    final possession = match.statistics?['possession'];
+    if (possession == null) return 50;
+    final homeStr = (possession['home'] as String?) ?? '50%';
+    return int.tryParse(homeStr.replaceAll('%', '')) ?? 50;
   }
 }

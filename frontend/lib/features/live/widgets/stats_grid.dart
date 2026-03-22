@@ -8,33 +8,52 @@ class StatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final stats = match.statistics;
+    final possession = stats?['possession'];
+    final shots = stats?['shots'];
+    final yellowCards = stats?['yellowCards'];
+    final corners = stats?['corners'];
+
+    final possessionStr = possession != null
+        ? '${possession['home']}'.replaceAll('%', '')
+        : '-';
+    final shotsTotal = shots != null
+        ? '${(shots['home'] as int? ?? 0) + (shots['away'] as int? ?? 0)}'
+        : '-';
+    final cardsTotal = yellowCards != null
+        ? '${(yellowCards['home'] as int? ?? 0) + (yellowCards['away'] as int? ?? 0)}'
+        : '-';
+    final cornersTotal = corners != null
+        ? '${(corners['home'] as int? ?? 0) + (corners['away'] as int? ?? 0)}'
+        : '-';
+
     return Row(
       children: [
         _StatBox(
           icon: Icons.pie_chart,
           label: 'Kiem soat',
-          value: '50%',
+          value: possessionStr == '-' ? '-' : '$possessionStr%',
           color: AppColors.blue,
         ),
         const SizedBox(width: 8),
         _StatBox(
           icon: Icons.sports_soccer,
           label: 'Sut',
-          value: '0',
+          value: shotsTotal,
           color: AppColors.neonGreen,
         ),
         const SizedBox(width: 8),
         _StatBox(
           icon: Icons.square,
           label: 'The vang',
-          value: '0',
+          value: cardsTotal,
           color: AppColors.amber,
         ),
         const SizedBox(width: 8),
         _StatBox(
           icon: Icons.flag,
           label: 'Phat goc',
-          value: '0',
+          value: cornersTotal,
           color: AppColors.textPrimary,
         ),
       ],
