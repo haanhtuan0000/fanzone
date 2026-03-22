@@ -63,14 +63,20 @@ class MatchCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.amber.withOpacity(0.15),
+                        color: match.status == 'FT'
+                            ? AppColors.textSecondary.withOpacity(0.15)
+                            : AppColors.amber.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        match.status,
-                        style: const TextStyle(
-                          color: AppColors.amber,
-                          fontSize: 12,
+                        match.status == 'FT'
+                            ? '${match.homeScore} - ${match.awayScore}'
+                            : match.kickoffTime != null
+                                ? '${match.kickoffTime!.toLocal().hour.toString().padLeft(2, '0')}:${match.kickoffTime!.toLocal().minute.toString().padLeft(2, '0')}'
+                                : match.status,
+                        style: TextStyle(
+                          color: match.status == 'FT' ? AppColors.textSecondary : AppColors.amber,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

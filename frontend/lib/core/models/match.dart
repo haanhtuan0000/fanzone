@@ -10,6 +10,7 @@ class MatchData {
   final int? awayHtScore;
   final String status; // LIVE, NS (not started), FT, HT, etc.
   final int? elapsed; // match minute
+  final DateTime? kickoffTime;
   final String? league;
   final String? leagueLogoUrl;
   final Map<String, dynamic>? statistics;
@@ -26,6 +27,7 @@ class MatchData {
     this.awayHtScore,
     this.status = 'NS',
     this.elapsed,
+    this.kickoffTime,
     this.league,
     this.leagueLogoUrl,
     this.statistics,
@@ -52,6 +54,7 @@ class MatchData {
       awayHtScore: score['halftime']?['away'] as int?,
       status: (fixture['status']?['short'] as String?) ?? 'NS',
       elapsed: fixture['status']?['elapsed'] as int?,
+      kickoffTime: fixture['date'] != null ? DateTime.tryParse(fixture['date'] as String) : null,
       league: league['name'] as String?,
       leagueLogoUrl: league['logo'] as String?,
     );

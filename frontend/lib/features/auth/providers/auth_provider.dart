@@ -45,7 +45,27 @@ class AuthNotifier extends StateNotifier<AuthState> {
   bool _googleInitialized = false;
 
   AuthNotifier(this._authService, this._storage) : super(const AuthState()) {
+    _warmUpServer();
     _checkAuth();
+  }
+
+  /// Ping server to wake it up from Render free tier sleep
+  void _warmUpServer() {
+    Dio().get('${ApiEndpoints.baseUrl}/matches/live').ignore();
+    // Pre-initialize Google Sign-In
+    _initGoogle();
+  }
+
+  Future<void> _initGoogle() async {
+    try {
+      if (!_googleInitialized) {
+        await gsi.GoogleSignIn.instance.initialize(
+          clientId: '400880210585-ics6f7g2odg693q7veqj4087uve1oaeq.apps.googleusercontent.com',
+          serverClientId: '400880210585-rkbgtue22ttng1oo19ov9op3shm1a5es.apps.googleusercontent.com',
+        );
+        _googleInitialized = true;
+      }
+    } catch (_) {}
   }
 
   Future<void> _checkAuth() async {
@@ -170,15 +190,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> loginWithGoogle() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final googleSignIn = gsi.GoogleSignIn.instance;
-      if (!_googleInitialized) {
-        await googleSignIn.initialize(
-          clientId: '400880210585-ics6f7g2odg693q7veqj4087uve1oaeq.apps.googleusercontent.com',
-          serverClientId: '400880210585-rkbgtue22ttng1oo19ov9op3shm1a5es.apps.googleusercontent.com',
-        );
-        _googleInitialized = true;
-      }
-      final account = await googleSignIn.authenticate();
+      await _initGoogle();
+      final account = await gsi.GoogleSignIn.instance.authenticate();
 
       final auth = account.authentication;
       final idToken = auth.idToken;

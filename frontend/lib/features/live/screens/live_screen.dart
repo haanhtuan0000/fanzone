@@ -46,8 +46,8 @@ class LiveScreen extends ConsumerWidget {
         },
         child: CustomScrollView(
           slivers: [
-            // Active match scoreboard
-            if (liveState.activeMatch != null) ...[
+            // Active match scoreboard — only for live matches
+            if (liveState.activeMatch != null && liveState.activeMatch!.isLive) ...[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -95,13 +95,46 @@ class LiveScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-            // Match header
-            if (liveState.matches.isNotEmpty)
+            // Live matches section
+            if (liveState.liveMatches.isNotEmpty) ...[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(
-                    liveState.liveMatches.isNotEmpty ? s.liveMatches : s.todayMatches,
+                    s.liveMatches,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.bebasNeue,
+                      fontSize: 20,
+                      color: AppColors.neonGreen,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+              ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final match = liveState.liveMatches[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: MatchCard(
+                        match: match,
+                        isSelected: match.fixtureId == liveState.activeMatch?.fixtureId,
+                        onTap: () => ref.read(liveStateProvider.notifier).selectMatch(match),
+                      ),
+                    );
+                  },
+                  childCount: liveState.liveMatches.length,
+                ),
+              ),
+            ],
+            // Today's upcoming matches section
+            if (liveState.upcomingMatches.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Text(
+                    s.todayMatches,
                     style: const TextStyle(
                       fontFamily: AppFonts.bebasNeue,
                       fontSize: 20,
@@ -111,23 +144,23 @@ class LiveScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-            // Match list
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final match = liveState.matches[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: MatchCard(
-                      match: match,
-                      isSelected: match.fixtureId == liveState.activeMatch?.fixtureId,
-                      onTap: () => ref.read(liveStateProvider.notifier).selectMatch(match),
-                    ),
-                  );
-                },
-                childCount: liveState.matches.length,
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final match = liveState.upcomingMatches[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: MatchCard(
+                        match: match,
+                        isSelected: false,
+                        onTap: () {}, // Non-live matches are view-only
+                      ),
+                    );
+                  },
+                  childCount: liveState.upcomingMatches.length,
+                ),
               ),
-            ),
+            ],
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
           ],
         ),
