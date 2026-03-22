@@ -78,14 +78,20 @@ class WelcomeScreen extends ConsumerWidget {
                   onPressed: authState.isLoading
                       ? null
                       : () => ref.read(authStateProvider.notifier).loginWithGoogle(),
-                  icon: Image.network(
-                    'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                    width: 20,
-                    height: 20,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 24),
-                  ),
+                  icon: authState.isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textSecondary),
+                        )
+                      : Image.network(
+                          'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
+                          width: 20,
+                          height: 20,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 24),
+                        ),
                   label: Text(
-                    s.loginWithGoogle,
+                    authState.isLoading ? 'LOADING...' : s.loginWithGoogle,
                     style: const TextStyle(letterSpacing: 1, fontSize: 14),
                   ),
                   style: OutlinedButton.styleFrom(
@@ -103,7 +109,9 @@ class WelcomeScreen extends ConsumerWidget {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: () => context.go('/register'),
+                  onPressed: authState.isLoading
+                      ? null
+                      : () { ref.read(authStateProvider.notifier).clearError(); context.go('/register'); },
                   child: Text(
                     s.registerWithEmail,
                     style: const TextStyle(fontSize: 14, letterSpacing: 2),
@@ -123,7 +131,7 @@ class WelcomeScreen extends ConsumerWidget {
                 ),
               // Login link
               TextButton(
-                onPressed: () => context.go('/login'),
+                onPressed: () { ref.read(authStateProvider.notifier).clearError(); context.go('/login'); },
                 child: RichText(
                   text: TextSpan(
                     text: s.alreadyHaveAccount,

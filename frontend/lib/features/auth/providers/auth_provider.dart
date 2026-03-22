@@ -146,11 +146,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
         refreshToken: result['refreshToken'],
       );
       final user = User.fromJson(result['user']);
-      final onboarded = await _storage.isOnboarded();
+      // Existing user logging in — skip onboarding
+      await _storage.setOnboarded();
       state = state.copyWith(
         user: user,
         isAuthenticated: true,
-        isOnboarded: onboarded,
+        isOnboarded: true,
         isLoading: false,
       );
     } catch (e) {
@@ -191,11 +192,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
         refreshToken: loginResult['refreshToken'],
       );
       final user = User.fromJson(loginResult['user']);
-      final onboarded = await _storage.isOnboarded();
+      // Google users skip onboarding — they already have name/avatar from Google
+      await _storage.setOnboarded();
       state = state.copyWith(
         user: user,
         isAuthenticated: true,
-        isOnboarded: onboarded,
+        isOnboarded: true,
         isLoading: false,
       );
     } catch (e, st) {
@@ -209,6 +211,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> completeOnboarding() async {
     await _storage.setOnboarded();
     state = state.copyWith(isOnboarded: true);
+  }
+
+  void clearError() {
+    if (state.error != null) {
+      state = state.copyWith(error: null);
+    }
   }
 
   Future<void> logout() async {

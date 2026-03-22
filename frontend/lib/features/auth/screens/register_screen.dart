@@ -44,7 +44,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/welcome'),
+          onPressed: () { ref.read(authStateProvider.notifier).clearError(); context.go('/welcome'); },
         ),
         title: Text(s.register),
       ),
@@ -131,7 +131,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
                 TextButton(
-                  onPressed: () => context.go('/login'),
+                  onPressed: () { ref.read(authStateProvider.notifier).clearError(); context.go('/login'); },
                   child: RichText(
                     textAlign: TextAlign.center,
                     text: TextSpan(

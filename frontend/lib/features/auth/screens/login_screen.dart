@@ -37,17 +37,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final s = AppStrings.current;
     final authState = ref.watch(authStateProvider);
 
-    ref.listen<AuthState>(authStateProvider, (prev, next) {
-      if (next.isAuthenticated) {
-        context.go(next.isOnboarded ? '/live' : '/onboarding');
-      }
-    });
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/welcome'),
+          onPressed: () { ref.read(authStateProvider.notifier).clearError(); context.go('/welcome'); },
         ),
         title: Text(s.login),
       ),
@@ -131,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
                 TextButton(
-                  onPressed: () => context.go('/register'),
+                  onPressed: () { ref.read(authStateProvider.notifier).clearError(); context.go('/register'); },
                   child: RichText(
                     textAlign: TextAlign.center,
                     text: TextSpan(
