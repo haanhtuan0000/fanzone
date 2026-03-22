@@ -83,15 +83,24 @@ export class QuestionResolverService {
       this.logger.warn(`Failed to fetch HT stats for ${fixtureId}: ${e}`);
     }
 
-    const openQuestions = await this.prisma.question.findMany({
-      where: { fixtureId, status: 'OPEN' },
+    // Resolve OPEN + close PENDING 1H questions (don't let them leak into 2H)
+    const htQuestions = await this.prisma.question.findMany({
+      where: { fixtureId, status: { in: ['OPEN', 'PENDING'] } },
       include: { options: true },
     });
 
     // Pre-warm template code cache
-    await this.warmTemplateCache(openQuestions);
+    await this.warmTemplateCache(htQuestions);
 
-    for (const question of openQuestions) {
+    for (const question of htQuestions) {
+      if (question.status === 'PENDING') {
+        // Close dangling PENDING 1H questions — they're stale after HT
+        await this.prisma.question.updateMany({
+          where: { id: question.id, status: 'PENDING' },
+          data: { status: 'CLOSED' },
+        });
+        continue;
+      }
       const correctOptionId = this.resolveAtHalfTime(question, teams, score, stats);
       if (correctOptionId) {
         await this.resolveQuestion(fixtureId, question, correctOptionId, 'HALF_TIME');

@@ -50,6 +50,10 @@ export class EventPoller implements OnModuleInit, OnModuleDestroy {
         if (!homeTeam || !awayTeam) continue;
 
         const teams = { home: homeTeam, away: awayTeam };
+        const score = {
+          home: fixture?.goals?.home ?? 0,
+          away: fixture?.goals?.away ?? 0,
+        };
 
         await this.questionResolver.closeExpiredQuestions(fixtureId);
 
@@ -74,9 +78,9 @@ export class EventPoller implements OnModuleInit, OnModuleDestroy {
           const resolved = await this.questionResolver.tryResolveFromEvent(fixtureId, event, teams);
 
           if (!resolved) {
-            const question = await this.questionGenerator.generateFromEvent(fixtureId, event, teams);
+            const question = await this.questionGenerator.generateFromEvent(fixtureId, event, teams, score);
             if (question) {
-              await this.questionGenerator.openQuestion(question.id);
+              // question is already OPEN (createFromTemplate auto-opens)
               this.logger.log(`Auto-generated question: "${question.text}" for fixture ${fixtureId}`);
               this.ws.emitToMatch(fixtureId, 'new_question', {
                 fixtureId,

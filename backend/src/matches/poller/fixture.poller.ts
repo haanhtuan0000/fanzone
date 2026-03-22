@@ -167,8 +167,8 @@ export class FixturePoller implements OnModuleInit, OnModuleDestroy {
     teams: { home: string; away: string },
     score: { home: number; away: number },
   ) {
-    // Only for in-play periods
-    if (!['1H', '2H'].includes(period)) return;
+    // Only for in-play periods (including HT for half-time questions)
+    if (!['1H', '2H', 'HT'].includes(period)) return;
 
     // Check Redis cooldown — don't check DB every 15s
     const cooldownKey = `fixture:${fixtureId}:question-check`;

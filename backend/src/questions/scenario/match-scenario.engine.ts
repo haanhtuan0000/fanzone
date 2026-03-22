@@ -97,12 +97,23 @@ export class MatchScenarioEngine {
     const config = PHASE_CONFIG[newPhase];
     const excludeIds = await this.getUsedTemplateIds(fixtureId);
 
-    const templates = await this.templateService.selectForPhase(
+    let templates = await this.templateService.selectForPhase(
       newPhase,
       excludeIds,
       config.difficulty,
       config.count,
     );
+
+    // Fallback: if sliding window excluded all templates for this phase, retry without exclusions
+    if (templates.length === 0 && excludeIds.length > 0) {
+      this.logger.warn(`[${fixtureId}] All templates excluded for ${newPhase}, retrying without window`);
+      templates = await this.templateService.selectForPhase(
+        newPhase,
+        [],
+        config.difficulty,
+        config.count,
+      );
+    }
 
     const context = await this.variableResolver.buildMatchContext(
       fixtureId,

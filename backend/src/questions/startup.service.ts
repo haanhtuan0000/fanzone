@@ -90,9 +90,9 @@ export class StartupService implements OnModuleInit {
         const awayTeam = fixture?.teams?.away?.name;
         if (!homeTeam || !awayTeam) continue;
 
-        // Check if questions already exist for this fixture
+        // Check if there are active (OPEN/PENDING) questions — not just any questions
         const existingCount = await this.prisma.question.count({
-          where: { fixtureId },
+          where: { fixtureId, status: { in: ['OPEN', 'PENDING'] } },
         });
 
         if (existingCount > 0) {
