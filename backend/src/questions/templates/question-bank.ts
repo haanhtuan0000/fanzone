@@ -34,7 +34,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Ai sẽ ghi bàn tiếp theo?',
     textEn: 'Who will score next?',
     rewardCoins: 150,
-    answerWindowSec: 40,
+    answerWindowSec: 60,
     options: [
       { nameVi: '{home_striker}', nameEn: '{home_striker}', emoji: '⚽', defaultPct: 42 },
       { nameVi: '{away_striker}', nameEn: '{away_striker}', emoji: '⚽', defaultPct: 30 },
@@ -53,7 +53,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Bàn thắng tiếp theo vào phút nào?',
     textEn: 'When will the next goal be scored?',
     rewardCoins: 240,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Trước phút 30', nameEn: 'Before minute 30', emoji: '⏱️', defaultPct: 22 },
       { nameVi: 'Phút 30–45', nameEn: 'Minute 30–45', emoji: '⏱️', defaultPct: 28 },
@@ -72,7 +72,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Có bàn thắng trong 10 phút tới không?',
     textEn: 'Will there be a goal in the next 10 minutes?',
     rewardCoins: 60,
-    answerWindowSec: 30,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có — {home_team} ghi', nameEn: 'Yes — {home_team} scores', emoji: '⚽', defaultPct: 38 },
       { nameVi: 'Có — {away_team} ghi', nameEn: 'Yes — {away_team} scores', emoji: '⚽', defaultPct: 25 },
@@ -91,7 +91,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Bàn thắng tiếp theo ghi bằng cách nào?',
     textEn: 'How will the next goal be scored?',
     rewardCoins: 480,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Đánh đầu', nameEn: 'Header', emoji: '🗣️', defaultPct: 18 },
       { nameVi: 'Sút bình thường', nameEn: 'Normal shot', emoji: '🦶', defaultPct: 50 },
@@ -110,7 +110,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Đội nào ghi bàn trước trong trận?',
     textEn: 'Which team scores first?',
     rewardCoins: 240,
-    answerWindowSec: 45,
+    answerWindowSec: 60,
     options: [
       { nameVi: '{home_team} ghi trước', nameEn: '{home_team} scores first', emoji: '🏠', defaultPct: 52 },
       { nameVi: '{away_team} ghi trước', nameEn: '{away_team} scores first', emoji: '✈️', defaultPct: 38 },
@@ -128,7 +128,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Tỷ số cuối trận là bao nhiêu?',
     textEn: 'What will the final score be?',
     rewardCoins: 150,
-    answerWindowSec: 40,
+    answerWindowSec: 60,
     options: [
       { nameVi: '{score_option_1}', nameEn: '{score_option_1}', emoji: '📊', defaultPct: 35 },
       { nameVi: '{score_option_2}', nameEn: '{score_option_2}', emoji: '📊', defaultPct: 28 },
@@ -147,7 +147,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Có bàn thắng nào trong phút bù giờ không?',
     textEn: 'Will there be a stoppage time goal?',
     rewardCoins: 240,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có, đội đang dẫn ghi', nameEn: 'Yes, leading team scores', emoji: '⚽', defaultPct: 20 },
       { nameVi: 'Có, đội đang thua ghi', nameEn: 'Yes, trailing team scores', emoji: '⚽', defaultPct: 25 },
@@ -165,7 +165,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Đội nào ghi bàn đầu tiên trong hiệp 2?',
     textEn: 'Who scores first in the second half?',
     rewardCoins: 150,
-    answerWindowSec: 40,
+    answerWindowSec: 60,
     options: [
       { nameVi: '{home_team}', nameEn: '{home_team}', emoji: '🏠', defaultPct: 46 },
       { nameVi: '{away_team}', nameEn: '{away_team}', emoji: '✈️', defaultPct: 34 },
@@ -185,7 +185,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Có thẻ vàng nào trong 15 phút tới?',
     textEn: 'Yellow card in the next 15 minutes?',
     rewardCoins: 125,
-    answerWindowSec: 30,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có — cầu thủ {home_team}', nameEn: 'Yes — {home_team} player', emoji: '🟨', defaultPct: 28 },
       { nameVi: 'Có — cầu thủ {away_team}', nameEn: 'Yes — {away_team} player', emoji: '🟨', defaultPct: 24 },
@@ -204,7 +204,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Có thẻ đỏ nào trong trận không?',
     textEn: 'Will there be a red card?',
     rewardCoins: 480,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có — {home_team} bị đuổi', nameEn: 'Yes — {home_team} sent off', emoji: '🟥', defaultPct: 12 },
       { nameVi: 'Có — {away_team} bị đuổi', nameEn: 'Yes — {away_team} sent off', emoji: '🟥', defaultPct: 10 },
@@ -222,7 +222,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Trọng tài rút bao nhiêu thẻ vàng còn lại?',
     textEn: 'How many more yellow cards?',
     rewardCoins: 240,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: '0 thẻ', nameEn: '0 cards', emoji: '0️⃣', defaultPct: 30 },
       { nameVi: '1 thẻ', nameEn: '1 card', emoji: '1️⃣', defaultPct: 35 },
@@ -241,7 +241,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Cầu thủ nào nhận thẻ tiếp theo?',
     textEn: 'Who gets the next card?',
     rewardCoins: 125,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Cầu thủ {home_team}', nameEn: '{home_team} player', emoji: '🟨', defaultPct: 35 },
       { nameVi: 'Cầu thủ {away_team}', nameEn: '{away_team} player', emoji: '🟨', defaultPct: 32 },
@@ -260,7 +260,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Có cầu thủ nào nhận thẻ vàng thứ 2?',
     textEn: 'Will anyone get a second yellow?',
     rewardCoins: 240,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có — cầu thủ {home_team}', nameEn: 'Yes — {home_team} player', emoji: '🟥', defaultPct: 28 },
       { nameVi: 'Có — cầu thủ {away_team}', nameEn: 'Yes — {away_team} player', emoji: '🟥', defaultPct: 22 },
@@ -281,7 +281,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Có phạt góc trong 5 phút tới không?',
     textEn: 'Corner kick in the next 5 minutes?',
     rewardCoins: 60,
-    answerWindowSec: 30,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có — {home_team}', nameEn: 'Yes — {home_team}', emoji: '🚩', defaultPct: 36 },
       { nameVi: 'Có — {away_team}', nameEn: 'Yes — {away_team}', emoji: '🚩', defaultPct: 28 },
@@ -300,7 +300,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Tổng số phạt góc trong hiệp này?',
     textEn: 'Total corners this half?',
     rewardCoins: 150,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Ít hơn 4', nameEn: 'Less than 4', emoji: '📉', defaultPct: 25 },
       { nameVi: '4–6 phạt góc', nameEn: '4–6 corners', emoji: '📊', defaultPct: 42 },
@@ -319,7 +319,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Có bàn thắng từ tình huống cố định trong 10 phút tới?',
     textEn: 'Goal from a set piece in the next 10 minutes?',
     rewardCoins: 240,
-    answerWindowSec: 30,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có — từ phạt góc/đá phạt', nameEn: 'Yes — from corner/free kick', emoji: '⚽', defaultPct: 20 },
       { nameVi: 'Có — từ phạt đền', nameEn: 'Yes — from penalty', emoji: '⚽', defaultPct: 10 },
@@ -338,7 +338,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Đội nào có nhiều phạt góc hơn sau 10 phút?',
     textEn: 'More corners in the next 10 minutes?',
     rewardCoins: 150,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: '{home_team}', nameEn: '{home_team}', emoji: '🏠', defaultPct: 52 },
       { nameVi: '{away_team}', nameEn: '{away_team}', emoji: '✈️', defaultPct: 38 },
@@ -359,7 +359,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'VAR có được gọi trong 15 phút tới?',
     textEn: 'Will VAR be called in the next 15 minutes?',
     rewardCoins: 240,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có — từ chối bàn thắng', nameEn: 'Yes — goal disallowed', emoji: '📺', defaultPct: 18 },
       { nameVi: 'Có — chỉ penalty', nameEn: 'Yes — penalty check', emoji: '📺', defaultPct: 20 },
@@ -396,7 +396,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Có penalty nào được chỉ định trong trận?',
     textEn: 'Will a penalty be awarded?',
     rewardCoins: 240,
-    answerWindowSec: 40,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có — {home_team} được đá', nameEn: 'Yes — {home_team}', emoji: '⚽', defaultPct: 22 },
       { nameVi: 'Có — {away_team} được đá', nameEn: 'Yes — {away_team}', emoji: '⚽', defaultPct: 18 },
@@ -414,7 +414,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'VAR có xuất hiện trong 10 phút cuối?',
     textEn: 'Will VAR appear in the last 10 minutes?',
     rewardCoins: 150,
-    answerWindowSec: 30,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có', nameEn: 'Yes', emoji: '📺', defaultPct: 35 },
       { nameVi: 'Không', nameEn: 'No', emoji: '✅', defaultPct: 65 },
@@ -434,7 +434,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Đội nào thay người đầu tiên?',
     textEn: 'Which team substitutes first?',
     rewardCoins: 60,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: '{home_team}', nameEn: '{home_team}', emoji: '🔄', defaultPct: 54 },
       { nameVi: '{away_team}', nameEn: '{away_team}', emoji: '🔄', defaultPct: 46 },
@@ -451,7 +451,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Tổng số thay người trong hiệp 2?',
     textEn: 'Total subs in the second half?',
     rewardCoins: 150,
-    answerWindowSec: 40,
+    answerWindowSec: 60,
     options: [
       { nameVi: '3 thay người', nameEn: '3 subs', emoji: '3️⃣', defaultPct: 18 },
       { nameVi: '4 thay người', nameEn: '4 subs', emoji: '4️⃣', defaultPct: 28 },
@@ -470,7 +470,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Cầu thủ vào thay có ghi bàn không?',
     textEn: 'Will the substitute score?',
     rewardCoins: 240,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có — ghi bàn', nameEn: 'Yes — scores', emoji: '⚽', defaultPct: 22 },
       { nameVi: 'Không ghi bàn', nameEn: 'No goal', emoji: '❌', defaultPct: 78 },
@@ -488,7 +488,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Khi nào thay người tiếp theo?',
     textEn: 'When is the next substitution?',
     rewardCoins: 125,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Trước phút 60', nameEn: 'Before minute 60', emoji: '⏱️', defaultPct: 20 },
       { nameVi: 'Phút 60–70', nameEn: 'Minute 60–70', emoji: '⏱️', defaultPct: 32 },
@@ -509,7 +509,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Trọng tài bù thêm bao nhiêu phút?',
     textEn: 'How many minutes of stoppage time?',
     rewardCoins: 125,
-    answerWindowSec: 35,
+    answerWindowSec: 60,
     options: [
       { nameVi: '1–3 phút', nameEn: '1–3 minutes', emoji: '⏱️', defaultPct: 18 },
       { nameVi: '4–5 phút', nameEn: '4–5 minutes', emoji: '⏱️', defaultPct: 40 },
@@ -528,7 +528,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Có bàn thắng nào trong giờ bù?',
     textEn: 'Goal in stoppage time?',
     rewardCoins: 240,
-    answerWindowSec: 30,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Có', nameEn: 'Yes', emoji: '⚽', defaultPct: 30 },
       { nameVi: 'Không', nameEn: 'No', emoji: '🚫', defaultPct: 70 },
@@ -547,7 +547,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Đội nào kiểm soát bóng nhiều hơn sau 90 phút?',
     textEn: 'Which team has more possession at full time?',
     rewardCoins: 150,
-    answerWindowSec: 40,
+    answerWindowSec: 60,
     options: [
       { nameVi: '{home_team} trên 55%', nameEn: '{home_team} over 55%', emoji: '📊', defaultPct: 42 },
       { nameVi: '{away_team} trên 55%', nameEn: '{away_team} over 55%', emoji: '📊', defaultPct: 30 },
@@ -565,7 +565,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Tổng số cú sút trong cả trận?',
     textEn: 'Total shots in the match?',
     rewardCoins: 240,
-    answerWindowSec: 40,
+    answerWindowSec: 60,
     options: [
       { nameVi: 'Dưới 20 cú sút', nameEn: 'Under 20 shots', emoji: '📉', defaultPct: 20 },
       { nameVi: '20–27 cú sút', nameEn: '20–27 shots', emoji: '📊', defaultPct: 42 },
@@ -586,7 +586,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textVi: 'Ai tạo bước ngoặt sau nghỉ giữa hiệp?',
     textEn: 'Who creates the turning point after half-time?',
     rewardCoins: 125,
-    answerWindowSec: 40,
+    answerWindowSec: 60,
     options: [
       { nameVi: '{home_team} — tấn công mạnh hơn', nameEn: '{home_team} — stronger attack', emoji: '🔥', defaultPct: 48 },
       { nameVi: '{away_team} — phản công hiệu quả', nameEn: '{away_team} — effective counter', emoji: '⚡', defaultPct: 36 },

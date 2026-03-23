@@ -103,7 +103,10 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       // 4. Fetch lineups for new matches
       await this.fetchMissingLineups();
 
-      // 5. Poll events (only for matches with active questions)
+      // 5a. Lock expired questions for all live matches (no API call needed)
+      await this.lockAllExpired();
+
+      // 5b. Poll events (only for matches with active questions)
       await this.pollEvents();
 
       // 6. Timer resolution (LOCKED questions with resolvesAt)
@@ -256,6 +259,16 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
   // ─── Step 5: Event polling (selective) ───
 
+  /**
+   * Lock expired questions for ALL live matches.
+   * Runs every tick (15s), no API calls — just DB check.
+   */
+  private async lockAllExpired() {
+    for (const [id] of this.matchStates) {
+      await this.questionResolver.lockExpiredQuestions(id);
+    }
+  }
+
   private async pollEvents() {
     const now = Date.now();
     const interval = this.budget.isThrottled() ? 120_000 : 60_000; // 60s normal, 120s throttled
@@ -279,10 +292,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
         const newEvents = (events as any[]).slice(state.eventsLastCount);
         state.eventsLastCount = (events as any[]).length;
 
-        // Lock expired questions first
-        await this.questionResolver.lockExpiredQuestions(id);
-
-        // Process new events
+        // Process new events (locking already done in lockAllExpired)
         for (const event of newEvents) {
           this.ws.emitToMatch(id, 'match_event', {
             fixtureId: id,
