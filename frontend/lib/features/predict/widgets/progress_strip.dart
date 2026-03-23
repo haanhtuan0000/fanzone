@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
 
 class ProgressStrip extends StatelessWidget {
-  final List<String> dots; // 'correct', 'wrong', 'pending', 'active', 'skip', 'upcoming'
+  final List<String> dots;
   final int totalCoins;
 
   const ProgressStrip({super.key, required this.dots, this.totalCoins = 0});
@@ -38,32 +38,37 @@ class ProgressStrip extends StatelessWidget {
               letterSpacing: 2,
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
+          // Dots — flexible, shrink if needed
           Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: dots.map((status) {
-                return Container(
-                  width: 12,
-                  height: 12,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _dotColor(status),
-                    border: status == 'active'
-                        ? Border.all(color: const Color(0xFF0A84FF), width: 2)
-                        : null,
-                  ),
-                );
-              }).toList(),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: dots.map((status) {
+                  return Container(
+                    width: 10,
+                    height: 10,
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _dotColor(status),
+                      border: status == 'active'
+                          ? Border.all(color: const Color(0xFF0A84FF), width: 2)
+                          : null,
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
+          // Coins — fixed width, never overlaps
           Text(
             '${totalCoins >= 0 ? "+" : ""}$totalCoins',
             style: TextStyle(
               fontFamily: AppFonts.bebasNeue,
-              fontSize: 14,
+              fontSize: 13,
               color: totalCoins >= 0 ? AppColors.neonGreen : AppColors.red,
             ),
           ),
