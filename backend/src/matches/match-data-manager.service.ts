@@ -88,7 +88,9 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
           this.logger.log(`No matches for ${Math.round(minutesUntilNext)} min — entering sleep mode`);
           this.sleepMode = true;
         }
-        return; // Skip all polling
+        // Still resolve expired timers even in sleep (DB query only, no API calls)
+        await this.resolveExpiredTimers();
+        return; // Skip all other polling
       }
 
       if (this.sleepMode && (minutesUntilNext <= 30 || hasLiveMatches)) {
@@ -96,7 +98,10 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
         this.sleepMode = false;
       }
 
-      if (this.sleepMode) return;
+      if (this.sleepMode) {
+        await this.resolveExpiredTimers();
+        return;
+      }
 
       // 3. Poll fixtures (1 API call for all live matches)
       await this.pollFixtures();
