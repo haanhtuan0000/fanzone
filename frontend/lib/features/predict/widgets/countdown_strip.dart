@@ -25,6 +25,10 @@ class _CountdownStripState extends State<CountdownStrip> {
     if (_remaining.isNegative) {
       _remaining = Duration.zero;
       _expired = true;
+      // Fire onExpired after build completes
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onExpired?.call();
+      });
     }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {

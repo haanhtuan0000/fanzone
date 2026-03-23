@@ -43,9 +43,10 @@ export class QuestionResolverService {
     event: MatchEvent,
     teams: { home: string; away: string },
   ): Promise<boolean> {
-    // Check both OPEN and LOCKED questions — LOCKED ones are waiting for this event
+    // Only resolve LOCKED questions (answer window already closed, waiting for event)
+    // OPEN questions should keep their answer window — don't cut it short
     const openQuestions = await this.prisma.question.findMany({
-      where: { fixtureId, status: { in: ['OPEN', 'LOCKED'] } },
+      where: { fixtureId, status: 'LOCKED' },
       include: { options: true },
     });
 
@@ -93,13 +94,17 @@ export class QuestionResolverService {
     // Pre-warm template code cache
     await this.warmTemplateCache(htQuestions);
 
+    const H1_PHASES = ['PRE_MATCH', 'EARLY_H1', 'MID_H1', 'LATE_H1'];
+
     for (const question of htQuestions) {
       if (question.status === 'PENDING') {
-        // Close dangling PENDING 1H questions — they're stale after HT
-        await this.prisma.question.updateMany({
-          where: { id: question.id, status: 'PENDING' },
-          data: { status: 'CLOSED' },
-        });
+        // Only close PENDING questions from 1H phases — keep 2H/HT ones
+        if (question.matchPhase && H1_PHASES.includes(question.matchPhase)) {
+          await this.prisma.question.updateMany({
+            where: { id: question.id, status: 'PENDING' },
+            data: { status: 'CLOSED' },
+          });
+        }
         continue;
       }
       const correctOptionId = this.resolveAtHalfTime(question, teams, score, stats);
@@ -147,6 +152,15 @@ export class QuestionResolverService {
     await this.warmTemplateCache(openQuestions);
 
     for (const question of openQuestions) {
+      // PENDING questions were never shown to users — just close them, don't resolve
+      if (question.status === 'PENDING') {
+        await this.prisma.question.updateMany({
+          where: { id: question.id, status: 'PENDING' },
+          data: { status: 'CLOSED' },
+        });
+        continue;
+      }
+
       let correctOptionId = this.resolveAtFullTime(question, teams, score, stats, events, stoppageMinutes);
 
       if (!correctOptionId) {
@@ -189,6 +203,7 @@ export class QuestionResolverService {
       },
     });
 
+    let openedNext = false;
     for (const question of expired) {
       const locked = await this.prisma.question.updateMany({
         where: { id: question.id, status: 'OPEN' },
@@ -197,18 +212,21 @@ export class QuestionResolverService {
 
       if (locked.count > 0) {
         this.logger.log(`Locked question "${question.text}" — waiting for result`);
+      }
+    }
 
-        // Open next pending question so the user always has something to predict
-        const next = await this.prisma.question.findFirst({
-          where: { fixtureId, status: 'PENDING' },
-          orderBy: { opensAt: 'asc' },
+    // Open only ONE next pending question (not one per locked question)
+    if (expired.length > 0 && !openedNext) {
+      const next = await this.prisma.question.findFirst({
+        where: { fixtureId, status: 'PENDING' },
+        orderBy: { opensAt: 'asc' },
+      });
+      if (next) {
+        await this.prisma.question.update({
+          where: { id: next.id },
+          data: { status: 'OPEN' },
         });
-        if (next) {
-          await this.prisma.question.update({
-            where: { id: next.id },
-            data: { status: 'OPEN' },
-          });
-        }
+        openedNext = true;
       }
     }
   }

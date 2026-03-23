@@ -149,9 +149,15 @@ export class MatchScenarioEngine {
       score,
     );
 
+    // Check if there's already an OPEN question for this fixture
+    const existingOpen = await this.questionsService.hasOpenQuestion(fixtureId);
+
     const created = [];
-    for (const tpl of templates) {
-      const question = await this.createFromTemplate(fixtureId, tpl, context, newPhase, elapsed);
+    for (let i = 0; i < templates.length; i++) {
+      const tpl = templates[i];
+      // Only open the first question if no OPEN question exists; rest stay PENDING
+      const shouldOpen = !existingOpen && created.length === 0;
+      const question = await this.createFromTemplate(fixtureId, tpl, context, newPhase, elapsed, undefined, shouldOpen);
       if (question) {
         created.push(question);
         await this.recordUsedTemplate(fixtureId, tpl.id);
@@ -281,6 +287,7 @@ export class MatchScenarioEngine {
     phase: MatchPhase,
     elapsed?: number,
     triggeredByEvent?: string,
+    autoOpen: boolean = true,
   ) {
     try {
       // Resolve text (default to Vietnamese)
@@ -316,11 +323,13 @@ export class MatchScenarioEngine {
         })),
       });
 
-      // Auto-open the question immediately
-      await this.questionsService.openQuestion(question.id);
+      // Only open if autoOpen and no other OPEN question exists
+      if (autoOpen) {
+        await this.questionsService.openQuestion(question.id);
+      }
 
       this.logger.log(
-        `[${fixtureId}] Created & opened question [${tpl.code}]: "${text}" (${phase}, ${tpl.difficulty})`,
+        `[${fixtureId}] Created question [${tpl.code}]: "${text}" (${phase}, ${autoOpen ? 'OPEN' : 'PENDING'})`,
       );
 
       return question;

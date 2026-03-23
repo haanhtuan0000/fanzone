@@ -78,7 +78,13 @@ export class ScoringService {
       // Update leaderboard
       const question = await this.prisma.question.findUnique({ where: { id: questionId } });
       if (question) {
-        await this.redis.zadd(`lb:match:${question.fixtureId}`, user.coins, prediction.userId);
+        // Match leaderboard: use match-specific earnings (sum of coinsResult for this fixture)
+        const matchPredictions = await this.prisma.prediction.findMany({
+          where: { userId: prediction.userId, question: { fixtureId: question.fixtureId }, coinsResult: { not: null } },
+          select: { coinsResult: true },
+        });
+        const matchEarnings = matchPredictions.reduce((sum, p) => sum + (p.coinsResult ?? 0), 0);
+        await this.redis.zadd(`lb:match:${question.fixtureId}`, matchEarnings, prediction.userId);
       }
       await this.redis.zadd('lb:global', user.coins, prediction.userId);
 

@@ -67,6 +67,14 @@ export class PredictionsService {
       return { id: opt.id, fanCount: fans, fanPct: Math.round(fanPct * 100), multiplier: Math.max(1.1, multiplier) };
     });
 
+    // Persist updated multipliers + fan counts to DB (so scoring uses live values)
+    for (const opt of updatedOptions) {
+      await this.prisma.questionOption.update({
+        where: { id: opt.id },
+        data: { multiplier: opt.multiplier, fanCount: opt.fanCount },
+      });
+    }
+
     return { prediction, updatedOptions };
   }
 

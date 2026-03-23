@@ -116,6 +116,13 @@ export class QuestionsService {
     return question;
   }
 
+  async hasOpenQuestion(fixtureId: number): Promise<boolean> {
+    const count = await this.prisma.question.count({
+      where: { fixtureId, status: 'OPEN' },
+    });
+    return count > 0;
+  }
+
   async openQuestion(questionId: string) {
     return this.prisma.question.update({
       where: { id: questionId },

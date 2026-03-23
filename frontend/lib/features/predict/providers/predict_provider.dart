@@ -103,21 +103,22 @@ class PredictNotifier extends StateNotifier<PredictState> {
   PredictNotifier(this._apiClient, this._onCoinsChanged) : super(const PredictState());
 
   Future<void> loadQuestions(int fixtureId) async {
-    // Don't overwrite if user submitted and waiting for result
-    if (state.isLocked && !state.isExpired && state.selectedOptionId != null) return;
-
     _currentFixtureId = fixtureId;
-    state = state.copyWith(isLoading: true);
+
+    // Don't show loading spinner on background refreshes
+    if (state.activeQuestion == null && state.answeredQuestions.isEmpty) {
+      state = state.copyWith(isLoading: true);
+    }
 
     try {
-      // Fetch active questions + predictions in parallel
-      final responses = await Future.wait([
-        _apiClient.get(ApiEndpoints.activeQuestions(fixtureId)),
-        _apiClient.get(ApiEndpoints.matchPredictions(fixtureId)),
+      // Fetch active questions + predictions in parallel (independent error handling)
+      final results = await Future.wait([
+        _apiClient.get(ApiEndpoints.activeQuestions(fixtureId)).then((r) => r.data).catchError((_) => null),
+        _apiClient.get(ApiEndpoints.matchPredictions(fixtureId)).then((r) => r.data).catchError((_) => null),
       ]);
 
-      final questionsData = responses[0].data as Map<String, dynamic>;
-      final predictionsData = responses[1].data as List<dynamic>;
+      final questionsData = (results[0] as Map<String, dynamic>?) ?? {'active': null, 'upcoming': [], 'pendingResults': [], 'resolved': []};
+      final predictionsData = (results[1] as List<dynamic>?) ?? [];
 
       // Parse active question
       final activeJson = questionsData['active'];
@@ -178,10 +179,14 @@ class PredictNotifier extends StateNotifier<PredictState> {
         }
       }
 
-      // Calculate total coins
+      // Calculate total coins and notify if changed
       int totalCoins = 0;
       for (final aq in answered) {
         if (aq.coinsResult != null) totalCoins += aq.coinsResult!;
+      }
+      final coinsDelta = totalCoins - state.totalCoinsEarned;
+      if (coinsDelta != 0) {
+        _onCoinsChanged(coinsDelta);
       }
 
       // Keep selection if same question is still active
