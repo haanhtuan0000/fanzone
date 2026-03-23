@@ -22,6 +22,15 @@ class PredictScreen extends ConsumerWidget {
     final predictState = ref.watch(predictStateProvider);
     final activeMatch = ref.watch(liveStateProvider).activeMatch;
 
+    // Show error as snackbar
+    ref.listen<PredictState>(predictStateProvider, (prev, next) {
+      if (next.error != null && next.error != prev?.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.error!), duration: const Duration(seconds: 3)),
+        );
+      }
+    });
+
     if (predictState.isLoading && predictState.activeQuestion == null && predictState.answeredQuestions.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('PREDICT')),

@@ -26,6 +26,7 @@ interface MatchState {
   lastEventPoll: number;
   lastStatsPoll: number;
   eventsLastCount: number;
+  lastSeenInApi: number; // Timestamp of last time this fixture appeared in live API
 }
 
 /**
@@ -174,6 +175,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
           lineupsLoaded: false, lineupRetries: 0,
           hasActiveQuestions: false,
           lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+          lastSeenInApi: Date.now(),
         };
         this.matchStates.set(id, state);
         this.logger.log(`New match detected: ${homeTeam} vs ${awayTeam} (${period} ${elapsed}')`);
@@ -189,6 +191,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       state.period = period;
       state.elapsed = elapsed;
       state.score = score;
+      state.lastSeenInApi = Date.now();
 
       // Handle period transitions
       if (prevPeriod !== period) {
@@ -201,11 +204,15 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Clean up finished matches
+    // Clean up matches that disappeared from API (5-min grace period for glitches)
+    const now = Date.now();
     for (const [id, state] of this.matchStates) {
       if (!liveIds.has(id)) {
-        this.logger.log(`Match ${id} no longer live — cleaning up`);
-        this.matchStates.delete(id);
+        const missingFor = now - state.lastSeenInApi;
+        if (missingFor > 300_000) { // 5 minutes
+          this.logger.log(`Match ${id} missing from API for ${Math.round(missingFor / 1000)}s — cleaning up`);
+          this.matchStates.delete(id);
+        }
       }
     }
   }
@@ -356,6 +363,10 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
         await this.questionResolver.resolveTimedOut(
           question.fixtureId, question, correctOptionId,
         );
+
+        // Refresh hasActiveQuestions since resolveQuestion may have opened a new PENDING
+        const state = this.matchStates.get(question.fixtureId);
+        if (state) state.hasActiveQuestions = true;
       }
     } catch (e) {
       this.logger.error(`Timer resolution failed: ${e}`);

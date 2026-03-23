@@ -33,7 +33,6 @@ class PredictState {
   final bool isLoading;
   final String? error;
   final int totalCoinsEarned;
-  final int questionNumber; // Which question number in the match (for progress dots)
   final int totalQuestions;
 
   const PredictState({
@@ -46,7 +45,6 @@ class PredictState {
     this.isLoading = false,
     this.error,
     this.totalCoinsEarned = 0,
-    this.questionNumber = 0,
     this.totalQuestions = 0,
   });
 
@@ -62,7 +60,6 @@ class PredictState {
     bool? isLoading,
     String? error,
     int? totalCoinsEarned,
-    int? questionNumber,
     int? totalQuestions,
   }) {
     return PredictState(
@@ -75,7 +72,6 @@ class PredictState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       totalCoinsEarned: totalCoinsEarned ?? this.totalCoinsEarned,
-      questionNumber: questionNumber ?? this.questionNumber,
       totalQuestions: totalQuestions ?? this.totalQuestions,
     );
   }
@@ -100,9 +96,14 @@ class PredictNotifier extends StateNotifier<PredictState> {
   final void Function(int delta) _onCoinsChanged;
   int? _currentFixtureId;
 
+  bool _loading = false;
+
   PredictNotifier(this._apiClient, this._onCoinsChanged) : super(const PredictState());
 
   Future<void> loadQuestions(int fixtureId) async {
+    // Debounce: skip if already loading
+    if (_loading) return;
+    _loading = true;
     _currentFixtureId = fixtureId;
 
     // Don't show loading spinner on background refreshes
@@ -205,6 +206,8 @@ class PredictNotifier extends StateNotifier<PredictState> {
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    } finally {
+      _loading = false;
     }
   }
 

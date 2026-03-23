@@ -29,28 +29,29 @@ export class PredictionsService {
     });
     if (existing) throw new ConflictException('Already predicted');
 
-    // Check user has enough coins
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { coins: true },
-    });
-    if (!user || user.coins < this.FIXED_BET) {
-      throw new BadRequestException('Not enough coins');
-    }
+    // Atomic: check balance + deduct + create prediction in one transaction
+    const prediction = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { coins: true },
+      });
+      if (!user || user.coins < this.FIXED_BET) {
+        throw new BadRequestException('Not enough coins');
+      }
 
-    // Deduct coins upfront
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { coins: { decrement: this.FIXED_BET } },
-    });
+      await tx.user.update({
+        where: { id: userId },
+        data: { coins: { decrement: this.FIXED_BET } },
+      });
 
-    const prediction = await this.prisma.prediction.create({
-      data: {
-        userId,
-        questionId,
-        optionId,
-        coinsBet: this.FIXED_BET,
-      },
+      return tx.prediction.create({
+        data: {
+          userId,
+          questionId,
+          optionId,
+          coinsBet: this.FIXED_BET,
+        },
+      });
     });
 
     // Update fan count in Redis

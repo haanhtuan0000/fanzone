@@ -95,12 +95,9 @@ export class ScoringService {
       const weekKey = `lb:week:${now.getFullYear()}-W${week}`;
       await this.redis.zadd(weekKey, user.coins, prediction.userId);
 
-      if (user.coins > 0) {
-        // Also add country leaderboard if user has country
-        const fullUser = await this.prisma.user.findUnique({ where: { id: prediction.userId } });
-        if (fullUser?.countryCode) {
-          await this.redis.zadd(`lb:country:${fullUser.countryCode}`, user.coins, prediction.userId);
-        }
+      // Country leaderboard (user object from update already has all fields)
+      if (user.coins > 0 && (user as any).countryCode) {
+        await this.redis.zadd(`lb:country:${(user as any).countryCode}`, user.coins, prediction.userId);
       }
 
       // Check achievements
