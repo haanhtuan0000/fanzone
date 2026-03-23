@@ -72,7 +72,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final token = await _storage.getAccessToken();
     if (token == null) return;
 
-    // Validate token against the server
+    // Optimistic: if token exists, assume authenticated immediately
+    // This prevents the welcome screen flash while server validates
+    final onboarded = await _storage.isOnboarded();
+    state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded);
+
+    // Validate token in background — if invalid, log out
     try {
       final response = await Dio().get(
         '${ApiEndpoints.baseUrl}${ApiEndpoints.profileMe}',
@@ -82,14 +87,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
           sendTimeout: const Duration(seconds: 30),
         ),
       );
-      if (response.statusCode == 200) {
-        final onboarded = await _storage.isOnboarded();
-        state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded);
-      } else {
+      if (response.statusCode != 200) {
+        // Token rejected by server — clear and go to login
         await _storage.clearTokens();
+        state = const AuthState();
       }
     } catch (_) {
-      // Token invalid or server unreachable — try refresh
+      // Server unreachable or token expired — try refresh
       try {
         final refreshToken = await _storage.getRefreshToken();
         if (refreshToken != null) {
@@ -101,13 +105,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
             accessToken: response.data['accessToken'],
             refreshToken: response.data['refreshToken'],
           );
-          final onboarded = await _storage.isOnboarded();
-          state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded);
+          // Token refreshed — stay authenticated
         } else {
           await _storage.clearTokens();
+          state = const AuthState();
         }
       } catch (_) {
-        await _storage.clearTokens();
+        // Can't refresh — but don't log out if server is just unreachable
+        // The user can still use cached data. Only clear if we got a definitive rejection.
       }
     }
   }
