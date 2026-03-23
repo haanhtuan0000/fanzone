@@ -131,15 +131,9 @@ export class MatchScenarioEngine {
       );
     }
 
-    // Fallback: retry without exclusions if still empty
+    // If all templates are used for this fixture, don't generate duplicates — skip
     if (templates.length === 0 && excludeIds.length > 0) {
-      this.logger.warn(`[${fixtureId}] All templates excluded for ${newPhase}, retrying without window`);
-      templates = await this.templateService.selectForPhase(
-        newPhase,
-        [],
-        config.difficulty,
-        count,
-      );
+      this.logger.log(`[${fixtureId}] All templates used for ${newPhase} — no new questions`);
     }
 
     const context = await this.variableResolver.buildMatchContext(
