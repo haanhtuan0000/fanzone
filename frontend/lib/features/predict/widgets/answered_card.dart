@@ -212,8 +212,8 @@ class AnsweredCard extends StatelessWidget {
           ),
           Text('${option.fanPct}%', style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(width: 6),
-          if (isMyPick) _buildTag(status == 'pending' ? s.myPick : (status == 'correct' ? s.correctPick : s.wrongPick), status),
-          if (!isMyPick && status == 'answer') _buildTag(s.answerTag, 'answer'),
+          if (isMyPick) _buildTag(status == 'pending' ? AppStrings.current.myPick : (status == 'correct' ? AppStrings.current.correctPick : AppStrings.current.wrongPick), status),
+          if (!isMyPick && status == 'answer') _buildTag(AppStrings.current.answerTag, 'answer'),
         ],
       ),
     );
