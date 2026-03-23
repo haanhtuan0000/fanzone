@@ -7,6 +7,7 @@ import '../features/auth/screens/register_screen.dart';
 import '../features/auth/screens/onboarding_screen.dart';
 import '../features/auth/providers/auth_provider.dart';
 import '../core/network/match_socket_service.dart';
+import '../features/live/providers/live_provider.dart';
 import '../features/live/screens/live_screen.dart';
 import '../features/predict/screens/predict_screen.dart';
 import '../features/leaderboard/screens/leaderboard_screen.dart';
@@ -33,6 +34,8 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.listen<AuthState>(authStateProvider, (prev, next) {
     if (next.isAuthenticated && !(prev?.isAuthenticated ?? false)) {
       ref.read(matchSocketServiceProvider).start();
+      // Reload live matches when auth confirmed
+      ref.invalidate(liveStateProvider);
     }
     if (!next.isAuthenticated && (prev?.isAuthenticated ?? false)) {
       ref.read(matchSocketServiceProvider).stop();
