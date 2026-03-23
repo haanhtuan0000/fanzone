@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/question.dart';
 
 class QuestionQueue extends StatelessWidget {
@@ -11,8 +12,8 @@ class QuestionQueue extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'CAU HOI TIEP THEO',
+        Text(
+          AppStrings.current.upcoming,
           style: TextStyle(
             fontFamily: AppFonts.bebasNeue,
             fontSize: 16,

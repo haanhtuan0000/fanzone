@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class NoQuestionBanner extends StatelessWidget {
   final int pendingCount;
@@ -8,6 +9,7 @@ class NoQuestionBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       padding: const EdgeInsets.all(16),
@@ -25,7 +27,7 @@ class NoQuestionBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Cho tran dau dien ra',
+                  s.waitingForMatch,
                   style: TextStyle(
                     fontFamily: AppFonts.bebasNeue,
                     fontSize: 14,
@@ -35,7 +37,7 @@ class NoQuestionBanner extends StatelessWidget {
                 ),
                 if (pendingCount > 0)
                   Text(
-                    '$pendingCount cau dang cho ket qua tu su kien thuc te',
+                    s.waitingForResults(pendingCount),
                     style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                   ),
               ],

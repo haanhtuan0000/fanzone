@@ -111,6 +111,40 @@ class _Vi {
   String get navFeed => 'Feed';
   String get navProfile => 'Cá nhân';
 
+  // Predict screen — sections & states
+  String get progress => 'TIẾN ĐỘ';
+  String get activeQuestion => 'CÂU HỎI ĐANG MỞ';
+  String get confirmBtn => 'XÁC NHẬN DỰ ĐOÁN';
+  String get confirmedBtn => 'ĐÃ XÁC NHẬN';
+  String get timeUp => 'HẾT GIỜ — ĐANG TẢI CÂU TIẾP...';
+  String get noQuestionsEmpty => 'Chưa có câu hỏi';
+  String get waitForMatchStart => 'Chờ trận đấu bắt đầu để dự đoán';
+  String get hasResults => 'CÓ KẾT QUẢ';
+  String get waitingResults => 'ĐANG CHỜ KẾT QUẢ';
+  String waitingResultsCount(int n) => 'ĐANG CHỜ KẾT QUẢ · $n CÂU';
+  String get skipped => 'BỎ LỠ';
+  String get upcoming => 'SẮP TỚI';
+  String get waitingForMatch => 'Chờ trận đấu diễn ra';
+  String waitingForResults(int n) => '$n câu đang chờ kết quả từ sự kiện thực tế';
+  String get correctStatus => 'ĐÚNG';
+  String get wrongStatus => 'SAI';
+  String get pendingStatus => 'CHỜ KẾT QUẢ';
+  String get skippedStatus => 'BỎ LỠ';
+  String get myPick => 'LỰA CHỌN CỦA TÔI';
+  String get correctPick => 'ĐÚNG';
+  String get wrongPick => 'ĐÃ CHỌN';
+  String get answerTag => 'ĐÁP ÁN';
+  String get lockedMessage => 'Đã đóng · Chờ trận đấu xác nhận kết quả';
+  String get skippedMessage => 'Bạn đã không trả lời câu hỏi này.';
+  String get categoryGoal => 'GHI BÀN';
+  String get categoryCard => 'THẺ PHẠT';
+  String get categoryCorner => 'PHẠT GÓC';
+  String get categoryVar => 'VAR';
+  String get categorySub => 'THAY NGƯỜI';
+  String get categoryTime => 'THỜI GIAN';
+  String get categoryStat => 'THỐNG KÊ';
+  String get categoryMomentum => 'DIỄN BIẾN';
+
   // Leaderboard tabs
   String get tabMatch => 'Trận này';
   String get tabWeek => 'Tuần này';
@@ -221,6 +255,40 @@ class _En {
   String get navLeaderboard => 'Rank';
   String get navFeed => 'Feed';
   String get navProfile => 'Profile';
+
+  // Predict screen — sections & states
+  String get progress => 'PROGRESS';
+  String get activeQuestion => 'CURRENT QUESTION';
+  String get confirmBtn => 'CONFIRM PREDICTION';
+  String get confirmedBtn => 'CONFIRMED';
+  String get timeUp => 'TIME UP — LOADING NEXT...';
+  String get noQuestionsEmpty => 'No questions yet';
+  String get waitForMatchStart => 'Wait for a match to start predicting';
+  String get hasResults => 'RESULTS';
+  String get waitingResults => 'WAITING FOR RESULT';
+  String waitingResultsCount(int n) => 'WAITING FOR RESULT · $n QUESTIONS';
+  String get skipped => 'MISSED';
+  String get upcoming => 'COMING UP';
+  String get waitingForMatch => 'Waiting for match events';
+  String waitingForResults(int n) => '$n questions waiting for match result';
+  String get correctStatus => 'CORRECT';
+  String get wrongStatus => 'WRONG';
+  String get pendingStatus => 'WAITING';
+  String get skippedStatus => 'MISSED';
+  String get myPick => 'MY PICK';
+  String get correctPick => 'CORRECT';
+  String get wrongPick => 'PICKED';
+  String get answerTag => 'ANSWER';
+  String get lockedMessage => 'Locked · Waiting for match to confirm result';
+  String get skippedMessage => 'You didn\'t answer this question in time.';
+  String get categoryGoal => 'GOAL';
+  String get categoryCard => 'CARD';
+  String get categoryCorner => 'CORNER';
+  String get categoryVar => 'VAR';
+  String get categorySub => 'SUBSTITUTION';
+  String get categoryTime => 'TIME';
+  String get categoryStat => 'STATS';
+  String get categoryMomentum => 'MOMENTUM';
 
   // Leaderboard tabs
   String get tabMatch => 'This match';

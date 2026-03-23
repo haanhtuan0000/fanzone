@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/question.dart';
 import '../providers/predict_provider.dart';
 
@@ -11,6 +12,7 @@ class AnsweredCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     final q = answered.question;
     final status = answered.status;
     final isSkip = status == 'skip';
@@ -90,7 +92,7 @@ class AnsweredCard extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
-                        'Da dong · Cho tran dau xac nhan ket qua',
+                        s.lockedMessage,
                         style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
                       ),
                     ),
@@ -98,7 +100,7 @@ class AnsweredCard extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 6),
                       child: Text(
-                        'Ban da khong tra loi cau hoi nay.',
+                        s.skippedMessage,
                         style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
                       ),
                     ),
@@ -146,23 +148,24 @@ class AnsweredCard extends StatelessWidget {
   }
 
   Widget _buildStatusChip(String status, int? coins) {
+    final s = AppStrings.current;
     String text;
     Color color;
     switch (status) {
       case 'correct':
-        text = 'DUNG · +${coins ?? 0}';
+        text = '${s.correctStatus} · +${coins ?? 0}';
         color = AppColors.neonGreen;
         break;
       case 'wrong':
-        text = 'SAI · ${coins ?? -50}';
+        text = '${s.wrongStatus} · ${coins ?? -50}';
         color = AppColors.red;
         break;
       case 'pending':
-        text = 'CHO KET QUA';
+        text = s.pendingStatus;
         color = AppColors.amber;
         break;
       default:
-        text = 'BO LO';
+        text = s.skippedStatus;
         color = AppColors.textSecondary;
     }
     return Text(
@@ -209,8 +212,8 @@ class AnsweredCard extends StatelessWidget {
           ),
           Text('${option.fanPct}%', style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(width: 6),
-          if (isMyPick) _buildTag(status == 'pending' ? 'LUA CHON' : (status == 'correct' ? 'DUNG' : 'DA CHON'), status),
-          if (!isMyPick && status == 'answer') _buildTag('DAP AN', 'answer'),
+          if (isMyPick) _buildTag(status == 'pending' ? s.myPick : (status == 'correct' ? s.correctPick : s.wrongPick), status),
+          if (!isMyPick && status == 'answer') _buildTag(s.answerTag, 'answer'),
         ],
       ),
     );
@@ -276,15 +279,16 @@ class AnsweredCard extends StatelessWidget {
   }
 
   String _categoryLabel(String category) {
+    final s = AppStrings.current;
     switch (category) {
-      case 'GOAL': return 'GHI BAN';
-      case 'CARD': return 'THE PHAT';
-      case 'CORNER': return 'PHAT GOC';
-      case 'VAR': return 'VAR';
-      case 'SUB': return 'THAY NGUOI';
-      case 'TIME': return 'THOI GIAN';
-      case 'STAT': return 'THONG KE';
-      case 'MOMENTUM': return 'DIEN BIEN';
+      case 'GOAL': return s.categoryGoal;
+      case 'CARD': return s.categoryCard;
+      case 'CORNER': return s.categoryCorner;
+      case 'VAR': return s.categoryVar;
+      case 'SUB': return s.categorySub;
+      case 'TIME': return s.categoryTime;
+      case 'STAT': return s.categoryStat;
+      case 'MOMENTUM': return s.categoryMomentum;
       default: return category;
     }
   }

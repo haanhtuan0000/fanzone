@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class ProgressStrip extends StatelessWidget {
   final List<String> dots;
@@ -20,6 +21,7 @@ class ProgressStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -30,7 +32,7 @@ class ProgressStrip extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'TIEN DO',
+            s.progress,
             style: TextStyle(
               fontFamily: AppFonts.bebasNeue,
               fontSize: 10,
@@ -39,7 +41,6 @@ class ProgressStrip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // Dots — flexible, shrink if needed
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -63,7 +64,6 @@ class ProgressStrip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // Coins — fixed width, never overlaps
           Text(
             '${totalCoins >= 0 ? "+" : ""}$totalCoins',
             style: TextStyle(

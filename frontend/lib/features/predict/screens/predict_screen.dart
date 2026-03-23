@@ -11,12 +11,14 @@ import '../widgets/question_queue.dart';
 import '../widgets/progress_strip.dart';
 import '../widgets/answered_card.dart';
 import '../widgets/no_question_banner.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class PredictScreen extends ConsumerWidget {
   const PredictScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final s = AppStrings.current;
     final predictState = ref.watch(predictStateProvider);
     final activeMatch = ref.watch(liveStateProvider).activeMatch;
 
@@ -124,7 +126,7 @@ class PredictScreen extends ConsumerWidget {
 
               // Section divider
               SliverToBoxAdapter(
-                child: _sectionDivider('CAU HOI DANG MO'),
+                child: _sectionDivider(s.activeQuestion),
               ),
 
               // Question card
@@ -187,7 +189,7 @@ class PredictScreen extends ConsumerWidget {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 textStyle: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 16, letterSpacing: 1),
                               ),
-                              child: const Text('XAC NHAN DU DOAN'),
+                              child: Text(s.confirmBtn),
                             ),
                           ),
                         if (predictState.isLocked)
@@ -199,7 +201,7 @@ class PredictScreen extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: AppColors.neonGreen.withOpacity(0.3)),
                             ),
-                            child: Text('DA XAC NHAN',
+                            child: Text(s.confirmedBtn,
                               style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 16,
                                 color: AppColors.neonGreen, letterSpacing: 2)),
                           ),
@@ -220,7 +222,7 @@ class PredictScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.red.withOpacity(0.3)),
                     ),
-                    child: Text('HET GIO — DANG TAI CAU TIEP...',
+                    child: Text(s.timeUp,
                       style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 16,
                         color: AppColors.red, letterSpacing: 2)),
                   ),
@@ -242,11 +244,11 @@ class PredictScreen extends ConsumerWidget {
                     children: [
                       Icon(Icons.bolt, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
                       const SizedBox(height: 16),
-                      const Text('Chua co cau hoi',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 18)),
+                      Text(s.noQuestionsEmpty,
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 18)),
                       const SizedBox(height: 8),
-                      const Text('Cho tran dau bat dau de du doan',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                      Text(s.waitForMatchStart,
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
                     ],
                   ),
                 ),
@@ -256,7 +258,7 @@ class PredictScreen extends ConsumerWidget {
             if (answered.isNotEmpty) ...[
               // Split into resolved and pending
               if (answered.any((a) => a.status == 'correct' || a.status == 'wrong'))
-                SliverToBoxAdapter(child: _sectionDivider('CO KET QUA')),
+                SliverToBoxAdapter(child: _sectionDivider(s.hasResults)),
 
               SliverList(
                 delegate: SliverChildBuilderDelegate(
@@ -271,7 +273,7 @@ class PredictScreen extends ConsumerWidget {
 
               if (answered.any((a) => a.status == 'pending'))
                 SliverToBoxAdapter(
-                  child: _sectionDivider('DANG CHO KET QUA · $pendingCount CAU'),
+                  child: _sectionDivider(s.waitingResultsCount(pendingCount)),
                 ),
 
               SliverList(
@@ -286,7 +288,7 @@ class PredictScreen extends ConsumerWidget {
               ),
 
               if (answered.any((a) => a.status == 'skip'))
-                SliverToBoxAdapter(child: _sectionDivider('BO LO')),
+                SliverToBoxAdapter(child: _sectionDivider(s.skipped)),
 
               SliverList(
                 delegate: SliverChildBuilderDelegate(
@@ -302,7 +304,7 @@ class PredictScreen extends ConsumerWidget {
 
             // Upcoming queue
             if (predictState.upcomingQuestions.isNotEmpty) ...[
-              SliverToBoxAdapter(child: _sectionDivider('SAP TOI')),
+              SliverToBoxAdapter(child: _sectionDivider(s.upcoming)),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
