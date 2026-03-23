@@ -84,6 +84,10 @@ class LiveNotifier extends StateNotifier<LiveState> {
 
   void selectMatch(MatchData match) {
     state = state.copyWith(activeMatch: match);
+    // Fetch stats for newly selected match if not loaded
+    if (match.statistics == null || match.statistics!.isEmpty) {
+      _fetchStatsForMatch(match.fixtureId);
+    }
   }
 
   void updateMatchScore(int fixtureId, int homeScore, int awayScore, int? elapsed) {

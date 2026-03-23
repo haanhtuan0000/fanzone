@@ -50,18 +50,25 @@ export class MatchesService {
       this.redis.getJson<any[]>(`cache:fixture:${fixtureId}:stats`),
     ]);
 
-    // If pollers haven't cached this fixture yet, fetch directly
-    if (!score && !events && !stats) {
-      const [fetchedEvents, fetchedStats] = await Promise.all([
-        this.apiFootball.getFixtureEvents(fixtureId),
-        this.apiFootball.getFixtureStatistics(fixtureId),
-      ]);
-      await this.redis.setJson(`cache:fixture:${fixtureId}:events`, fetchedEvents, 20);
-      await this.redis.setJson(`cache:fixture:${fixtureId}:stats`, fetchedStats, 65);
-      return { fixtureId, score: null, events: fetchedEvents, statistics: fetchedStats };
+    // Fetch any missing data directly from API
+    let finalEvents = events;
+    let finalStats = stats;
+
+    if (!finalEvents || finalEvents.length === 0) {
+      try {
+        finalEvents = await this.apiFootball.getFixtureEvents(fixtureId) as any[];
+        await this.redis.setJson(`cache:fixture:${fixtureId}:events`, finalEvents, 120);
+      } catch (_) { finalEvents = []; }
     }
 
-    return { fixtureId, score, events: events ?? [], statistics: stats ?? [] };
+    if (!finalStats || finalStats.length === 0) {
+      try {
+        finalStats = await this.apiFootball.getFixtureStatistics(fixtureId) as any[];
+        await this.redis.setJson(`cache:fixture:${fixtureId}:stats`, finalStats, 300);
+      } catch (_) { finalStats = []; }
+    }
+
+    return { fixtureId, score, events: finalEvents, statistics: finalStats };
   }
 
   /**
