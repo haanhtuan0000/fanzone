@@ -52,6 +52,10 @@ class ApiClient {
       final response = await Dio().post(
         '${ApiEndpoints.baseUrl}${ApiEndpoints.refresh}',
         data: {'refreshToken': refreshToken},
+        options: Options(
+          receiveTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 30),
+        ),
       );
 
       final data = response.data;
@@ -60,8 +64,15 @@ class ApiClient {
         refreshToken: data['refreshToken'],
       );
       return true;
+    } on DioException catch (e) {
+      // Only clear tokens on definitive server rejection (401/403)
+      // NOT on network errors, timeouts, or server unavailable
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        await _storage.clearTokens();
+      }
+      return false;
     } catch (_) {
-      await _storage.clearTokens();
+      // Unknown error — don't clear tokens
       return false;
     }
   }
