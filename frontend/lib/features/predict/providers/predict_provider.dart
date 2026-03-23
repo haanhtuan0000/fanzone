@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/question.dart';
 import '../../../core/network/api_client.dart';
@@ -257,8 +258,23 @@ class PredictNotifier extends StateNotifier<PredictState> {
       // Start polling for result (fallback if WS misses it)
       _pollForResult(state.activeQuestion!.id);
     } catch (e) {
-      state = state.copyWith(isLocked: false, error: e.toString());
+      state = state.copyWith(isLocked: false, error: _parseError(e));
     }
+  }
+
+  String _parseError(dynamic e) {
+    if (e is DioException && e.response?.data != null) {
+      final data = e.response!.data;
+      if (data is Map && data['message'] != null) {
+        return data['message'] as String;
+      }
+    }
+    final msg = e.toString();
+    if (msg.contains('Not enough coins')) return 'Not enough coins';
+    if (msg.contains('not open')) return 'Question is no longer open';
+    if (msg.contains('expired')) return 'Question expired';
+    if (msg.contains('Already predicted')) return 'Already predicted on this question';
+    return 'Something went wrong. Try again.';
   }
 
   /// Handle a real-time prediction_result from WebSocket
