@@ -68,6 +68,58 @@ export class TemplateService {
   }
 
   /**
+   * Select templates for a phase with category preferences.
+   * Tries each preferred category in order, then fills remaining with any category.
+   */
+  async selectForPhaseWithCategories(
+    phase: MatchPhase,
+    excludeIds: string[] = [],
+    preferredDifficulty: QuestionDifficulty,
+    categories: string[],
+    count: number = 1,
+  ) {
+    const selected: any[] = [];
+
+    // Try each preferred category in order
+    for (const category of categories) {
+      if (selected.length >= count) break;
+      const tpl = await this.selectTemplate({
+        phases: [phase],
+        difficulty: preferredDifficulty,
+        trigger: 'SCHEDULED',
+        category,
+        excludeIds: [...excludeIds, ...selected.map((s) => s.id)],
+      });
+      if (tpl) selected.push(tpl);
+    }
+
+    // Fill remaining with any category at preferred difficulty
+    while (selected.length < count) {
+      const tpl = await this.selectTemplate({
+        phases: [phase],
+        difficulty: preferredDifficulty,
+        trigger: 'SCHEDULED',
+        excludeIds: [...excludeIds, ...selected.map((s) => s.id)],
+      });
+      if (!tpl) break;
+      selected.push(tpl);
+    }
+
+    // Fill remaining with any difficulty
+    while (selected.length < count) {
+      const tpl = await this.selectTemplate({
+        phases: [phase],
+        trigger: 'SCHEDULED',
+        excludeIds: [...excludeIds, ...selected.map((s) => s.id)],
+      });
+      if (!tpl) break;
+      selected.push(tpl);
+    }
+
+    return selected;
+  }
+
+  /**
    * Select a template for an event trigger (e.g., EVENT_GOAL, EVENT_CARD).
    */
   async selectForEvent(

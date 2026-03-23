@@ -28,19 +28,26 @@ interface FixtureState {
 }
 
 /**
- * Question distribution per phase.
- * Defines how many scheduled questions to generate and the preferred difficulty.
+ * Question distribution per phase (from FanZone_Question_Bank.docx).
+ * Each phase has: count, difficulty, and preferred categories (in priority order).
  */
-const PHASE_CONFIG: Record<MatchPhase, { count: number; difficulty: QuestionDifficulty }> = {
-  PRE_MATCH: { count: 1, difficulty: 'EASY' },
-  EARLY_H1: { count: 2, difficulty: 'EASY' },
-  MID_H1: { count: 2, difficulty: 'MEDIUM' },
-  LATE_H1: { count: 1, difficulty: 'MEDIUM' },
-  HALF_TIME: { count: 2, difficulty: 'MEDIUM' },
-  EARLY_H2: { count: 2, difficulty: 'MEDIUM' },
-  MID_H2: { count: 2, difficulty: 'HARD' },
-  LATE_H2: { count: 1, difficulty: 'HARD' },
+const PHASE_CONFIG: Record<MatchPhase, {
+  count: number;
+  difficulty: QuestionDifficulty;
+  categories: string[]; // Preferred categories in order
+}> = {
+  PRE_MATCH:  { count: 2, difficulty: 'EASY',   categories: ['GOAL', 'CORNER'] },
+  EARLY_H1:   { count: 2, difficulty: 'EASY',   categories: ['CARD', 'STAT'] },
+  MID_H1:     { count: 2, difficulty: 'MEDIUM', categories: ['VAR', 'SUB'] },
+  LATE_H1:    { count: 1, difficulty: 'MEDIUM', categories: ['GOAL', 'CORNER'] },
+  HALF_TIME:  { count: 2, difficulty: 'MEDIUM', categories: ['MOMENTUM', 'GOAL'] },
+  EARLY_H2:   { count: 2, difficulty: 'MEDIUM', categories: ['SUB', 'VAR'] },
+  MID_H2:     { count: 2, difficulty: 'HARD',   categories: ['CARD', 'GOAL'] },
+  LATE_H2:    { count: 2, difficulty: 'HARD',   categories: ['TIME', 'GOAL'] },
 };
+
+/** Maximum scheduled questions per match (doc says 13-15) */
+const MAX_QUESTIONS_PER_MATCH = 15;
 
 /** Map event types to template trigger names */
 const EVENT_TRIGGER_MAP: Record<string, string> = {
@@ -94,24 +101,44 @@ export class MatchScenarioEngine {
     const state = this.getOrCreateState(fixtureId, newPhase);
     state.currentPhase = newPhase;
 
+    // Enforce max questions per match
+    if (state.questionsGenerated >= MAX_QUESTIONS_PER_MATCH) {
+      this.logger.log(`[${fixtureId}] Max ${MAX_QUESTIONS_PER_MATCH} questions reached, skipping`);
+      return [];
+    }
+
     const config = PHASE_CONFIG[newPhase];
+    const remaining = MAX_QUESTIONS_PER_MATCH - state.questionsGenerated;
+    const count = Math.min(config.count, remaining);
     const excludeIds = await this.getUsedTemplateIds(fixtureId);
 
-    let templates = await this.templateService.selectForPhase(
+    // Select templates with category preference
+    let templates = await this.templateService.selectForPhaseWithCategories(
       newPhase,
       excludeIds,
       config.difficulty,
-      config.count,
+      config.categories,
+      count,
     );
 
-    // Fallback: if sliding window excluded all templates for this phase, retry without exclusions
+    // Fallback: if no templates found with preferred categories, try any category
+    if (templates.length === 0) {
+      templates = await this.templateService.selectForPhase(
+        newPhase,
+        excludeIds,
+        config.difficulty,
+        count,
+      );
+    }
+
+    // Fallback: retry without exclusions if still empty
     if (templates.length === 0 && excludeIds.length > 0) {
       this.logger.warn(`[${fixtureId}] All templates excluded for ${newPhase}, retrying without window`);
       templates = await this.templateService.selectForPhase(
         newPhase,
         [],
         config.difficulty,
-        config.count,
+        count,
       );
     }
 
@@ -155,6 +182,12 @@ export class MatchScenarioEngine {
     if (!trigger) return null;
 
     const state = this.getOrCreateState(fixtureId);
+
+    // Max questions cap
+    if (state.questionsGenerated >= MAX_QUESTIONS_PER_MATCH) {
+      this.logger.debug(`[${fixtureId}] Max questions reached, skipping event ${eventType}`);
+      return null;
+    }
 
     // Cooldown check
     if (Date.now() - state.lastQuestionTime < COOLDOWN_MS) {
