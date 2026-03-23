@@ -247,10 +247,7 @@ class PredictNotifier extends StateNotifier<PredictState> {
       }
 
       // Start polling for result (fallback if WS misses it)
-      final prediction = data['prediction'] as Map<String, dynamic>?;
-      if (prediction != null && prediction['id'] != null) {
-        _pollForResult(prediction['id'] as String);
-      }
+      _pollForResult(state.activeQuestion!.id);
     } catch (e) {
       state = state.copyWith(isLocked: false, error: e.toString());
     }
@@ -300,7 +297,7 @@ class PredictNotifier extends StateNotifier<PredictState> {
     state = state.copyWith(activeQuestion: updatedQuestion);
   }
 
-  Future<void> _pollForResult(String predictionId) async {
+  Future<void> _pollForResult(String questionId) async {
     for (var i = 0; i < 60; i++) {
       await Future.delayed(const Duration(seconds: 5));
       if (!mounted) return;
@@ -309,8 +306,8 @@ class PredictNotifier extends StateNotifier<PredictState> {
       if (_currentFixtureId != null) {
         await loadQuestions(_currentFixtureId!);
       }
-      // Stop if the active question changed (meaning it was resolved)
-      if (state.activeQuestion?.id != predictionId) return;
+      // Stop if the active question changed (meaning it was resolved/locked)
+      if (state.activeQuestion?.id != questionId) return;
     }
   }
 }
