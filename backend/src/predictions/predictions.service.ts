@@ -64,8 +64,10 @@ export class PredictionsService {
     const updatedOptions = question.options.map((opt) => {
       const fans = parseInt(fanData[opt.id] || '0');
       const fanPct = totalFans > 0 ? fans / totalFans : 0;
-      const multiplier = fanPct > 0 ? Math.round((1 / fanPct) * 10) / 10 : question.options.length;
-      return { id: opt.id, fanCount: fans, fanPct: Math.round(fanPct * 100), multiplier: Math.max(1.1, multiplier) };
+      // Live multiplier from fan distribution, but never below the original template multiplier
+      const liveMultiplier = fanPct > 0 ? Math.round((1 / fanPct) * 10) / 10 : opt.multiplier;
+      const multiplier = Math.max(opt.multiplier, liveMultiplier);
+      return { id: opt.id, fanCount: fans, fanPct: Math.round(fanPct * 100), multiplier };
     });
 
     // Persist updated multipliers + fan counts to DB (so scoring uses live values)
