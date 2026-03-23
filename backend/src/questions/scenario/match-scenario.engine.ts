@@ -36,8 +36,8 @@ const PHASE_CONFIG: Record<MatchPhase, {
   difficulty: QuestionDifficulty;
   categories: string[]; // Preferred categories in order
 }> = {
-  PRE_MATCH:  { count: 2, difficulty: 'EASY',   categories: ['GOAL', 'CORNER'] },
-  EARLY_H1:   { count: 2, difficulty: 'EASY',   categories: ['CARD', 'STAT'] },
+  PRE_MATCH:  { count: 0, difficulty: 'EASY',   categories: [] }, // Not used — matches detected after kickoff
+  EARLY_H1:   { count: 2, difficulty: 'EASY',   categories: ['GOAL', 'CARD', 'STAT'] },
   MID_H1:     { count: 2, difficulty: 'MEDIUM', categories: ['VAR', 'SUB'] },
   LATE_H1:    { count: 1, difficulty: 'MEDIUM', categories: ['GOAL', 'CORNER'] },
   HALF_TIME:  { count: 2, difficulty: 'MEDIUM', categories: ['MOMENTUM', 'GOAL'] },
