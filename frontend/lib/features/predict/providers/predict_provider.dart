@@ -80,7 +80,9 @@ class PredictState {
     );
   }
 
-  /// Progress dot states for the strip
+  /// Progress dot states for the strip.
+  /// Only shows dots for questions the user has already seen (active + answered).
+  /// No dots for upcoming/future questions.
   List<String> get progressDots {
     final dots = <String>[];
     for (final aq in answeredQuestions.reversed) {
@@ -88,9 +90,6 @@ class PredictState {
     }
     if (activeQuestion != null) {
       dots.add('active');
-    }
-    for (var i = 0; i < upcomingQuestions.length; i++) {
-      dots.add('upcoming');
     }
     return dots;
   }

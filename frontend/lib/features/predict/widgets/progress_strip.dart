@@ -13,8 +13,8 @@ class ProgressStrip extends StatelessWidget {
       case 'wrong': return AppColors.red;
       case 'pending': return AppColors.amber;
       case 'active': return const Color(0xFF0A84FF);
-      case 'skip': return AppColors.textSecondary.withOpacity(0.3);
-      default: return AppColors.textSecondary.withOpacity(0.15);
+      case 'skip': return AppColors.textSecondary.withOpacity(0.38);
+      default: return AppColors.textSecondary.withOpacity(0.38);
     }
   }
 
