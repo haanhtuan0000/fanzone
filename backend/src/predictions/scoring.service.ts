@@ -102,17 +102,20 @@ export class ScoringService {
       // Check achievements
       await this.achievementService.checkAndUnlock(prediction.userId);
 
-      // Create feed event (reuse question from leaderboard section above)
+      // Create feed event — short message with question topic
       if (question) {
-        const displayName = user.displayName || 'Fan';
+        // Shorten question text to just the topic (first 30 chars)
+        const shortQuestion = question.text.length > 30
+          ? question.text.substring(0, 30) + '...'
+          : question.text;
         await this.prisma.feedEvent.create({
           data: {
             fixtureId: question.fixtureId,
             userId: prediction.userId,
             type: isCorrect ? 'CORRECT' : 'WRONG',
             message: isCorrect
-              ? `${displayName} predicted correctly and won ${coinsResult} coins!|${displayName} dự đoán đúng và nhận ${coinsResult} coins!`
-              : `${displayName} predicted wrong and lost ${Math.abs(coinsResult)} coins|${displayName} dự đoán sai và mất ${Math.abs(coinsResult)} coins`,
+              ? `Correct: ${shortQuestion}|Dự đoán đúng: ${shortQuestion}`
+              : `Wrong: ${shortQuestion}|Dự đoán sai: ${shortQuestion}`,
             coinsDelta: coinsResult,
           },
         });
