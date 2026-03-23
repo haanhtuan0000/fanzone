@@ -9,6 +9,8 @@ export class PredictionsService {
     private redis: RedisService,
   ) {}
 
+  private readonly FIXED_BET = 50; // Doc: "Cược điểm cố định 50🪙/câu"
+
   async submitPrediction(userId: string, questionId: string, optionId: string) {
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },
@@ -27,12 +29,27 @@ export class PredictionsService {
     });
     if (existing) throw new ConflictException('Already predicted');
 
+    // Check user has enough coins
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { coins: true },
+    });
+    if (!user || user.coins < this.FIXED_BET) {
+      throw new BadRequestException('Not enough coins');
+    }
+
+    // Deduct coins upfront
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { coins: { decrement: this.FIXED_BET } },
+    });
+
     const prediction = await this.prisma.prediction.create({
       data: {
         userId,
         questionId,
         optionId,
-        coinsBet: question.rewardCoins,
+        coinsBet: this.FIXED_BET,
       },
     });
 

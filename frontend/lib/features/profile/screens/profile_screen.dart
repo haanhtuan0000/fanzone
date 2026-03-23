@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../predict/providers/predict_provider.dart';
+import '../../live/providers/live_provider.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/profile_hero.dart';
 import '../widgets/xp_bar.dart';
@@ -49,6 +51,10 @@ class ProfileScreen extends ConsumerWidget {
                       onPressed: () {
                         Navigator.pop(ctx);
                         ref.read(authStateProvider.notifier).logout();
+                        ref.invalidate(profileStateProvider);
+                        ref.invalidate(predictStateProvider);
+                        ref.invalidate(liveStateProvider);
+                        ref.read(userCoinsProvider.notifier).state = 0;
                         context.go('/welcome');
                       },
                       child: Text(s.logout, style: const TextStyle(color: AppColors.red)),

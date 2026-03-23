@@ -26,9 +26,14 @@ export class ScoringService {
     for (const prediction of predictions) {
       const isCorrect = prediction.optionId === correctOptionId;
       const multiplier = prediction.option.multiplier;
+      // Coins were already deducted upfront (50🪙).
+      // Win: return bet × multiplier. Net gain = (bet × multiplier) - bet.
+      // Loss: nothing returned. Net loss = -bet (already taken).
+      const winnings = isCorrect ? Math.round(prediction.coinsBet * multiplier) : 0;
       const coinsResult = isCorrect
-        ? Math.round(prediction.coinsBet * multiplier)
-        : -prediction.coinsBet;
+        ? winnings - prediction.coinsBet  // Net gain for display (+75 if 50 × 2.5)
+        : -prediction.coinsBet;           // Net loss for display (-50)
+      const coinsToAdd = winnings; // Actual coins to add back (125 for win, 0 for loss)
       const xpEarned = isCorrect ? 10 : 2;
 
       // Update prediction
@@ -43,10 +48,11 @@ export class ScoringService {
       });
 
       // Update user coins and stats
+      // coinsToAdd: win = full payout (bet × multiplier), loss = 0 (already deducted)
       const user = await this.prisma.user.update({
         where: { id: prediction.userId },
         data: {
-          coins: { increment: coinsResult },
+          coins: { increment: coinsToAdd },
           totalPredictions: { increment: 1 },
           correctPredictions: { increment: isCorrect ? 1 : 0 },
         },
@@ -103,8 +109,8 @@ export class ScoringService {
             userId: prediction.userId,
             type: isCorrect ? 'CORRECT' : 'WRONG',
             message: isCorrect
-              ? `${displayName} du doan dung va nhan ${coinsResult} coins!`
-              : `${displayName} du doan sai va mat ${Math.abs(coinsResult)} coins`,
+              ? `${displayName} predicted correctly and won ${coinsResult} coins!|${displayName} dự đoán đúng và nhận ${coinsResult} coins!`
+              : `${displayName} predicted wrong and lost ${Math.abs(coinsResult)} coins|${displayName} dự đoán sai và mất ${Math.abs(coinsResult)} coins`,
             coinsDelta: coinsResult,
           },
         });
