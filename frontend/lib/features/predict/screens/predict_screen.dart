@@ -7,10 +7,8 @@ import '../widgets/countdown_strip.dart';
 import '../widgets/predict_card.dart';
 import '../widgets/option_button.dart';
 import '../widgets/coin_stake_display.dart';
-import '../widgets/question_queue.dart';
 import '../widgets/progress_strip.dart';
 import '../widgets/answered_card.dart';
-import '../widgets/no_question_banner.dart';
 import '../../../core/l10n/app_strings.dart';
 
 class PredictScreen extends ConsumerWidget {
@@ -219,33 +217,10 @@ class PredictScreen extends ConsumerWidget {
                   ),
                 ),
 
-              // Expired message
-              if (predictState.isExpired)
-                SliverToBoxAdapter(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    height: 48,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.red.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.red.withOpacity(0.3)),
-                    ),
-                    child: Text(s.timeUp,
-                      style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 16,
-                        color: AppColors.red, letterSpacing: 2)),
-                  ),
-                ),
             ],
 
-            // No active question banner
-            if (question == null && answered.isNotEmpty)
-              SliverToBoxAdapter(
-                child: NoQuestionBanner(pendingCount: pendingCount),
-              ),
-
-            // Empty state
-            if (question == null && answered.isEmpty && predictState.upcomingQuestions.isEmpty)
+            // Empty state — only if truly no questions at all
+            if (question == null && answered.isEmpty)
               SliverFillRemaining(
                 child: Center(
                   child: Column(
@@ -307,17 +282,6 @@ class PredictScreen extends ConsumerWidget {
                     return AnsweredCard(answered: skipList[index], index: index + 1);
                   },
                   childCount: answered.where((a) => a.status == 'skip').length,
-                ),
-              ),
-            ],
-
-            // Upcoming queue
-            if (predictState.upcomingQuestions.isNotEmpty) ...[
-              SliverToBoxAdapter(child: _sectionDivider(s.upcoming)),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: QuestionQueue(questions: predictState.upcomingQuestions),
                 ),
               ),
             ],

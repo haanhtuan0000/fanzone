@@ -84,6 +84,8 @@ class PredictState {
   List<String> get progressDots {
     final dots = <String>[];
     for (final aq in answeredQuestions.reversed) {
+      // Only show dots for questions the user interacted with (predicted or got result)
+      if (aq.status == 'skip' && aq.myPickOptionId == null) continue;
       dots.add(aq.status);
     }
     if (activeQuestion != null) {
@@ -216,12 +218,10 @@ class PredictNotifier extends StateNotifier<PredictState> {
   void expireQuestion() {
     if (state.isExpired) return;
     state = state.copyWith(isExpired: true, isLocked: true);
-    // Auto-advance after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted && _currentFixtureId != null) {
-        loadQuestions(_currentFixtureId!);
-      }
-    });
+    // Immediately load next question — no TIME UP delay
+    if (mounted && _currentFixtureId != null) {
+      loadQuestions(_currentFixtureId!);
+    }
   }
 
   void selectOption(String optionId) {
