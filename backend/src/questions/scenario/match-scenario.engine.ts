@@ -257,6 +257,12 @@ export class MatchScenarioEngine {
       const now = new Date();
       const closesAt = new Date(now.getTime() + tpl.answerWindowSec * 1000);
 
+      // For TIMEOUT_DEFAULT questions, compute when to auto-resolve
+      const timeoutWindowMin = tpl.timeoutWindowMin as number | undefined;
+      const resolvesAt = timeoutWindowMin
+        ? new Date(now.getTime() + timeoutWindowMin * 60_000).toISOString()
+        : undefined;
+
       const question = await this.questionsService.createQuestion({
         fixtureId,
         category: tpl.category,
@@ -269,6 +275,7 @@ export class MatchScenarioEngine {
         rewardCoins: tpl.rewardCoins,
         opensAt: now.toISOString(),
         closesAt: closesAt.toISOString(),
+        resolvesAt,
         options: options.map((opt) => ({
           name: opt.name,
           emoji: opt.emoji,

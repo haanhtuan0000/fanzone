@@ -59,6 +59,8 @@ export class QuestionsService {
     triggeredByEvent?: string;
     opensAt: string;
     closesAt: string;
+    resolvesAt?: string;
+    metadata?: any;
     options: Array<{ name: string; emoji?: string; info?: string; multiplier?: number }>;
   }) {
     const question = await this.prisma.question.create({
@@ -74,6 +76,8 @@ export class QuestionsService {
         rewardCoins: data.rewardCoins || 50,
         opensAt: new Date(data.opensAt),
         closesAt: new Date(data.closesAt),
+        resolvesAt: data.resolvesAt ? new Date(data.resolvesAt) : undefined,
+        metadata: data.metadata ?? undefined,
         options: {
           create: data.options.map((opt) => ({
             name: opt.name,

@@ -19,6 +19,7 @@ export interface QuestionTemplateSeed {
   answerWindowSec: number;
   options: Array<{ nameVi: string; nameEn: string; emoji: string; defaultPct: number }>;
   resolutionStrategy: string;
+  timeoutWindowMin?: number; // For TIMEOUT_DEFAULT: minutes after question to auto-resolve
   weight: number;
 }
 
@@ -78,6 +79,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
       { nameVi: 'Không có bàn thắng', nameEn: 'No goal', emoji: '🚫', defaultPct: 37 },
     ],
     resolutionStrategy: 'TIMEOUT_DEFAULT',
+    timeoutWindowMin: 10,
     weight: 120,
   },
   {
@@ -86,15 +88,15 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     difficulty: 'EXPERT',
     trigger: 'EVENT_GOAL',
     phases: ['MID_H1', 'MID_H2', 'LATE_H2'],
-    textVi: 'Bàn thắng tiếp theo là đầu hay chân?',
-    textEn: 'Next goal: header or foot?',
+    textVi: 'Bàn thắng tiếp theo ghi bằng cách nào?',
+    textEn: 'How will the next goal be scored?',
     rewardCoins: 480,
     answerWindowSec: 35,
     options: [
       { nameVi: 'Đánh đầu', nameEn: 'Header', emoji: '🗣️', defaultPct: 18 },
-      { nameVi: 'Chân thuận', nameEn: 'Strong foot', emoji: '🦶', defaultPct: 52 },
-      { nameVi: 'Chân trái', nameEn: 'Weak foot', emoji: '🦶', defaultPct: 22 },
-      { nameVi: 'Phản lưới', nameEn: 'Own goal', emoji: '😱', defaultPct: 8 },
+      { nameVi: 'Sút bình thường', nameEn: 'Normal shot', emoji: '🦶', defaultPct: 50 },
+      { nameVi: 'Phạt đền', nameEn: 'Penalty', emoji: '⚽', defaultPct: 15 },
+      { nameVi: 'Phản lưới', nameEn: 'Own goal', emoji: '😱', defaultPct: 17 },
     ],
     resolutionStrategy: 'AUTO',
     weight: 40,
@@ -190,6 +192,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
       { nameVi: 'Không có thẻ vàng', nameEn: 'No yellow card', emoji: '✅', defaultPct: 48 },
     ],
     resolutionStrategy: 'TIMEOUT_DEFAULT',
+    timeoutWindowMin: 15,
     weight: 100,
   },
   {
@@ -245,6 +248,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
       { nameVi: 'Không ai nhận thẻ', nameEn: 'Nobody', emoji: '✅', defaultPct: 33 },
     ],
     resolutionStrategy: 'TIMEOUT_DEFAULT',
+    timeoutWindowMin: 15,
     weight: 90,
   },
   {
@@ -263,6 +267,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
       { nameVi: 'Không ai bị đuổi', nameEn: 'Nobody sent off', emoji: '✅', defaultPct: 50 },
     ],
     resolutionStrategy: 'TIMEOUT_DEFAULT',
+    // No timeoutWindowMin — resolves at FT or on second yellow event
     weight: 60,
   },
 
@@ -283,6 +288,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
       { nameVi: 'Không có phạt góc', nameEn: 'No corner', emoji: '🚫', defaultPct: 36 },
     ],
     resolutionStrategy: 'TIMEOUT_DEFAULT',
+    timeoutWindowMin: 5,
     weight: 120,
   },
   {
@@ -308,18 +314,19 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     code: 'Q016',
     category: 'CORNER',
     difficulty: 'HARD',
-    trigger: 'EVENT_CORNER',
-    phases: ['EARLY_H1', 'MID_H1', 'EARLY_H2', 'MID_H2', 'LATE_H2'],
-    textVi: 'Phạt góc tiếp theo có dẫn đến bàn thắng?',
-    textEn: 'Will the next corner lead to a goal?',
+    trigger: 'SCHEDULED',
+    phases: ['EARLY_H1', 'MID_H1', 'EARLY_H2', 'MID_H2'],
+    textVi: 'Có bàn thắng từ tình huống cố định trong 10 phút tới?',
+    textEn: 'Goal from a set piece in the next 10 minutes?',
     rewardCoins: 240,
     answerWindowSec: 30,
     options: [
-      { nameVi: 'Có — bàn trực tiếp', nameEn: 'Yes — direct goal', emoji: '⚽', defaultPct: 10 },
-      { nameVi: 'Có — bàn từ pha 2', nameEn: 'Yes — second ball', emoji: '⚽', defaultPct: 15 },
-      { nameVi: 'Không có bàn', nameEn: 'No goal', emoji: '🚫', defaultPct: 75 },
+      { nameVi: 'Có — từ phạt góc/đá phạt', nameEn: 'Yes — from corner/free kick', emoji: '⚽', defaultPct: 20 },
+      { nameVi: 'Có — từ phạt đền', nameEn: 'Yes — from penalty', emoji: '⚽', defaultPct: 10 },
+      { nameVi: 'Không có bàn', nameEn: 'No set piece goal', emoji: '🚫', defaultPct: 70 },
     ],
-    resolutionStrategy: 'AUTO',
+    resolutionStrategy: 'TIMEOUT_DEFAULT',
+    timeoutWindowMin: 10,
     weight: 70,
   },
   {
@@ -337,7 +344,8 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
       { nameVi: '{away_team}', nameEn: '{away_team}', emoji: '✈️', defaultPct: 38 },
       { nameVi: 'Bằng nhau', nameEn: 'Equal', emoji: '🤝', defaultPct: 10 },
     ],
-    resolutionStrategy: 'AUTO',
+    resolutionStrategy: 'TIMEOUT_DEFAULT',
+    timeoutWindowMin: 10,
     weight: 75,
   },
 
@@ -359,6 +367,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
       { nameVi: 'Không có VAR', nameEn: 'No VAR', emoji: '✅', defaultPct: 50 },
     ],
     resolutionStrategy: 'TIMEOUT_DEFAULT',
+    timeoutWindowMin: 15,
     weight: 70,
   },
   {
@@ -411,6 +420,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
       { nameVi: 'Không', nameEn: 'No', emoji: '✅', defaultPct: 65 },
     ],
     resolutionStrategy: 'TIMEOUT_DEFAULT',
+    timeoutWindowMin: 10,
     weight: 80,
   },
 
@@ -466,6 +476,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
       { nameVi: 'Không ghi bàn', nameEn: 'No goal', emoji: '❌', defaultPct: 78 },
     ],
     resolutionStrategy: 'TIMEOUT_DEFAULT',
+    // No timeoutWindowMin — resolves at FT or if the sub player scores
     weight: 60,
   },
   {
