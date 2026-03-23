@@ -185,6 +185,20 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
           await this.questionGenerator.generateForPhase(id, elapsed, teams, score, period);
           state.hasActiveQuestions = true;
         }
+
+        // Fetch stats immediately for new matches (don't wait for stats polling interval)
+        if (this.budget.canMakeCall()) {
+          try {
+            const stats = await this.apiFootball.getFixtureStatistics(id);
+            this.budget.recordCall();
+            state.lastStatsPoll = Date.now();
+            await this.redis.setJson(`cache:fixture:${id}:stats`, stats, 600);
+            const parsed = this.parseStats(stats as any[]);
+            this.ws.emitToMatch(id, 'stats_update', { fixtureId: id, ...parsed });
+          } catch (e) {
+            this.logger.warn(`Initial stats fetch failed for ${id}: ${e}`);
+          }
+        }
       }
 
       const prevPeriod = state.period;

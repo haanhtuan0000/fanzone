@@ -45,7 +45,7 @@ class MatchData {
     // Parse inline statistics if present (from stats_update or enriched response)
     Map<String, dynamic>? stats;
     if (json['statistics'] != null && json['statistics'] is List) {
-      stats = _parseApiFootballStats(json['statistics'] as List);
+      stats = parseApiFootballStats(json['statistics'] as List);
     }
 
     return MatchData(
@@ -88,7 +88,7 @@ class MatchData {
     );
   }
 
-  static Map<String, dynamic> _parseApiFootballStats(List stats) {
+  static Map<String, dynamic> parseApiFootballStats(List stats) {
     if (stats.length < 2) return {};
 
     String? findStat(List? team, String type) {

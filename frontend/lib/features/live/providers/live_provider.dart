@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/match.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_endpoints.dart';
 import '../services/match_service.dart';
 
 class LiveState {
@@ -35,8 +37,9 @@ class LiveState {
 
 class LiveNotifier extends StateNotifier<LiveState> {
   final MatchService _matchService;
+  final ApiClient? _apiClient;
 
-  LiveNotifier(this._matchService) : super(const LiveState(isLoading: true)) {
+  LiveNotifier(this._matchService, [this._apiClient]) : super(const LiveState(isLoading: true)) {
     _loadMatches();
   }
 
@@ -55,8 +58,27 @@ class LiveNotifier extends StateNotifier<LiveState> {
         activeMatch: matches.isNotEmpty ? matches.first : null,
         isLoading: false,
       );
+
+      // Fetch stats for the active match
+      if (matches.isNotEmpty && _apiClient != null) {
+        _fetchStatsForMatch(matches.first.fixtureId);
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> _fetchStatsForMatch(int fixtureId) async {
+    if (_apiClient == null) return;
+    try {
+      final response = await _apiClient.get(ApiEndpoints.matchDetail(fixtureId));
+      final data = response.data as Map<String, dynamic>;
+      if (data['statistics'] != null && data['statistics'] is List && (data['statistics'] as List).isNotEmpty) {
+        final stats = MatchData.parseApiFootballStats(data['statistics'] as List);
+        updateMatchStats(fixtureId, stats);
+      }
+    } catch (_) {
+      // Stats not available yet — WebSocket will deliver them later
     }
   }
 
@@ -114,5 +136,6 @@ final matchServiceProvider = Provider<MatchService>((ref) => MatchService());
 
 final liveStateProvider = StateNotifierProvider<LiveNotifier, LiveState>((ref) {
   final matchService = ref.watch(matchServiceProvider);
-  return LiveNotifier(matchService);
+  final apiClient = ref.watch(apiClientProvider);
+  return LiveNotifier(matchService, apiClient);
 });
