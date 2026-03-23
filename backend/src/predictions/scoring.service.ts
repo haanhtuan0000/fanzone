@@ -27,13 +27,12 @@ export class ScoringService {
       const isCorrect = prediction.optionId === correctOptionId;
       const multiplier = prediction.option.multiplier;
       // Coins were already deducted upfront (50🪙).
-      // Win: return bet × multiplier. Net gain = (bet × multiplier) - bet.
-      // Loss: nothing returned. Net loss = -bet (already taken).
-      const winnings = isCorrect ? Math.round(prediction.coinsBet * multiplier) : 0;
+      // Win = 50 × multiplier (doc: "Thắng = 50 × hệ số"). Display the full payout.
+      // Loss = -50 (already deducted).
+      const coinsToAdd = isCorrect ? Math.round(prediction.coinsBet * multiplier) : 0;
       const coinsResult = isCorrect
-        ? winnings - prediction.coinsBet  // Net gain for display (+75 if 50 × 2.5)
-        : -prediction.coinsBet;           // Net loss for display (-50)
-      const coinsToAdd = winnings; // Actual coins to add back (125 for win, 0 for loss)
+        ? Math.round(prediction.coinsBet * multiplier)  // +125 if 50 × 2.5
+        : -prediction.coinsBet;                          // -50
       const xpEarned = isCorrect ? 10 : 2;
 
       // Update prediction
