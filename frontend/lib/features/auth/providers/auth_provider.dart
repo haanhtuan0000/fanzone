@@ -73,46 +73,43 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (token == null) return;
 
     // Optimistic: if token exists, assume authenticated immediately
-    // This prevents the welcome screen flash while server validates
     final onboarded = await _storage.isOnboarded();
     state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded);
 
-    // Validate token in background — if invalid, log out
+    // Try to refresh the token proactively (handles expired access tokens)
+    // This way the app always has a fresh token without waiting for a 401
     try {
-      final response = await Dio().get(
-        '${ApiEndpoints.baseUrl}${ApiEndpoints.profileMe}',
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-          receiveTimeout: const Duration(seconds: 30),
-          sendTimeout: const Duration(seconds: 30),
-        ),
-      );
-      if (response.statusCode != 200) {
-        // Token rejected by server — clear and go to login
-        await _storage.clearTokens();
-        state = const AuthState();
+      final refreshToken = await _storage.getRefreshToken();
+      if (refreshToken != null) {
+        final response = await Dio().post(
+          '${ApiEndpoints.baseUrl}${ApiEndpoints.refresh}',
+          data: {'refreshToken': refreshToken},
+          options: Options(
+            receiveTimeout: const Duration(seconds: 15),
+            sendTimeout: const Duration(seconds: 15),
+          ),
+        );
+        await _storage.saveTokens(
+          accessToken: response.data['accessToken'],
+          refreshToken: response.data['refreshToken'],
+        );
+        // Fresh tokens saved — stay authenticated
       }
     } catch (_) {
-      // Server unreachable or token expired — try refresh
+      // Refresh failed — check if the existing token still works
       try {
-        final refreshToken = await _storage.getRefreshToken();
-        if (refreshToken != null) {
-          final response = await Dio().post(
-            '${ApiEndpoints.baseUrl}${ApiEndpoints.refresh}',
-            data: {'refreshToken': refreshToken},
-          );
-          await _storage.saveTokens(
-            accessToken: response.data['accessToken'],
-            refreshToken: response.data['refreshToken'],
-          );
-          // Token refreshed — stay authenticated
-        } else {
-          await _storage.clearTokens();
-          state = const AuthState();
-        }
+        await Dio().get(
+          '${ApiEndpoints.baseUrl}${ApiEndpoints.profileMe}',
+          options: Options(
+            headers: {'Authorization': 'Bearer $token'},
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+        );
+        // Token still valid — stay authenticated
       } catch (_) {
-        // Can't refresh — but don't log out if server is just unreachable
-        // The user can still use cached data. Only clear if we got a definitive rejection.
+        // Both refresh and existing token failed
+        // Don't log out if server is unreachable — keep optimistic auth
+        // Only the ApiClient 401 interceptor should trigger logout
       }
     }
   }
