@@ -15,6 +15,7 @@ class ApiEndpoints {
 
   // Questions
   static String activeQuestions(int fixtureId) => '/questions/active/$fixtureId';
+  static String matchPredictions(int fixtureId) => '/questions/match/$fixtureId/predictions';
 
   // Predictions
   static const String submitPrediction = '/predictions';

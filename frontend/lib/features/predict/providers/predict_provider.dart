@@ -8,125 +8,216 @@ import '../../live/providers/live_provider.dart';
 // Re-export for convenience
 export '../../auth/providers/auth_provider.dart' show userCoinsProvider;
 
+/// Represents a user's answered question with its current state.
+class AnsweredQuestion {
+  final Question question;
+  final String? myPickOptionId;
+  final String status; // 'pending' | 'correct' | 'wrong' | 'skip'
+  final int? coinsResult;
+
+  const AnsweredQuestion({
+    required this.question,
+    this.myPickOptionId,
+    this.status = 'pending',
+    this.coinsResult,
+  });
+}
+
 class PredictState {
   final Question? activeQuestion;
+  final List<AnsweredQuestion> answeredQuestions; // LOCKED + RESOLVED (reverse chronological)
   final List<Question> upcomingQuestions;
   final String? selectedOptionId;
   final bool isLocked;
   final bool isExpired;
-  final bool? lastResult; // true = correct, false = wrong, null = pending
-  final int? lastCoinsResult;
   final bool isLoading;
   final String? error;
+  final int totalCoinsEarned;
+  final int questionNumber; // Which question number in the match (for progress dots)
+  final int totalQuestions;
 
   const PredictState({
     this.activeQuestion,
+    this.answeredQuestions = const [],
     this.upcomingQuestions = const [],
     this.selectedOptionId,
     this.isLocked = false,
     this.isExpired = false,
-    this.lastResult,
-    this.lastCoinsResult,
     this.isLoading = false,
     this.error,
+    this.totalCoinsEarned = 0,
+    this.questionNumber = 0,
+    this.totalQuestions = 0,
   });
 
   PredictState copyWith({
     Question? activeQuestion,
+    bool clearActive = false,
+    List<AnsweredQuestion>? answeredQuestions,
     List<Question>? upcomingQuestions,
     String? selectedOptionId,
+    bool clearSelection = false,
     bool? isLocked,
     bool? isExpired,
-    bool? lastResult,
-    int? lastCoinsResult,
     bool? isLoading,
     String? error,
+    int? totalCoinsEarned,
+    int? questionNumber,
+    int? totalQuestions,
   }) {
     return PredictState(
-      activeQuestion: activeQuestion ?? this.activeQuestion,
+      activeQuestion: clearActive ? null : (activeQuestion ?? this.activeQuestion),
+      answeredQuestions: answeredQuestions ?? this.answeredQuestions,
       upcomingQuestions: upcomingQuestions ?? this.upcomingQuestions,
-      selectedOptionId: selectedOptionId ?? this.selectedOptionId,
+      selectedOptionId: clearSelection ? null : (selectedOptionId ?? this.selectedOptionId),
       isLocked: isLocked ?? this.isLocked,
       isExpired: isExpired ?? this.isExpired,
-      lastResult: lastResult,
-      lastCoinsResult: lastCoinsResult,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      totalCoinsEarned: totalCoinsEarned ?? this.totalCoinsEarned,
+      questionNumber: questionNumber ?? this.questionNumber,
+      totalQuestions: totalQuestions ?? this.totalQuestions,
     );
+  }
+
+  /// Progress dot states for the strip
+  List<String> get progressDots {
+    final dots = <String>[];
+    for (final aq in answeredQuestions.reversed) {
+      dots.add(aq.status);
+    }
+    if (activeQuestion != null) {
+      dots.add('active');
+    }
+    for (var i = 0; i < upcomingQuestions.length; i++) {
+      dots.add('upcoming');
+    }
+    return dots;
   }
 }
 
 class PredictNotifier extends StateNotifier<PredictState> {
   final ApiClient _apiClient;
   final void Function(int delta) _onCoinsChanged;
+  int? _currentFixtureId;
 
   PredictNotifier(this._apiClient, this._onCoinsChanged) : super(const PredictState());
 
   Future<void> loadQuestions(int fixtureId) async {
-    // Don't overwrite state if user submitted a prediction and is waiting for result
-    // (isLocked from confirm, not from expiry)
-    if (state.isLocked && !state.isExpired && state.lastResult == null && state.selectedOptionId != null) return;
+    // Don't overwrite if user submitted and waiting for result
+    if (state.isLocked && !state.isExpired && state.selectedOptionId != null) return;
 
+    _currentFixtureId = fixtureId;
     state = state.copyWith(isLoading: true);
+
     try {
-      final response = await _apiClient.get(
-        ApiEndpoints.activeQuestions(fixtureId),
-      );
-      final data = response.data as Map<String, dynamic>;
+      // Fetch active questions + predictions in parallel
+      final responses = await Future.wait([
+        _apiClient.get(ApiEndpoints.activeQuestions(fixtureId)),
+        _apiClient.get(ApiEndpoints.matchPredictions(fixtureId)),
+      ]);
 
-      final activeJson = data['active'];
-      final upcomingJson = data['upcoming'] as List<dynamic>? ?? [];
+      final questionsData = responses[0].data as Map<String, dynamic>;
+      final predictionsData = responses[1].data as List<dynamic>;
 
+      // Parse active question
+      final activeJson = questionsData['active'];
       final active = activeJson != null
           ? Question.fromJson(activeJson as Map<String, dynamic>)
           : null;
+
+      // Parse upcoming
+      final upcomingJson = questionsData['upcoming'] as List<dynamic>? ?? [];
       final upcoming = upcomingJson
           .map((q) => Question.fromJson(q as Map<String, dynamic>))
           .toList();
 
-      // Preserve user interaction state if the same question is still active
-      final sameQuestion = active != null && active.id == state.activeQuestion?.id;
-      if (sameQuestion) {
-        state = state.copyWith(
-          activeQuestion: active,
-          upcomingQuestions: upcoming,
-          isLoading: false,
-        );
-      } else {
-        state = PredictState(
-          activeQuestion: active,
-          upcomingQuestions: upcoming,
-          isLoading: false,
-        );
+      // Parse pending results (LOCKED)
+      final pendingJson = questionsData['pendingResults'] as List<dynamic>? ?? [];
+
+      // Parse resolved
+      final resolvedJson = questionsData['resolved'] as List<dynamic>? ?? [];
+
+      // Build answered questions list from predictions + question data
+      final answered = <AnsweredQuestion>[];
+
+      // Map predictions by questionId for quick lookup
+      final predMap = <String, Map<String, dynamic>>{};
+      for (final p in predictionsData) {
+        final pred = p as Map<String, dynamic>;
+        predMap[pred['questionId'] as String] = pred;
       }
+
+      // Add LOCKED (pending result) questions
+      for (final pJson in pendingJson) {
+        final q = Question.fromJson(pJson as Map<String, dynamic>);
+        final pred = predMap[q.id];
+        answered.add(AnsweredQuestion(
+          question: q,
+          myPickOptionId: pred?['optionId'] as String?,
+          status: pred != null ? 'pending' : 'skip',
+        ));
+      }
+
+      // Add RESOLVED questions
+      for (final rJson in resolvedJson) {
+        final q = Question.fromJson(rJson as Map<String, dynamic>);
+        final pred = predMap[q.id];
+        if (pred == null) {
+          answered.add(AnsweredQuestion(
+            question: q,
+            status: 'skip',
+          ));
+        } else {
+          final isCorrect = pred['isCorrect'] as bool?;
+          answered.add(AnsweredQuestion(
+            question: q,
+            myPickOptionId: pred['optionId'] as String?,
+            status: isCorrect == true ? 'correct' : (isCorrect == false ? 'wrong' : 'pending'),
+            coinsResult: pred['coinsResult'] as int?,
+          ));
+        }
+      }
+
+      // Calculate total coins
+      int totalCoins = 0;
+      for (final aq in answered) {
+        if (aq.coinsResult != null) totalCoins += aq.coinsResult!;
+      }
+
+      // Keep selection if same question is still active
+      final sameQuestion = active != null && active.id == state.activeQuestion?.id;
+
+      state = PredictState(
+        activeQuestion: active,
+        answeredQuestions: answered,
+        upcomingQuestions: upcoming,
+        selectedOptionId: sameQuestion ? state.selectedOptionId : null,
+        isLocked: sameQuestion ? state.isLocked : false,
+        isExpired: sameQuestion ? state.isExpired : false,
+        isLoading: false,
+        totalCoinsEarned: totalCoins,
+        totalQuestions: answered.length + (active != null ? 1 : 0) + upcoming.length,
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  void setActiveQuestion(Question question, List<Question> upcoming) {
-    state = PredictState(
-      activeQuestion: question,
-      upcomingQuestions: upcoming,
-    );
-  }
-
   void expireQuestion() {
     if (state.isExpired) return;
     state = state.copyWith(isExpired: true, isLocked: true);
-    // Auto-advance to next question after 3 seconds
+    // Auto-advance after 3 seconds
     Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) advanceToNext();
+      if (mounted && _currentFixtureId != null) {
+        loadQuestions(_currentFixtureId!);
+      }
     });
   }
 
   void selectOption(String optionId) {
-    print('[PREDICT] selectOption: $optionId, isLocked=${state.isLocked}, isExpired=${state.isExpired}');
     if (state.isLocked || state.isExpired) return;
-    state = state.copyWith(
-      selectedOptionId: optionId,
-    );
-    print('[PREDICT] selectedOptionId is now: ${state.selectedOptionId}');
+    state = state.copyWith(selectedOptionId: optionId);
   }
 
   Future<void> confirmPrediction() async {
@@ -136,7 +227,6 @@ class PredictNotifier extends StateNotifier<PredictState> {
     state = state.copyWith(isLocked: true);
 
     try {
-      print('[PREDICT] Submitting: question=${state.activeQuestion!.id}, option=${state.selectedOptionId}');
       final response = await _apiClient.post(
         ApiEndpoints.submitPrediction,
         data: {
@@ -144,32 +234,42 @@ class PredictNotifier extends StateNotifier<PredictState> {
           'optionId': state.selectedOptionId,
         },
       );
-      print('[PREDICT] Response: ${response.statusCode}');
 
       // Update multipliers from server response
       final data = response.data as Map<String, dynamic>;
-      final prediction = data['prediction'] as Map<String, dynamic>?;
       final updatedOptions = data['updatedOptions'] as List<dynamic>?;
       if (updatedOptions != null) {
         final pcts = <String, int>{};
         for (final opt in updatedOptions) {
           pcts[opt['id'] as String] = opt['fanPct'] as int;
         }
-        updateFanDistribution(pcts);
+        _updateFanDistribution(pcts);
       }
 
-      // Start polling for result
+      // Start polling for result (fallback if WS misses it)
+      final prediction = data['prediction'] as Map<String, dynamic>?;
       if (prediction != null && prediction['id'] != null) {
-        pollForResult(prediction['id'] as String);
+        _pollForResult(prediction['id'] as String);
       }
     } catch (e) {
-      print('[PREDICT] Error submitting prediction: $e');
-      // If submission fails, unlock so user can retry
       state = state.copyWith(isLocked: false, error: e.toString());
     }
   }
 
-  void updateFanDistribution(Map<String, int> fanPcts) {
+  /// Handle a real-time prediction_result from WebSocket
+  void onPredictionResult(Map<String, dynamic> data) {
+    final questionId = data['questionId'] as String?;
+    if (questionId == null) return;
+
+    // Refresh the full state from server to get updated answered cards
+    if (_currentFixtureId != null) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) loadQuestions(_currentFixtureId!);
+      });
+    }
+  }
+
+  void _updateFanDistribution(Map<String, int> fanPcts) {
     if (state.activeQuestion == null) return;
     final updatedOptions = state.activeQuestion!.options.map((opt) {
       return QuestionOption(
@@ -200,84 +300,18 @@ class PredictNotifier extends StateNotifier<PredictState> {
     state = state.copyWith(activeQuestion: updatedQuestion);
   }
 
-  void showResult(bool isCorrect, int coinsResult) {
-    state = state.copyWith(lastResult: isCorrect, lastCoinsResult: coinsResult);
-    _onCoinsChanged(coinsResult);
-  }
-
-  /// Handle a real-time prediction_result from WebSocket.
-  /// If the resolved question matches our active prediction, show the result
-  /// immediately without waiting for the poll.
-  void onPredictionResult(Map<String, dynamic> data) {
-    if (state.activeQuestion == null) return;
-    if (data['questionId'] != state.activeQuestion!.id) return;
-    if (!state.isLocked || state.lastResult != null) return;
-
-    // Find our result in the broadcast
-    final results = data['results'] as List<dynamic>? ?? [];
-    // We don't know our userId here, so just reload questions.
-    // The pollForResult will catch it, or we trigger an immediate check.
-    final correctOptionId = data['correctOptionId'] as String?;
-    if (correctOptionId != null && state.selectedOptionId != null) {
-      final isCorrect = state.selectedOptionId == correctOptionId;
-      // Find coins from results if possible, otherwise use question reward
-      final coinsResult = isCorrect ? state.activeQuestion!.rewardCoins : 0;
-      showResult(isCorrect, coinsResult);
-    }
-  }
-
-  /// Poll the server to check if our prediction has been resolved.
-  /// Stops early if WebSocket already delivered the result.
-  Future<void> pollForResult(String predictionId) async {
-    // Poll every 3 seconds for up to 5 minutes
-    for (var i = 0; i < 100; i++) {
-      await Future.delayed(const Duration(seconds: 3));
+  Future<void> _pollForResult(String predictionId) async {
+    for (var i = 0; i < 60; i++) {
+      await Future.delayed(const Duration(seconds: 5));
       if (!mounted) return;
-      // Stop if WebSocket already delivered the result
-      if (state.lastResult != null) return;
 
-      try {
-        final response = await _apiClient.get(
-          ApiEndpoints.predictionHistory,
-          queryParams: {'page': '1'},
-        );
-        final history = response.data as List<dynamic>;
-        final resolved = history
-            .whereType<Map<String, dynamic>>()
-            .where((p) => p['id'] == predictionId && p['isCorrect'] != null)
-            .firstOrNull;
-
-        if (resolved != null) {
-          showResult(
-            resolved['isCorrect'] as bool,
-            resolved['coinsResult'] as int? ?? 0,
-          );
-          return;
-        }
-      } catch (_) {
-        // ignore poll errors
+      // Refresh full state
+      if (_currentFixtureId != null) {
+        await loadQuestions(_currentFixtureId!);
       }
+      // Stop if the active question changed (meaning it was resolved)
+      if (state.activeQuestion?.id != predictionId) return;
     }
-  }
-
-  Future<void> advanceToNext() async {
-    if (state.activeQuestion != null) {
-      // Reload fresh from server to get updated times and statuses
-      await loadQuestions(state.activeQuestion!.fixtureId);
-    } else if (state.upcomingQuestions.isEmpty) {
-      state = const PredictState();
-    } else {
-      final next = state.upcomingQuestions.first;
-      final remaining = state.upcomingQuestions.sublist(1);
-      state = PredictState(
-        activeQuestion: next,
-        upcomingQuestions: remaining,
-      );
-    }
-  }
-
-  void clearResult() {
-    state = state.copyWith(lastResult: null, lastCoinsResult: null);
   }
 }
 
@@ -287,8 +321,7 @@ final predictStateProvider = StateNotifierProvider<PredictNotifier, PredictState
     ref.read(userCoinsProvider.notifier).state += delta;
   });
 
-  // Load questions once when a live match becomes available — use listen, not watch,
-  // so the notifier isn't recreated on every score update
+  // Load questions when a live match becomes available
   ref.listen<LiveState>(liveStateProvider, (prev, next) {
     final match = next.activeMatch;
     if (match != null && match.isLive) {

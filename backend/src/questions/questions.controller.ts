@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Body, UseGuards, Request } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { QuestionsService } from './questions.service';
 import { ScoringService } from '../predictions/scoring.service';
@@ -16,6 +16,19 @@ export class QuestionsController {
   @UseGuards(JwtAuthGuard)
   async getActiveQuestions(@Param('fixtureId') fixtureId: string) {
     return this.questionsService.getActiveQuestions(parseInt(fixtureId));
+  }
+
+  /**
+   * Get all predictions for the current user for a specific match.
+   * Returns predictions with question data, user's pick, and result.
+   */
+  @Get('match/:fixtureId/predictions')
+  @UseGuards(JwtAuthGuard)
+  async getMatchPredictions(
+    @Param('fixtureId') fixtureId: string,
+    @Request() req: any,
+  ) {
+    return this.questionsService.getMatchPredictions(parseInt(fixtureId), req.user.id);
   }
 
   @Post()

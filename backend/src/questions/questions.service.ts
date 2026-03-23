@@ -44,7 +44,30 @@ export class QuestionsService {
       })) as any;
     }
 
-    return { active: openQuestion, upcoming: upcomingQuestions, pendingResults };
+    // Recently resolved questions (for showing results)
+    const resolved = await this.prisma.question.findMany({
+      where: { fixtureId, status: 'RESOLVED' },
+      include: { options: true },
+      orderBy: { closesAt: 'desc' },
+      take: 10,
+    });
+
+    return { active: openQuestion, upcoming: upcomingQuestions, pendingResults, resolved };
+  }
+
+  /**
+   * Get all predictions for a user for a specific match.
+   * Used by the Predict screen to show answered cards with results.
+   */
+  async getMatchPredictions(fixtureId: number, userId: string) {
+    return this.prisma.prediction.findMany({
+      where: { userId, question: { fixtureId } },
+      include: {
+        question: { include: { options: true } },
+        option: true,
+      },
+      orderBy: { predictedAt: 'desc' },
+    });
   }
 
   async createQuestion(data: {
