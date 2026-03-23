@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { RegisterDto, LoginDto } from './dto';
 
@@ -19,7 +20,7 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
@@ -108,7 +109,11 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
-      const tokenValid = await bcrypt.compare(refreshToken, user.refreshToken);
+      const hashedInput = createHash('sha256').update(refreshToken).digest('hex');
+      // Support both old bcrypt and new sha256 tokens
+      const tokenValid = user.refreshToken.startsWith('$2')
+        ? await bcrypt.compare(refreshToken, user.refreshToken)
+        : hashedInput === user.refreshToken;
       if (!tokenValid) {
         throw new UnauthorizedException('Invalid refresh token');
       }
@@ -137,7 +142,8 @@ export class AuthService {
   }
 
   private async updateRefreshToken(userId: string, refreshToken: string) {
-    const hashedToken = await bcrypt.hash(refreshToken, 12);
+    // SHA-256 is sufficient for refresh tokens (they're already random JWTs)
+    const hashedToken = createHash('sha256').update(refreshToken).digest('hex');
     await this.prisma.user.update({
       where: { id: userId },
       data: { refreshToken: hashedToken },
