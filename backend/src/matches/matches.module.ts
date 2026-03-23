@@ -3,22 +3,18 @@ import { MatchesController } from './matches.controller';
 import { MatchesService } from './matches.service';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { QuestionsModule } from '../questions/questions.module';
-import { FixturePoller } from './poller/fixture.poller';
-import { EventPoller } from './poller/event.poller';
-import { StatsPoller } from './poller/stats.poller';
-import { SchedulePoller } from './poller/schedule.poller';
-import { StandingsPoller } from './poller/standings.poller';
+import { MatchDataManager } from './match-data-manager.service';
+import { ScheduleTracker } from './schedule-tracker';
+import { PollBudgetService } from './poll-budget.service';
 
 @Module({
   imports: [WebsocketModule, QuestionsModule],
   controllers: [MatchesController],
   providers: [
     MatchesService,
-    FixturePoller,
-    EventPoller,
-    StatsPoller,
-    SchedulePoller,
-    StandingsPoller,
+    MatchDataManager,
+    ScheduleTracker,
+    PollBudgetService,
   ],
   exports: [MatchesService],
 })

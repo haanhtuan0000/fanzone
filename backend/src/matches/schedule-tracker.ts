@@ -1,0 +1,68 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { RedisService } from '../common/redis/redis.service';
+import { ApiFootballService } from '../common/api-football/api-football.service';
+import { TRACKED_LEAGUE_IDS } from './leagues.config';
+
+/**
+ * Tracks today's fixture schedule to determine sleep/wake timing.
+ * Fetches schedule every 30 min and caches in Redis.
+ */
+@Injectable()
+export class ScheduleTracker {
+  private readonly logger = new Logger(ScheduleTracker.name);
+  private lastRefresh = 0;
+  private readonly REFRESH_INTERVAL_MS = 30 * 60 * 1000; // 30 min
+
+  constructor(
+    private redis: RedisService,
+    private apiFootball: ApiFootballService,
+  ) {}
+
+  async refreshIfNeeded(): Promise<void> {
+    if (Date.now() - this.lastRefresh < this.REFRESH_INTERVAL_MS) return;
+    await this.refresh();
+  }
+
+  async refresh(): Promise<void> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const allFixtures = await this.apiFootball.getFixturesByDate(today);
+      const fixtures = (allFixtures as any[]).filter(
+        (f) => TRACKED_LEAGUE_IDS.has(f?.league?.id),
+      );
+      await this.redis.setJson('cache:fixtures:today', fixtures, 43200);
+      this.lastRefresh = Date.now();
+      this.logger.log(`Schedule refreshed: ${fixtures.length} fixtures for ${today}`);
+    } catch (e) {
+      this.logger.error(`Schedule refresh failed: ${e}`);
+    }
+  }
+
+  /**
+   * Returns minutes until the next kickoff from today's cached fixtures.
+   * Returns Infinity if no upcoming matches.
+   */
+  async minutesUntilNextKickoff(): Promise<number> {
+    const fixtures = await this.redis.getJson<any[]>('cache:fixtures:today');
+    if (!fixtures || fixtures.length === 0) return Infinity;
+
+    const now = Date.now();
+    let nearest = Infinity;
+
+    for (const f of fixtures) {
+      const status = f?.fixture?.status?.short;
+      // Skip matches that are already live or finished
+      if (['1H', '2H', 'HT', 'ET', 'FT', 'AET', 'PEN'].includes(status)) continue;
+
+      const dateStr = f?.fixture?.date;
+      if (!dateStr) continue;
+      const kickoff = new Date(dateStr).getTime();
+      const diff = (kickoff - now) / 60_000;
+      if (diff > 0 && diff < nearest) {
+        nearest = diff;
+      }
+    }
+
+    return nearest;
+  }
+}

@@ -213,6 +213,16 @@ export class QuestionResolverService {
     }
   }
 
+  // ─── Public: timer-based resolution ───
+
+  async resolveTimedOut(
+    fixtureId: number,
+    question: any,
+    correctOptionId: string,
+  ) {
+    return this.resolveQuestion(fixtureId, question, correctOptionId, 'TIMER_EXPIRED');
+  }
+
   // ─── Core resolve helper ───
 
   private async resolveQuestion(

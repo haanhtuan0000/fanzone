@@ -116,6 +116,7 @@ model QuestionTemplate {
   options            Json
   defaultFanPcts     Json?              @map("default_fan_pcts")
   resolutionStrategy String             @default("AUTO") @map("resolution_strategy")
+  timeoutWindowMin   Int?               @map("timeout_window_min")
   weight             Int                @default(100)
   isActive           Boolean            @default(true) @map("is_active")
   createdAt          DateTime           @default(now()) @map("created_at")
@@ -140,6 +141,8 @@ model Question {
   triggeredByEvent String?             @map("triggered_by_event")
   opensAt          DateTime            @map("opens_at")
   closesAt         DateTime            @map("closes_at")
+  resolvesAt       DateTime?           @map("resolves_at")
+  metadata         Json?
   createdAt        DateTime            @default(now()) @map("created_at")
 
   options     QuestionOption[]
