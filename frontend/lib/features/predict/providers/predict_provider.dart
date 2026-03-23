@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../live/providers/live_provider.dart';
+import '../../profile/providers/profile_provider.dart';
 
 // Re-export for convenience
 export '../../auth/providers/auth_provider.dart' show userCoinsProvider;
@@ -323,6 +324,8 @@ final predictStateProvider = StateNotifierProvider<PredictNotifier, PredictState
   final apiClient = ref.watch(apiClientProvider);
   final notifier = PredictNotifier(apiClient, (delta) {
     ref.read(userCoinsProvider.notifier).state += delta;
+    // Refresh profile when coins change (prediction result came in)
+    ref.invalidate(profileStateProvider);
   });
 
   // Load questions when a live match becomes available
