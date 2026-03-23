@@ -348,22 +348,20 @@ export class MatchScenarioEngine {
   }
 
   /**
-   * Get the list of recently used template IDs for this fixture.
+   * Get ALL template IDs already used for this fixture from the DB.
+   * This replaces the Redis sliding window — DB is the source of truth
+   * and survives server restarts.
    */
   private async getUsedTemplateIds(fixtureId: number): Promise<string[]> {
-    const client = this.redis.getClient();
-    const ids = await client.lrange(this.windowKey(fixtureId), 0, -1);
-    return ids;
+    const questions = await this.questionsService.getTemplateIdsForFixture(fixtureId);
+    return questions;
   }
 
   /**
-   * Record a template ID as used, maintaining a sliding window.
+   * Record a template ID as used (no-op now — DB is the source of truth).
    */
-  private async recordUsedTemplate(fixtureId: number, templateId: string): Promise<void> {
-    const key = this.windowKey(fixtureId);
-    const client = this.redis.getClient();
-    await client.lpush(key, templateId);
-    await client.ltrim(key, 0, WINDOW_SIZE - 1);
-    await client.expire(key, WINDOW_TTL_SEC);
+  private async recordUsedTemplate(_fixtureId: number, _templateId: string): Promise<void> {
+    // Template ID is stored on the question record via createQuestion({ templateId })
+    // No separate tracking needed
   }
 }

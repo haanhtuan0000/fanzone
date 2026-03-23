@@ -116,6 +116,15 @@ export class QuestionsService {
     return question;
   }
 
+  async getTemplateIdsForFixture(fixtureId: number): Promise<string[]> {
+    const questions = await this.prisma.question.findMany({
+      where: { fixtureId, templateId: { not: null } },
+      select: { templateId: true },
+      distinct: ['templateId'],
+    });
+    return questions.map((q) => q.templateId!);
+  }
+
   async hasOpenQuestion(fixtureId: number): Promise<boolean> {
     const count = await this.prisma.question.count({
       where: { fixtureId, status: 'OPEN' },
