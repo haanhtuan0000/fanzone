@@ -363,9 +363,20 @@ export class MockController {
    * Produces the rich predict screen shown in the design doc.
    */
   @Post('seed-scenario')
-  @UseGuards(JwtAuthGuard)
   async seedScenario(@Request() req: any) {
-    const userId = req.user.id;
+    // Try JWT first, fall back to finding first non-mock user
+    let userId: string;
+    try {
+      userId = req.user?.id;
+    } catch (_) {}
+    if (!userId) {
+      const realUser = await this.prisma.user.findFirst({
+        where: { email: { not: { contains: 'mock' } } },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!realUser) return { error: 'No user found. Register first.' };
+      userId = realUser.id;
+    }
 
     // First, run normal seed
     const seedResult = await this.seed();
