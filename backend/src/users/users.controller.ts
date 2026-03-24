@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Put, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 import { AchievementService } from './achievement.service';
@@ -24,6 +24,14 @@ export class UsersController {
   @Get('me/activity')
   async getMyActivity(@Request() req: any, @Query('page') page: string = '1') {
     return this.usersService.getActivity(req.user.id, parseInt(page));
+  }
+
+  @Put('me')
+  async updateMyProfile(
+    @Request() req: any,
+    @Body() body: { displayName?: string; avatarEmoji?: string; favoriteTeamId?: number },
+  ) {
+    return this.usersService.updateProfile(req.user.id, body);
   }
 
   @Get(':userId')

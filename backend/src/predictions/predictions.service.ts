@@ -1,12 +1,14 @@
 import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class PredictionsService {
   constructor(
     private prisma: PrismaService,
     private redis: RedisService,
+    private usersService: UsersService,
   ) {}
 
   private readonly FIXED_BET = 50; // Doc: "Cược điểm cố định 50🪙/câu"
@@ -78,7 +80,29 @@ export class PredictionsService {
       });
     }
 
-    return { prediction, updatedOptions };
+    // Check if this is the user's first prediction — award bonus
+    let isFirstPrediction = false;
+    const predictionCount = await this.prisma.prediction.count({ where: { userId } });
+    if (predictionCount === 1) {
+      isFirstPrediction = true;
+      const bonusCoins = 20;
+      const updated = await this.prisma.user.update({
+        where: { id: userId },
+        data: { coins: { increment: bonusCoins } },
+      });
+      await this.prisma.coinTransaction.create({
+        data: {
+          userId,
+          type: 'ONBOARDING',
+          amount: bonusCoins,
+          balanceAfter: updated.coins,
+          referenceId: prediction.id,
+        },
+      });
+      await this.usersService.addXp(userId, 10);
+    }
+
+    return { prediction, updatedOptions, isFirstPrediction };
   }
 
   async getHistory(userId: string, page: number = 1) {

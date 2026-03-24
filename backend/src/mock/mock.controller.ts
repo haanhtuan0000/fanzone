@@ -1,4 +1,5 @@
-import { Controller, Post, Logger } from '@nestjs/common';
+import { Controller, Post, Logger, UseGuards, Request } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
 import { ScoringService } from '../predictions/scoring.service';
@@ -351,6 +352,106 @@ export class MockController {
     this.logger.log(`Mock seed complete: ${MOCK_IDS.length} matches, ${Object.values(allQuestions).flat().length} questions`);
 
     return { matches: summary, upcomingMatches: MOCK_FIXTURES_TODAY.length };
+  }
+
+  /**
+   * POST /mock/seed-scenario
+   * Requires JWT. Seeds mock data + creates predictions for the authenticated user:
+   * - Q1, Q2, Q3: RESOLVED with user predictions (correct/wrong/correct)
+   * - Q4, Q5: LOCKED with user predictions (pending results)
+   * - Q6 (next match): OPEN for user to answer
+   * Produces the rich predict screen shown in the design doc.
+   */
+  @Post('seed-scenario')
+  @UseGuards(JwtAuthGuard)
+  async seedScenario(@Request() req: any) {
+    const userId = req.user.id;
+
+    // First, run normal seed
+    const seedResult = await this.seed();
+
+    // Work with fixture 99001 (Man City vs Bayern — 5 questions)
+    const fixtureId = 99001;
+    const questions = await this.prisma.question.findMany({
+      where: { fixtureId },
+      orderBy: { opensAt: 'asc' },
+      include: { options: true },
+    });
+
+    if (questions.length < 5) {
+      return { ...seedResult, scenario: 'not enough questions' };
+    }
+
+    const now = new Date();
+
+    // Q1: RESOLVED — user predicted option[0], correct answer is option[0] → CORRECT
+    const q1 = questions[0];
+    await this.prisma.question.update({
+      where: { id: q1.id },
+      data: { status: 'RESOLVED', correctOptionId: q1.options[0].id, closesAt: new Date(now.getTime() - 300_000) },
+    });
+    await this.prisma.questionOption.update({ where: { id: q1.options[0].id }, data: { isCorrect: true, fanCount: 12 } });
+    await this.prisma.prediction.create({
+      data: { userId, questionId: q1.id, optionId: q1.options[0].id, coinsBet: 50, coinsResult: 125, isCorrect: true },
+    });
+
+    // Q2: RESOLVED — user predicted option[0], correct answer is option[1] → WRONG
+    const q2 = questions[1];
+    await this.prisma.question.update({
+      where: { id: q2.id },
+      data: { status: 'RESOLVED', correctOptionId: q2.options[1].id, closesAt: new Date(now.getTime() - 240_000) },
+    });
+    await this.prisma.questionOption.update({ where: { id: q2.options[1].id }, data: { isCorrect: true, fanCount: 8 } });
+    await this.prisma.prediction.create({
+      data: { userId, questionId: q2.id, optionId: q2.options[0].id, coinsBet: 50, coinsResult: -50, isCorrect: false },
+    });
+
+    // Q3: RESOLVED — user predicted option[0], correct answer is option[0] → CORRECT
+    const q3 = questions[2];
+    await this.prisma.question.update({
+      where: { id: q3.id },
+      data: { status: 'RESOLVED', correctOptionId: q3.options[0].id, closesAt: new Date(now.getTime() - 180_000) },
+    });
+    await this.prisma.questionOption.update({ where: { id: q3.options[0].id }, data: { isCorrect: true, fanCount: 15 } });
+    await this.prisma.prediction.create({
+      data: { userId, questionId: q3.id, optionId: q3.options[0].id, coinsBet: 50, coinsResult: 260, isCorrect: true },
+    });
+
+    // Q4: LOCKED — user predicted option[0], waiting for result
+    const q4 = questions[3];
+    await this.prisma.question.update({
+      where: { id: q4.id },
+      data: { status: 'CLOSED', closesAt: new Date(now.getTime() - 60_000) },
+    });
+    await this.prisma.prediction.create({
+      data: { userId, questionId: q4.id, optionId: q4.options[0].id, coinsBet: 50 },
+    });
+
+    // Q5: OPEN — fresh for user to answer (10 min window)
+    const q5 = questions[4];
+    await this.prisma.question.update({
+      where: { id: q5.id },
+      data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + 600_000) },
+    });
+
+    // Update fan percentages for open question options
+    for (const opt of q5.options) {
+      const fakeFanCount = Math.floor(Math.random() * 20) + 5;
+      await this.prisma.questionOption.update({ where: { id: opt.id }, data: { fanCount: fakeFanCount } });
+    }
+
+    this.logger.log(`Scenario seeded for user ${userId}: 3 resolved + 1 pending + 1 open`);
+
+    return {
+      ...seedResult,
+      scenario: {
+        userId,
+        resolved: [q1.id, q2.id, q3.id],
+        pending: [q4.id],
+        open: q5.id,
+        message: 'Pull to refresh on predict screen',
+      },
+    };
   }
 
   /**
