@@ -425,38 +425,33 @@ export class MockController {
       data: { userId, questionId: q3.id, optionId: q3.options[0].id, coinsBet: 50, coinsResult: 260, isCorrect: true },
     });
 
-    // Q4: LOCKED — user predicted option[0], waiting for result
+    // Q4: OPEN — active question for user to answer (30s window)
     const q4 = questions[3];
     await this.prisma.question.update({
       where: { id: q4.id },
-      data: { status: 'CLOSED', closesAt: new Date(now.getTime() - 60_000) },
-    });
-    await this.prisma.prediction.create({
-      data: { userId, questionId: q4.id, optionId: q4.options[0].id, coinsBet: 50 },
-    });
-
-    // Q5: OPEN — fresh for user to answer (10 min window)
-    const q5 = questions[4];
-    await this.prisma.question.update({
-      where: { id: q5.id },
       data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + 30_000) },
     });
-
-    // Update fan percentages for open question options
-    for (const opt of q5.options) {
+    for (const opt of q4.options) {
       const fakeFanCount = Math.floor(Math.random() * 20) + 5;
       await this.prisma.questionOption.update({ where: { id: opt.id }, data: { fanCount: fakeFanCount } });
     }
 
-    this.logger.log(`Scenario seeded for user ${userId}: 3 resolved + 1 pending + 1 open`);
+    // Q5: PENDING — next question, opens 60s from now (shows countdown after Q4 expires)
+    const q5 = questions[4];
+    await this.prisma.question.update({
+      where: { id: q5.id },
+      data: { status: 'PENDING', opensAt: new Date(now.getTime() + 60_000), closesAt: new Date(now.getTime() + 90_000) },
+    });
+
+    this.logger.log(`Scenario seeded for user ${userId}: 3 resolved + 1 open (30s) + 1 pending (opens in 60s)`);
 
     return {
       ...seedResult,
       scenario: {
         userId,
         resolved: [q1.id, q2.id, q3.id],
-        pending: [q4.id],
-        open: q5.id,
+        open: q4.id,
+        pending: q5.id,
         message: 'Pull to refresh on predict screen',
       },
     };
