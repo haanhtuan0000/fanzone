@@ -113,7 +113,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
   99001: [
     {
       text: 'Ai ghi bàn tiếp theo? ⚽|Who scores next? ⚽',
-      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 120,
+      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: 'Man City', emoji: '🔵', multiplier: 2.5 },
         { name: 'Bayern', emoji: '🔴', multiplier: 3.0 },
@@ -122,7 +122,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
     },
     {
       text: 'Có phạt góc trong 5 phút tới không?|Corner kick in next 5 minutes?',
-      category: 'CORNER', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 120,
+      category: 'CORNER', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: 'Có — Man City', emoji: '🚩', multiplier: 2.2 },
         { name: 'Có — Bayern', emoji: '🚩', multiplier: 2.4 },
@@ -131,7 +131,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
     },
     {
       text: 'Thẻ vàng tiếp theo cho đội nào?|Next yellow card for which team?',
-      category: 'CARD', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 120,
+      category: 'CARD', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: 'Man City', emoji: '🟨', multiplier: 2.0 },
         { name: 'Bayern', emoji: '🟨', multiplier: 2.0 },
@@ -140,7 +140,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
     },
     {
       text: 'Tỷ số cuối trận?|Final score?',
-      category: 'STAT', difficulty: 'HARD', rewardCoins: 50, answerWindowSec: 120,
+      category: 'STAT', difficulty: 'HARD', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: '2-1 (giữ nguyên)', emoji: '📊', multiplier: 2.5 },
         { name: '3-1 Man City', emoji: '📊', multiplier: 3.0 },
@@ -150,7 +150,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
     },
     {
       text: 'Có bàn thắng trước phút 80 không?|Goal before minute 80?',
-      category: 'GOAL', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 120,
+      category: 'GOAL', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: 'Có', emoji: '⚽', multiplier: 1.8 },
         { name: 'Không', emoji: '🚫', multiplier: 2.2 },
@@ -160,7 +160,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
   99002: [
     {
       text: 'Barca ghi bàn tiếp không?|Will Barca score again?',
-      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 120,
+      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: 'Có — trước HT', emoji: '⚽', multiplier: 2.8 },
         { name: 'Không — giữ 1-0', emoji: '🛡️', multiplier: 1.6 },
@@ -169,7 +169,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
     },
     {
       text: 'Ai kiểm soát bóng nhiều hơn lúc HT?|Who has more possession at HT?',
-      category: 'STAT', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 120,
+      category: 'STAT', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: 'Barca > 55%', emoji: '📊', multiplier: 1.5 },
         { name: 'Real > 55%', emoji: '📊', multiplier: 3.0 },
@@ -178,7 +178,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
     },
     {
       text: 'Thẻ đỏ trong trận El Clasico?|Red card in El Clasico?',
-      category: 'CARD', difficulty: 'HARD', rewardCoins: 50, answerWindowSec: 120,
+      category: 'CARD', difficulty: 'HARD', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: 'Có', emoji: '🟥', multiplier: 4.0 },
         { name: 'Không', emoji: '✅', multiplier: 1.3 },
@@ -188,7 +188,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
   99003: [
     {
       text: 'Đội nào ghi bàn trước?|Who scores first?',
-      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 120,
+      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: 'Liverpool', emoji: '🔴', multiplier: 2.2 },
         { name: 'Arsenal', emoji: '🔴', multiplier: 2.5 },
@@ -197,7 +197,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
     },
     {
       text: 'Phạt góc đầu tiên cho ai?|First corner for who?',
-      category: 'CORNER', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 120,
+      category: 'CORNER', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: 'Liverpool', emoji: '🚩', multiplier: 2.0 },
         { name: 'Arsenal', emoji: '🚩', multiplier: 2.0 },
@@ -205,7 +205,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
     },
     {
       text: 'Tổng bàn thắng trận này?|Total goals this match?',
-      category: 'GOAL', difficulty: 'HARD', rewardCoins: 50, answerWindowSec: 120,
+      category: 'GOAL', difficulty: 'HARD', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: '0-1 bàn', emoji: '🤏', multiplier: 2.5 },
         { name: '2-3 bàn', emoji: '⚽', multiplier: 1.8 },
@@ -214,7 +214,7 @@ const QUESTIONS_PER_MATCH: Record<number, any[]> = {
     },
     {
       text: 'VAR can thiệp trong hiệp 1?|VAR intervention in first half?',
-      category: 'VAR', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 120,
+      category: 'VAR', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 30,
       options: [
         { name: 'Có', emoji: '📺', multiplier: 3.5 },
         { name: 'Không', emoji: '❌', multiplier: 1.4 },
@@ -439,7 +439,7 @@ export class MockController {
     const q5 = questions[4];
     await this.prisma.question.update({
       where: { id: q5.id },
-      data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + 600_000) },
+      data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + 30_000) },
     });
 
     // Update fan percentages for open question options
