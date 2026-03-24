@@ -365,10 +365,7 @@ export class MockController {
   @Post('seed-scenario')
   async seedScenario(@Request() req: any) {
     // Try JWT first, fall back to finding first non-mock user
-    let userId: string;
-    try {
-      userId = req.user?.id;
-    } catch (_) {}
+    let userId: string | undefined = req.user?.id;
     if (!userId) {
       const realUser = await this.prisma.user.findFirst({
         where: { email: { not: { contains: 'mock' } } },
