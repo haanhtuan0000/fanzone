@@ -4,7 +4,7 @@ class Question {
   final String category; // GOAL, CARD, CORNER, VAR, HALFTIME, SUBSTITUTION
   final String text;
   final int rewardCoins;
-  final String status; // PENDING, OPEN, CLOSED, RESOLVED
+  final String status; // PENDING, OPEN, CLOSED, RESOLVED, VOIDED
   final String? correctOptionId;
   final DateTime opensAt;
   final DateTime closesAt;

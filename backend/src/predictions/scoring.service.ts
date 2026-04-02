@@ -129,4 +129,57 @@ export class ScoringService {
 
     return results;
   }
+
+  /**
+   * VOID a question and refund 50 coins to all users who predicted.
+   * Used when a question can't be resolved (e.g. no goal scored, no card, no sub).
+   */
+  async voidQuestion(questionId: string) {
+    const predictions = await this.prisma.prediction.findMany({
+      where: { questionId },
+    });
+
+    const results: Array<{ userId: string; coinsRefunded: number }> = [];
+
+    for (const prediction of predictions) {
+      const refundAmount = prediction.coinsBet;
+
+      // Update prediction as voided
+      await this.prisma.prediction.update({
+        where: { id: prediction.id },
+        data: {
+          isCorrect: null,
+          coinsResult: 0,
+          xpEarned: 0,
+          resolvedAt: new Date(),
+        },
+      });
+
+      // Refund coins
+      const user = await this.prisma.user.update({
+        where: { id: prediction.userId },
+        data: {
+          coins: { increment: refundAmount },
+        },
+      });
+
+      // Record refund transaction
+      await this.prisma.coinTransaction.create({
+        data: {
+          userId: prediction.userId,
+          type: 'PREDICTION_REFUND',
+          amount: refundAmount,
+          balanceAfter: user.coins,
+          referenceId: prediction.id,
+        },
+      });
+
+      results.push({ userId: prediction.userId, coinsRefunded: refundAmount });
+    }
+
+    // Clean up Redis fan data
+    await this.redis.del(`question:${questionId}:fans`);
+
+    return results;
+  }
 }

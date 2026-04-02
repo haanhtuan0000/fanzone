@@ -9,6 +9,8 @@ import '../widgets/option_button.dart';
 import '../widgets/coin_stake_display.dart';
 import '../widgets/progress_strip.dart';
 import '../widgets/answered_card.dart';
+import '../widgets/waiting_card.dart';
+import '../widgets/next_question_strip.dart';
 import '../../../core/l10n/app_strings.dart';
 
 class PredictScreen extends ConsumerWidget {
@@ -25,6 +27,21 @@ class PredictScreen extends ConsumerWidget {
       if (next.error != null && next.error != prev?.error) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(next.error!), duration: const Duration(seconds: 3)),
+        );
+      }
+      // First prediction bonus toast
+      if (next.showFirstPredictionBonus && !(prev?.showFirstPredictionBonus ?? false)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Text('🎉 ', style: TextStyle(fontSize: 20)),
+                Expanded(child: Text(s.firstPredictionBonus)),
+              ],
+            ),
+            backgroundColor: AppColors.neonGreen.withOpacity(0.9),
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     });
@@ -115,8 +132,25 @@ class PredictScreen extends ConsumerWidget {
                 ),
               ),
 
-            // Active question section
-            if (question != null) ...[
+            // Next question countdown (compact, inline — between questions)
+            if ((question == null || predictState.isExpired) &&
+                (answered.isNotEmpty || predictState.upcomingQuestions.isNotEmpty))
+              SliverToBoxAdapter(
+                child: NextQuestionStrip(
+                  nextOpensAt: predictState.upcomingQuestions.isNotEmpty
+                      ? predictState.upcomingQuestions.first.opensAt
+                      : null,
+                  onReady: () {
+                    final match = ref.read(liveStateProvider).activeMatch;
+                    if (match != null) {
+                      ref.read(predictStateProvider.notifier).loadQuestions(match.fixtureId);
+                    }
+                  },
+                ),
+              ),
+
+            // Active question section (only if not expired)
+            if (question != null && !predictState.isExpired) ...[
               // Countdown
               SliverToBoxAdapter(
                 child: Padding(
@@ -241,17 +275,17 @@ class PredictScreen extends ConsumerWidget {
             // Answered questions section
             if (answered.isNotEmpty) ...[
               // Split into resolved and pending
-              if (answered.any((a) => a.status == 'correct' || a.status == 'wrong'))
+              if (answered.any((a) => a.status == 'correct' || a.status == 'wrong' || a.status == 'voided'))
                 SliverToBoxAdapter(child: _sectionDivider(s.hasResults)),
 
               SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
-                    final resolvedList = answered.where((a) => a.status == 'correct' || a.status == 'wrong').toList();
+                    final resolvedList = answered.where((a) => a.status == 'correct' || a.status == 'wrong' || a.status == 'voided').toList();
                     if (index >= resolvedList.length) return null;
                     return AnsweredCard(answered: resolvedList[index], index: index + 1);
                   },
-                  childCount: answered.where((a) => a.status == 'correct' || a.status == 'wrong').length,
+                  childCount: answered.where((a) => a.status == 'correct' || a.status == 'wrong' || a.status == 'voided').length,
                 ),
               ),
 
@@ -271,19 +305,7 @@ class PredictScreen extends ConsumerWidget {
                 ),
               ),
 
-              if (answered.any((a) => a.status == 'skip'))
-                SliverToBoxAdapter(child: _sectionDivider(s.skipped)),
-
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final skipList = answered.where((a) => a.status == 'skip').toList();
-                    if (index >= skipList.length) return null;
-                    return AnsweredCard(answered: skipList[index], index: index + 1);
-                  },
-                  childCount: answered.where((a) => a.status == 'skip').length,
-                ),
-              ),
+              // Skipped/missed questions intentionally hidden
             ],
 
             // Bottom padding

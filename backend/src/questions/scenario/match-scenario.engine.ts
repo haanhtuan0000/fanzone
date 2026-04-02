@@ -28,22 +28,37 @@ interface FixtureState {
 }
 
 /**
- * Question distribution per phase (from FanZone_Question_Bank.docx).
- * Each phase has: count, difficulty, and preferred categories (in priority order).
+ * Question distribution per phase (from FanZone_Question_Bank_v2_3.docx).
+ * 55 questions, 17 EASY, sliding window 12, pool available = 43/match.
  */
 const PHASE_CONFIG: Record<MatchPhase, {
   count: number;
   difficulty: QuestionDifficulty;
-  categories: string[]; // Preferred categories in order
+  categories: string[];
 }> = {
-  PRE_MATCH:  { count: 0, difficulty: 'EASY',   categories: [] }, // Not used — matches detected after kickoff
-  EARLY_H1:   { count: 2, difficulty: 'EASY',   categories: ['GOAL', 'CARD', 'STAT'] },
-  MID_H1:     { count: 2, difficulty: 'MEDIUM', categories: ['VAR', 'SUB'] },
-  LATE_H1:    { count: 1, difficulty: 'MEDIUM', categories: ['GOAL', 'CORNER'] },
-  HALF_TIME:  { count: 2, difficulty: 'MEDIUM', categories: ['MOMENTUM', 'GOAL'] },
-  EARLY_H2:   { count: 2, difficulty: 'MEDIUM', categories: ['SUB', 'VAR'] },
-  MID_H2:     { count: 2, difficulty: 'HARD',   categories: ['CARD', 'GOAL'] },
-  LATE_H2:    { count: 2, difficulty: 'HARD',   categories: ['TIME', 'GOAL'] },
+  PRE_MATCH:  { count: 2, difficulty: 'EASY',   categories: ['GOAL', 'STAT'] },
+  EARLY_H1:   { count: 2, difficulty: 'EASY',   categories: ['GOAL', 'CARD', 'CORNER', 'STAT', 'MOMENTUM'] },
+  MID_H1:     { count: 2, difficulty: 'MEDIUM', categories: ['VAR', 'GOAL', 'CORNER'] },
+  LATE_H1:    { count: 1, difficulty: 'MEDIUM', categories: ['GOAL', 'TIME'] },
+  HALF_TIME:  { count: 2, difficulty: 'MEDIUM', categories: ['MOMENTUM', 'GOAL', 'SUB'] },
+  EARLY_H2:   { count: 2, difficulty: 'MEDIUM', categories: ['SUB', 'VAR', 'GOAL'] },
+  MID_H2:     { count: 2, difficulty: 'HARD',   categories: ['CARD', 'GOAL', 'MOMENTUM'] },
+  LATE_H2:    { count: 2, difficulty: 'HARD',   categories: ['TIME', 'GOAL', 'MOMENTUM'] },
+};
+
+/**
+ * Phase timing boundaries (minutes).
+ * Used to space questions evenly within each phase.
+ */
+const PHASE_TIMING: Record<MatchPhase, { start: number; end: number }> = {
+  PRE_MATCH:  { start: -5, end: 0 },
+  EARLY_H1:   { start: 0,  end: 15 },
+  MID_H1:     { start: 15, end: 35 },
+  LATE_H1:    { start: 35, end: 45 },
+  HALF_TIME:  { start: 45, end: 47 },
+  EARLY_H2:   { start: 46, end: 60 },
+  MID_H2:     { start: 60, end: 75 },
+  LATE_H2:    { start: 75, end: 90 },
 };
 
 /** Maximum scheduled questions per match (doc says 13-15) */
@@ -61,8 +76,8 @@ const EVENT_TRIGGER_MAP: Record<string, string> = {
 /** Minimum cooldown between questions per fixture (ms) */
 const COOLDOWN_MS = 45_000;
 
-/** Redis sliding window size — last N template IDs to avoid repetition */
-const WINDOW_SIZE = 10;
+/** Redis sliding window size — last N template IDs to avoid repetition (doc v2.3: 12) */
+const WINDOW_SIZE = 12;
 
 /** TTL for the Redis sliding window key (4 hours, covers a full match) */
 const WINDOW_TTL_SEC = 4 * 3600;
@@ -87,7 +102,8 @@ export class MatchScenarioEngine {
 
   /**
    * Called when the match transitions to a new phase.
-   * Generates 1-2 scheduled questions for the new phase.
+   * Generates 1-2 scheduled questions for the new phase,
+   * spaced evenly within the phase duration.
    */
   async onPhaseChange(
     fixtureId: number,
@@ -146,12 +162,22 @@ export class MatchScenarioEngine {
     // Check if there's already an OPEN question for this fixture
     const existingOpen = await this.questionsService.hasOpenQuestion(fixtureId);
 
+    // Calculate spaced opensAt timestamps within the phase
+    const currentElapsed = elapsed ?? 0;
+    const kickoffTime = new Date(Date.now() - currentElapsed * 60_000);
+    const scheduledTimes = this.calculateSpacedTimes(newPhase, templates.length, kickoffTime, currentElapsed);
+
     const created = [];
     for (let i = 0; i < templates.length; i++) {
       const tpl = templates[i];
-      // Only open the first question if no OPEN question exists; rest stay PENDING
-      const shouldOpen = !existingOpen && created.length === 0;
-      const question = await this.createFromTemplate(fixtureId, tpl, context, newPhase, elapsed, undefined, shouldOpen);
+      const scheduledOpensAt = scheduledTimes[i];
+      // Only auto-open if: no existing OPEN question, this is the first in batch, AND it's due now
+      const isDueNow = scheduledOpensAt.getTime() <= Date.now();
+      const shouldOpen = !existingOpen && created.length === 0 && isDueNow;
+
+      const question = await this.createFromTemplate(
+        fixtureId, tpl, context, newPhase, elapsed, undefined, shouldOpen, scheduledOpensAt,
+      );
       if (question) {
         created.push(question);
         await this.recordUsedTemplate(fixtureId, tpl.id);
@@ -161,7 +187,10 @@ export class MatchScenarioEngine {
     }
 
     this.logger.log(
-      `[${fixtureId}] Generated ${created.length} questions for phase ${newPhase}`,
+      `[${fixtureId}] Generated ${created.length} questions for phase ${newPhase}` +
+      (scheduledTimes.length > 0
+        ? ` (scheduled at minutes: ${scheduledTimes.map((t) => Math.round((t.getTime() - kickoffTime.getTime()) / 60_000)).join(', ')})`
+        : ''),
     );
 
     return created;
@@ -170,6 +199,7 @@ export class MatchScenarioEngine {
   /**
    * Called when a live match event arrives (goal, card, corner, VAR, sub).
    * May generate a trigger-based question if appropriate.
+   * Event-triggered questions open immediately (no spacing).
    */
   async onMatchEvent(
     fixtureId: number,
@@ -212,6 +242,7 @@ export class MatchScenarioEngine {
       score,
     );
 
+    // Event-triggered questions open immediately — no spacing
     const question = await this.createFromTemplate(
       fixtureId,
       tpl,
@@ -255,6 +286,62 @@ export class MatchScenarioEngine {
   }
 
   // ──────────────────────────────────────────────
+  //  Question spacing
+  // ──────────────────────────────────────────────
+
+  /**
+   * Calculate evenly spaced opensAt timestamps within a phase.
+   *
+   * Example: EARLY_H1 (0-15 min), 2 questions:
+   *   interval = 15 / (2+1) = 5 min
+   *   Q1 opensAt = kickoff + 5 min
+   *   Q2 opensAt = kickoff + 10 min
+   *
+   * If the calculated time is already in the past (match joined mid-phase),
+   * the question gets opensAt = now.
+   */
+  private calculateSpacedTimes(
+    phase: MatchPhase,
+    count: number,
+    kickoffTime: Date,
+    currentElapsed: number,
+  ): Date[] {
+    if (count === 0) return [];
+
+    const timing = PHASE_TIMING[phase];
+    const phaseDuration = timing.end - timing.start; // minutes
+
+    // For very short phases (HALF_TIME: 2 min), use minimal gap (30s)
+    if (phaseDuration <= 3) {
+      const times: Date[] = [];
+      for (let i = 0; i < count; i++) {
+        const offsetMs = i * 30_000; // 30s between questions
+        const opensAt = new Date(Date.now() + offsetMs);
+        times.push(opensAt);
+      }
+      return times;
+    }
+
+    // Space evenly: interval = duration / (count + 1)
+    const intervalMin = phaseDuration / (count + 1);
+    const times: Date[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const targetMinute = timing.start + intervalMin * (i + 1);
+      const targetTime = new Date(kickoffTime.getTime() + targetMinute * 60_000);
+
+      // If target is in the past, use now (+ small offset to avoid race)
+      if (targetTime.getTime() <= Date.now()) {
+        times.push(new Date(Date.now() + i * 1000)); // stagger by 1s
+      } else {
+        times.push(targetTime);
+      }
+    }
+
+    return times;
+  }
+
+  // ──────────────────────────────────────────────
   //  Internal helpers
   // ──────────────────────────────────────────────
 
@@ -272,7 +359,8 @@ export class MatchScenarioEngine {
   }
 
   /**
-   * Create a question from a resolved template, auto-open it, and return it.
+   * Create a question from a resolved template.
+   * @param scheduledOpensAt - When the question should open. Defaults to now.
    */
   private async createFromTemplate(
     fixtureId: number,
@@ -282,19 +370,20 @@ export class MatchScenarioEngine {
     elapsed?: number,
     triggeredByEvent?: string,
     autoOpen: boolean = true,
+    scheduledOpensAt?: Date,
   ) {
     try {
       // Resolve text (default to Vietnamese)
       const text = this.variableResolver.resolveText(tpl.textVi, context);
       const options = this.variableResolver.resolveOptions(tpl.options as any, context, 'vi');
 
-      const now = new Date();
-      const closesAt = new Date(now.getTime() + tpl.answerWindowSec * 1000);
+      const opensAt = scheduledOpensAt ?? new Date();
+      const closesAt = new Date(opensAt.getTime() + tpl.answerWindowSec * 1000);
 
       // For TIMEOUT_DEFAULT questions, compute when to auto-resolve
       const timeoutWindowMin = tpl.timeoutWindowMin as number | undefined;
       const resolvesAt = timeoutWindowMin
-        ? new Date(now.getTime() + timeoutWindowMin * 60_000).toISOString()
+        ? new Date(opensAt.getTime() + timeoutWindowMin * 60_000).toISOString()
         : undefined;
 
       const question = await this.questionsService.createQuestion({
@@ -307,7 +396,7 @@ export class MatchScenarioEngine {
         triggeredByEvent,
         text,
         rewardCoins: tpl.rewardCoins,
-        opensAt: now.toISOString(),
+        opensAt: opensAt.toISOString(),
         closesAt: closesAt.toISOString(),
         resolvesAt,
         options: options.map((opt) => ({
@@ -317,13 +406,13 @@ export class MatchScenarioEngine {
         })),
       });
 
-      // Only open if autoOpen and no other OPEN question exists
-      if (autoOpen) {
+      // Only open if autoOpen, opensAt is now or past, and no other OPEN question exists
+      if (autoOpen && opensAt.getTime() <= Date.now()) {
         await this.questionsService.openQuestion(question.id);
       }
 
       this.logger.log(
-        `[${fixtureId}] Created question [${tpl.code}]: "${text}" (${phase}, ${autoOpen ? 'OPEN' : 'PENDING'})`,
+        `[${fixtureId}] Created question [${tpl.code}]: "${text}" (${phase}, ${autoOpen && opensAt.getTime() <= Date.now() ? 'OPEN' : 'PENDING'}, opensAt=${opensAt.toISOString()})`,
       );
 
       return question;
@@ -343,8 +432,6 @@ export class MatchScenarioEngine {
 
   /**
    * Get ALL template IDs already used for this fixture from the DB.
-   * This replaces the Redis sliding window — DB is the source of truth
-   * and survives server restarts.
    */
   private async getUsedTemplateIds(fixtureId: number): Promise<string[]> {
     const questions = await this.questionsService.getTemplateIdsForFixture(fixtureId);
@@ -352,10 +439,9 @@ export class MatchScenarioEngine {
   }
 
   /**
-   * Record a template ID as used (no-op now — DB is the source of truth).
+   * Record a template ID as used (no-op — DB is the source of truth).
    */
   private async recordUsedTemplate(_fixtureId: number, _templateId: string): Promise<void> {
     // Template ID is stored on the question record via createQuestion({ templateId })
-    // No separate tracking needed
   }
 }

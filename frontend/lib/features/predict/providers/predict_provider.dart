@@ -14,7 +14,7 @@ export '../../auth/providers/auth_provider.dart' show userCoinsProvider;
 class AnsweredQuestion {
   final Question question;
   final String? myPickOptionId;
-  final String status; // 'pending' | 'correct' | 'wrong' | 'skip'
+  final String status; // 'pending' | 'correct' | 'wrong' | 'skip' | 'voided'
   final int? coinsResult;
 
   const AnsweredQuestion({
@@ -36,6 +36,7 @@ class PredictState {
   final String? error;
   final int totalCoinsEarned;
   final int totalQuestions;
+  final bool showFirstPredictionBonus;
 
   const PredictState({
     this.activeQuestion,
@@ -48,6 +49,7 @@ class PredictState {
     this.error,
     this.totalCoinsEarned = 0,
     this.totalQuestions = 0,
+    this.showFirstPredictionBonus = false,
   });
 
   PredictState copyWith({
@@ -63,6 +65,7 @@ class PredictState {
     String? error,
     int? totalCoinsEarned,
     int? totalQuestions,
+    bool? showFirstPredictionBonus,
   }) {
     return PredictState(
       activeQuestion: clearActive ? null : (activeQuestion ?? this.activeQuestion),
@@ -75,6 +78,7 @@ class PredictState {
       error: error,
       totalCoinsEarned: totalCoinsEarned ?? this.totalCoinsEarned,
       totalQuestions: totalQuestions ?? this.totalQuestions,
+      showFirstPredictionBonus: showFirstPredictionBonus ?? false,
     );
   }
 
@@ -164,11 +168,18 @@ class PredictNotifier extends StateNotifier<PredictState> {
         ));
       }
 
-      // Add RESOLVED questions
+      // Add RESOLVED + VOIDED questions
       for (final rJson in resolvedJson) {
         final q = Question.fromJson(rJson as Map<String, dynamic>);
         final pred = predMap[q.id];
-        if (pred == null) {
+        if (q.status == 'VOIDED') {
+          answered.add(AnsweredQuestion(
+            question: q,
+            myPickOptionId: pred?['optionId'] as String?,
+            status: 'voided',
+            coinsResult: 0,
+          ));
+        } else if (pred == null) {
           answered.add(AnsweredQuestion(
             question: q,
             status: 'skip',
@@ -244,8 +255,9 @@ class PredictNotifier extends StateNotifier<PredictState> {
         },
       );
 
-      // Update multipliers from server response
       final data = response.data as Map<String, dynamic>;
+
+      // Update multipliers from server response (do this BEFORE bonus flag)
       final updatedOptions = data['updatedOptions'] as List<dynamic>?;
       if (updatedOptions != null) {
         final pcts = <String, int>{};
@@ -253,6 +265,14 @@ class PredictNotifier extends StateNotifier<PredictState> {
           pcts[opt['id'] as String] = opt['fanPct'] as int;
         }
         _updateFanDistribution(pcts);
+      }
+
+      // Check for first prediction bonus — set AFTER other state changes
+      // so the flag isn't immediately reset by _updateFanDistribution's copyWith
+      final isFirst = data['isFirstPrediction'] as bool? ?? false;
+      if (isFirst) {
+        state = state.copyWith(showFirstPredictionBonus: true);
+        _onCoinsChanged(20); // Reflect the bonus in the coin display
       }
 
       // Start polling for result (fallback if WS misses it)

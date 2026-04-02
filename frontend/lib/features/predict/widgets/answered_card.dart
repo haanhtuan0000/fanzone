@@ -4,6 +4,14 @@ import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/question.dart';
 import '../providers/predict_provider.dart';
 
+String _localized(String text) {
+  final parts = text.split('|');
+  if (parts.length == 2) {
+    return identical(AppStrings.current, AppStrings.en) ? parts[0].trim() : parts[1].trim();
+  }
+  return text;
+}
+
 class AnsweredCard extends StatelessWidget {
   final AnsweredQuestion answered;
   final int index;
@@ -16,6 +24,7 @@ class AnsweredCard extends StatelessWidget {
     final q = answered.question;
     final status = answered.status;
     final isSkip = status == 'skip';
+    final isVoided = status == 'voided';
 
     return Opacity(
       opacity: isSkip ? 0.5 : 0.85,
@@ -65,7 +74,7 @@ class AnsweredCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    q.text,
+                    _localized(q.text),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -94,6 +103,20 @@ class AnsweredCard extends StatelessWidget {
                       child: Text(
                         s.lockedMessage,
                         style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                      ),
+                    ),
+                  if (isVoided)
+                    Container(
+                      margin: const EdgeInsets.only(top: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      alignment: Alignment.centerRight,
+                      decoration: BoxDecoration(
+                        color: AppColors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Hoàn xu +50 🪙',
+                        style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 11, color: AppColors.blue),
                       ),
                     ),
                   if (isSkip)
@@ -131,6 +154,11 @@ class AnsweredCard extends StatelessWidget {
         fg = AppColors.amber;
         border = AppColors.amber.withOpacity(0.3);
         break;
+      case 'voided':
+        bg = AppColors.blue.withOpacity(0.12);
+        fg = AppColors.blue;
+        border = AppColors.blue.withOpacity(0.3);
+        break;
       default:
         bg = AppColors.textSecondary.withOpacity(0.07);
         fg = AppColors.textSecondary;
@@ -164,6 +192,10 @@ class AnsweredCard extends StatelessWidget {
         text = s.pendingStatus;
         color = AppColors.amber;
         break;
+      case 'voided':
+        text = 'VOIDED · +50';
+        color = AppColors.blue;
+        break;
       default:
         text = s.skippedStatus;
         color = AppColors.textSecondary;
@@ -195,26 +227,55 @@ class AnsweredCard extends StatelessWidget {
       bgColor = Colors.white.withOpacity(0.02);
     }
 
+    // Fill bar color
+    Color fillColor;
+    if (status == 'answer' || (isMyPick && status == 'correct')) {
+      fillColor = AppColors.neonGreen;
+    } else if (isMyPick && status == 'wrong') {
+      fillColor = AppColors.red;
+    } else if (isMyPick && status == 'pending') {
+      fillColor = AppColors.amber;
+    } else {
+      fillColor = AppColors.textSecondary;
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: bgColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: borderColor),
       ),
-      child: Row(
-        children: [
-          if (option.emoji != null) Text(option.emoji!, style: const TextStyle(fontSize: 14)),
-          if (option.emoji != null) const SizedBox(width: 8),
-          Expanded(
-            child: Text(option.name, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
-          ),
-          Text('${option.fanPct}%', style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 12, color: AppColors.textSecondary)),
-          const SizedBox(width: 6),
-          if (isMyPick) _buildTag(status == 'pending' ? AppStrings.current.myPick : (status == 'correct' ? AppStrings.current.correctPick : AppStrings.current.wrongPick), status),
-          if (!isMyPick && status == 'answer') _buildTag(AppStrings.current.answerTag, 'answer'),
-        ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(7),
+        child: Stack(
+          children: [
+            // Fill bar background
+            Positioned.fill(
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: (option.fanPct / 100).clamp(0.0, 1.0),
+                child: Container(color: fillColor.withOpacity(0.15)),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  if (option.emoji != null) Text(option.emoji!, style: const TextStyle(fontSize: 14)),
+                  if (option.emoji != null) const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_localized(option.name), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
+                  ),
+                  Text('${option.fanPct}%', style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 12, color: AppColors.textSecondary)),
+                  const SizedBox(width: 6),
+                  if (isMyPick) _buildTag(status == 'pending' ? AppStrings.current.myPick : (status == 'correct' ? AppStrings.current.correctPick : AppStrings.current.wrongPick), status),
+                  if (!isMyPick && status == 'answer') _buildTag(AppStrings.current.answerTag, 'answer'),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -235,6 +296,7 @@ class AnsweredCard extends StatelessWidget {
   }
 
   Widget _buildCoinsResult(int coins, String status) {
+    final s = AppStrings.current;
     final isWin = status == 'correct';
     return Container(
       margin: const EdgeInsets.only(top: 5),
@@ -245,7 +307,7 @@ class AnsweredCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        '${coins >= 0 ? "+" : ""}$coins',
+        isWin ? s.correctBonus(coins) : '$coins',
         style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 11, color: isWin ? AppColors.neonGreen : AppColors.red),
       ),
     );
@@ -256,6 +318,7 @@ class AnsweredCard extends StatelessWidget {
       case 'correct': return AppColors.neonGreen.withOpacity(0.2);
       case 'wrong': return AppColors.red.withOpacity(0.2);
       case 'pending': return AppColors.amber.withOpacity(0.15);
+      case 'voided': return AppColors.blue.withOpacity(0.2);
       default: return AppColors.divider;
     }
   }
@@ -265,6 +328,7 @@ class AnsweredCard extends StatelessWidget {
       case 'correct': return AppColors.neonGreen.withOpacity(0.05);
       case 'wrong': return AppColors.red.withOpacity(0.05);
       case 'pending': return AppColors.amber.withOpacity(0.05);
+      case 'voided': return AppColors.blue.withOpacity(0.05);
       default: return Colors.transparent;
     }
   }
@@ -274,6 +338,7 @@ class AnsweredCard extends StatelessWidget {
       case 'correct': return AppColors.neonGreen.withOpacity(0.12);
       case 'wrong': return AppColors.red.withOpacity(0.12);
       case 'pending': return AppColors.amber.withOpacity(0.12);
+      case 'voided': return AppColors.blue.withOpacity(0.12);
       default: return AppColors.divider;
     }
   }

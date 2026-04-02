@@ -12,11 +12,39 @@ export class QuestionsService {
   ) {}
 
   async getActiveQuestions(fixtureId: number) {
-    const openQuestion = await this.prisma.question.findFirst({
+    let openQuestion = await this.prisma.question.findFirst({
       where: { fixtureId, status: 'OPEN' },
       include: { options: true },
       orderBy: { opensAt: 'desc' },
     });
+
+    // Auto-close expired OPEN questions
+    if (openQuestion && openQuestion.closesAt < new Date()) {
+      this.logger.log(`[${fixtureId}] Question expired: "${openQuestion.text.substring(0, 30)}..." — locking`);
+      await this.prisma.question.update({
+        where: { id: openQuestion.id },
+        data: { status: 'LOCKED' },
+      });
+      openQuestion = null;
+    }
+
+    // If no OPEN question, check if next PENDING question's opensAt has arrived
+    if (!openQuestion) {
+      const nextPending = await this.prisma.question.findFirst({
+        where: { fixtureId, status: 'PENDING' },
+        orderBy: { opensAt: 'asc' },
+      });
+      if (nextPending && nextPending.opensAt <= new Date()) {
+        const now = new Date();
+        const windowMs = nextPending.closesAt.getTime() - nextPending.opensAt.getTime();
+        openQuestion = await this.prisma.question.update({
+          where: { id: nextPending.id },
+          data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + windowMs) },
+          include: { options: true },
+        });
+        this.logger.log(`[${fixtureId}] Opened next question: "${openQuestion.text.substring(0, 30)}..."`);
+      }
+    }
 
     const upcomingQuestions = await this.prisma.question.findMany({
       where: { fixtureId, status: 'PENDING' },
@@ -44,9 +72,9 @@ export class QuestionsService {
       })) as any;
     }
 
-    // Recently resolved questions (for showing results)
+    // Recently resolved + voided questions (for showing results)
     const resolved = await this.prisma.question.findMany({
-      where: { fixtureId, status: 'RESOLVED' },
+      where: { fixtureId, status: { in: ['RESOLVED', 'VOIDED'] } },
       include: { options: true },
       orderBy: { closesAt: 'desc' },
       take: 10,
@@ -153,9 +181,15 @@ export class QuestionsService {
       orderBy: { opensAt: 'asc' },
     });
     if (next) {
+      const now = new Date();
+      const windowMs = next.closesAt.getTime() - next.opensAt.getTime();
       return this.prisma.question.update({
         where: { id: next.id },
-        data: { status: 'OPEN' },
+        data: {
+          status: 'OPEN',
+          opensAt: now,
+          closesAt: new Date(now.getTime() + windowMs),
+        },
         include: { options: true },
       });
     }

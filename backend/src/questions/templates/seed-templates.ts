@@ -1,6 +1,6 @@
 /**
  * Seed script for QuestionTemplate table.
- * Upserts all 30 templates from question-bank.ts into the database.
+ * Upserts all 55 templates from question-bank.ts (v2.2) into the database.
  *
  * Usage:
  *   npx ts-node src/questions/templates/seed-templates.ts
@@ -31,6 +31,8 @@ async function seed() {
       options: tpl.options as any,
       defaultFanPcts: tpl.options.map((o) => o.defaultPct),
       resolutionStrategy: tpl.resolutionStrategy,
+      timeoutWindowMin: tpl.timeoutWindowMin ?? null,
+      voidCondition: tpl.voidCondition ?? null,
       weight: tpl.weight,
       isActive: true,
     };

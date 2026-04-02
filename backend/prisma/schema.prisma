@@ -26,6 +26,7 @@ enum QuestionStatus {
   LOCKED
   CLOSED
   RESOLVED
+  VOIDED
 }
 
 enum QuestionDifficulty {
@@ -49,6 +50,7 @@ enum MatchPhase {
 enum CoinTransactionType {
   PREDICTION_WIN
   PREDICTION_LOSS
+  PREDICTION_REFUND
   ONBOARDING
   ACHIEVEMENT
   DAILY_BONUS
@@ -117,6 +119,7 @@ model QuestionTemplate {
   defaultFanPcts     Json?              @map("default_fan_pcts")
   resolutionStrategy String             @default("AUTO") @map("resolution_strategy")
   timeoutWindowMin   Int?               @map("timeout_window_min")
+  voidCondition      String?            @map("void_condition")
   weight             Int                @default(100)
   isActive           Boolean            @default(true) @map("is_active")
   createdAt          DateTime           @default(now()) @map("created_at")
