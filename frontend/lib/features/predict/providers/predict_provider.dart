@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/question.dart';
@@ -105,17 +106,26 @@ class PredictNotifier extends StateNotifier<PredictState> {
   int? _currentFixtureId;
 
   bool _loading = false;
+  Timer? _pollTimer;
 
   PredictNotifier(this._apiClient, this._onCoinsChanged) : super(const PredictState());
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> loadQuestions(int fixtureId) async {
     // Debounce: skip if already loading
     if (_loading) return;
     _loading = true;
+
+    // Show loading spinner when switching matches or on first load
+    final isMatchChange = _currentFixtureId != null && _currentFixtureId != fixtureId;
     _currentFixtureId = fixtureId;
 
-    // Don't show loading spinner on background refreshes
-    if (state.activeQuestion == null && state.answeredQuestions.isEmpty) {
+    if (isMatchChange || (state.activeQuestion == null && state.answeredQuestions.isEmpty)) {
       state = state.copyWith(isLoading: true);
     }
 
@@ -219,6 +229,14 @@ class PredictNotifier extends StateNotifier<PredictState> {
         totalCoinsEarned: totalCoins,
         totalQuestions: answered.length + (active != null ? 1 : 0) + upcoming.length,
       );
+
+      // Start/stop poll timer: if no active and no upcoming, poll for new questions
+      if (active != null || upcoming.isNotEmpty) {
+        _pollTimer?.cancel();
+        _pollTimer = null;
+      } else if (_pollTimer == null && answered.isNotEmpty) {
+        _startIdlePoll();
+      }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     } finally {
@@ -233,6 +251,19 @@ class PredictNotifier extends StateNotifier<PredictState> {
     if (mounted && _currentFixtureId != null) {
       loadQuestions(_currentFixtureId!);
     }
+  }
+
+  /// Poll every 30s when idle (no active/upcoming questions) to detect new questions from next phase.
+  void _startIdlePoll() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted || _currentFixtureId == null) {
+        _pollTimer?.cancel();
+        _pollTimer = null;
+        return;
+      }
+      loadQuestions(_currentFixtureId!);
+    });
   }
 
   void selectOption(String optionId) {

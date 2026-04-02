@@ -13,14 +13,31 @@ import '../widgets/waiting_card.dart';
 import '../widgets/next_question_strip.dart';
 import '../../../core/l10n/app_strings.dart';
 
-class PredictScreen extends ConsumerWidget {
+class PredictScreen extends ConsumerStatefulWidget {
   const PredictScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PredictScreen> createState() => _PredictScreenState();
+}
+
+class _PredictScreenState extends ConsumerState<PredictScreen> {
+  bool _refreshed = false;
+
+  @override
+  Widget build(BuildContext context) {
     final s = AppStrings.current;
     final predictState = ref.watch(predictStateProvider);
     final activeMatch = ref.watch(liveStateProvider).activeMatch;
+
+    // Refresh questions when this screen is shown to avoid stale state from banner
+    if (!_refreshed && activeMatch != null && activeMatch.isLive) {
+      _refreshed = true;
+      Future.microtask(() {
+        if (mounted) {
+          ref.read(predictStateProvider.notifier).loadQuestions(activeMatch.fixtureId);
+        }
+      });
+    }
 
     // Show error as snackbar
     ref.listen<PredictState>(predictStateProvider, (prev, next) {
