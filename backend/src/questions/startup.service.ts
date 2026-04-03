@@ -14,6 +14,18 @@ export class StartupService implements OnModuleInit {
 
   async onModuleInit() {
     await this.seedTemplates();
+    await this.ensureMinCoins();
+  }
+
+  /** Testing: ensure all users have at least 500 coins */
+  private async ensureMinCoins() {
+    const result = await this.prisma.user.updateMany({
+      where: { coins: { lt: 500 } },
+      data: { coins: 500 },
+    });
+    if (result.count > 0) {
+      this.logger.log(`Topped up ${result.count} users to 500 coins`);
+    }
   }
 
   private async seedTemplates() {

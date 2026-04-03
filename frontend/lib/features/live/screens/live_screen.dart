@@ -98,9 +98,7 @@ class LiveScreen extends ConsumerWidget {
                     ),
                   ),
                 )
-              else if (predictState.activeQuestion != null ||
-                  predictState.answeredQuestions.isNotEmpty ||
-                  predictState.upcomingQuestions.isNotEmpty)
+              else
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),

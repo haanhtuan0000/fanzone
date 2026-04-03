@@ -83,9 +83,15 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
     String text;
     IconData icon;
 
+    // HT awareness: during half-time (elapsed 45-47), show specific message
+    final isHalfTime = widget.matchElapsed != null && widget.matchElapsed! >= 45 && widget.matchElapsed! <= 47;
+
     if (hasCountdown) {
       text = '${s.nextQuestionIn} ${_remaining.inSeconds}s';
       icon = Icons.hourglass_bottom;
+    } else if (isHalfTime) {
+      text = 'Questions resume in the 2nd half';
+      icon = Icons.coffee;
     } else if (hasEstimate && estimateMin > 0) {
       text = '${s.nextQuestionIn} ~${estimateMin} min';
       icon = Icons.schedule;

@@ -249,8 +249,23 @@ class PredictNotifier extends StateNotifier<PredictState> {
 
   void expireQuestion() {
     if (state.isExpired) return;
-    state = state.copyWith(isExpired: true, isLocked: true);
-    // Immediately load next question — no TIME UP delay
+    // Move current question to answered list immediately
+    // This prevents the 2-3s flash where the card disappears
+    final current = state.activeQuestion;
+    final updatedAnswered = [...state.answeredQuestions];
+    if (current != null) {
+      updatedAnswered.insert(0, AnsweredQuestion(
+        question: current,
+        myPickOptionId: state.selectedOptionId,
+        status: state.selectedOptionId != null ? 'pending' : 'skip',
+      ));
+    }
+    state = state.copyWith(
+      isExpired: true,
+      isLocked: true,
+      answeredQuestions: updatedAnswered,
+    );
+    // Then refresh from server to get actual state
     if (mounted && _currentFixtureId != null) {
       loadQuestions(_currentFixtureId!);
     }

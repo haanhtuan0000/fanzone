@@ -11,10 +11,16 @@ export interface MatchContext {
   home_striker: string;
   away_striker: string;
   home_midfielder: string;
+  away_midfielder: string;
   home_keeper: string;
   away_keeper: string;
   risky_player_home: string;
   risky_player_away: string;
+  home_sub_striker: string;
+  away_sub_striker: string;
+  sub_midfielder: string;
+  leading_team: string;
+  trailing_team: string;
   home_score: string;
   away_score: string;
   minute: string;
@@ -61,10 +67,16 @@ export class VariableResolverService {
       home_striker: lineup?.home?.strikers?.[0] ?? teams.home,
       away_striker: lineup?.away?.strikers?.[0] ?? teams.away,
       home_midfielder: lineup?.home?.midfielders?.[0] ?? teams.home,
+      away_midfielder: lineup?.away?.midfielders?.[0] ?? teams.away,
       home_keeper: lineup?.home?.goalkeeper ?? teams.home,
       away_keeper: lineup?.away?.goalkeeper ?? teams.away,
       risky_player_home: lineup?.home?.midfielders?.[1] ?? teams.home,
       risky_player_away: lineup?.away?.midfielders?.[1] ?? teams.away,
+      home_sub_striker: lineup?.home?.strikers?.[1] ?? teams.home,
+      away_sub_striker: lineup?.away?.strikers?.[1] ?? teams.away,
+      sub_midfielder: lineup?.home?.midfielders?.[2] ?? teams.home,
+      leading_team: homeScore > awayScore ? teams.home : (awayScore > homeScore ? teams.away : teams.home),
+      trailing_team: homeScore < awayScore ? teams.home : (awayScore < homeScore ? teams.away : teams.away),
       home_score: String(homeScore),
       away_score: String(awayScore),
       minute: String(elapsed ?? 0),

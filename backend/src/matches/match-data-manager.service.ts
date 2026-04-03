@@ -8,7 +8,7 @@ import { QuestionResolverService } from '../questions/question-resolver.service'
 import { QuestionGeneratorService } from '../questions/question-generator.service';
 import { ScheduleTracker } from './schedule-tracker';
 import { PollBudgetService } from './poll-budget.service';
-import { TRACKED_LEAGUE_IDS } from './leagues.config';
+import { TRACKED_LEAGUE_IDS, MAX_LIVE_MATCHES, PRIORITY_LEAGUE_IDS } from './leagues.config';
 
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN']);
 const LIVE_STATUSES = new Set(['1H', '2H', 'HT', 'ET', 'BT', 'P']);
@@ -137,9 +137,29 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     const allFixtures = await this.apiFootball.getLiveFixtures();
     this.budget.recordCall();
 
-    const fixtures = (allFixtures as any[]).filter(
+    const allTracked = (allFixtures as any[]).filter(
       (f) => TRACKED_LEAGUE_IDS.has(f?.league?.id),
     );
+
+    // Cap to MAX_LIVE_MATCHES — prioritize major leagues
+    let fixtures: any[];
+    if (allTracked.length <= MAX_LIVE_MATCHES) {
+      fixtures = allTracked;
+    } else {
+      // Sort: priority leagues first, then by elapsed (more advanced matches first)
+      const sorted = allTracked.sort((a, b) => {
+        const aPriority = PRIORITY_LEAGUE_IDS.has(a?.league?.id) ? 0 : 1;
+        const bPriority = PRIORITY_LEAGUE_IDS.has(b?.league?.id) ? 0 : 1;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        return (b?.fixture?.status?.elapsed ?? 0) - (a?.fixture?.status?.elapsed ?? 0);
+      });
+      fixtures = sorted.slice(0, MAX_LIVE_MATCHES);
+      if (allTracked.length > MAX_LIVE_MATCHES) {
+        this.logger.warn(`${allTracked.length} live matches, capped to ${MAX_LIVE_MATCHES} (priority leagues first)`);
+      }
+    }
+
+    // Only cache the capped list — frontend only sees matches we actively process
     await this.redis.setJson('cache:fixtures:live', fixtures, 20);
 
     // Track which fixtures are still live
@@ -340,6 +360,13 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
             minute: event.time?.elapsed,
             team: event.team?.name,
           });
+
+          // Re-fetch lineups on substitution so future questions use updated player names
+          // Only reset once per event poll cycle (not per individual sub event)
+          if (event.type?.toLowerCase() === 'subst' && state.lineupsLoaded) {
+            state.lineupsLoaded = false;
+            state.lineupRetries = 0; // Reset retries so re-fetch is attempted
+          }
 
           const resolved = await this.questionResolver.tryResolveFromEvent(
             id, event, state.teams,
