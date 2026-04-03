@@ -3,12 +3,26 @@ import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
 import '../../../core/l10n/app_strings.dart';
 
+/// Phase boundaries in match minutes — when next questions are generated.
+const _phaseBoundaries = [0, 15, 35, 45, 46, 60, 75, 90];
+
+/// Estimate next question minute based on current elapsed time.
+/// Returns null if match is past 90 min.
+int? _estimateNextQuestionMinute(int? elapsed) {
+  if (elapsed == null) return null;
+  for (final boundary in _phaseBoundaries) {
+    if (boundary > elapsed) return boundary;
+  }
+  return null; // Past 90 min
+}
+
 /// Compact inline countdown to the next question.
 /// Shows between answered cards area, not as a standalone screen.
 class NextQuestionStrip extends StatefulWidget {
   final DateTime? nextOpensAt;
+  final int? matchElapsed;
   final VoidCallback? onReady;
-  const NextQuestionStrip({super.key, this.nextOpensAt, this.onReady});
+  const NextQuestionStrip({super.key, this.nextOpensAt, this.matchElapsed, this.onReady});
 
   @override
   State<NextQuestionStrip> createState() => _NextQuestionStripState();
@@ -61,6 +75,25 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
     final s = AppStrings.current;
     final hasCountdown = widget.nextOpensAt != null && _remaining.inSeconds > 0;
 
+    // Estimate next question time from phase schedule
+    final nextMin = _estimateNextQuestionMinute(widget.matchElapsed);
+    final hasEstimate = !hasCountdown && nextMin != null && widget.matchElapsed != null;
+    final estimateMin = hasEstimate ? (nextMin! - widget.matchElapsed!) : 0;
+
+    String text;
+    IconData icon;
+
+    if (hasCountdown) {
+      text = '${s.nextQuestionIn} ${_remaining.inSeconds}s';
+      icon = Icons.hourglass_bottom;
+    } else if (hasEstimate && estimateMin > 0) {
+      text = '${s.nextQuestionIn} ~${estimateMin} min';
+      icon = Icons.schedule;
+    } else {
+      text = s.waitingForNewQuestion;
+      icon = Icons.access_time;
+    }
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -72,16 +105,10 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            hasCountdown ? Icons.hourglass_bottom : Icons.access_time,
-            color: AppColors.amber,
-            size: 18,
-          ),
+          Icon(icon, color: AppColors.amber, size: 18),
           const SizedBox(width: 8),
           Text(
-            hasCountdown
-                ? '${s.nextQuestionIn} ${_remaining.inSeconds}s'
-                : s.waitingForNewQuestion,
+            text,
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,

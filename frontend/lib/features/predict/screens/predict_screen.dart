@@ -157,6 +157,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                   nextOpensAt: predictState.upcomingQuestions.isNotEmpty
                       ? predictState.upcomingQuestions.first.opensAt
                       : null,
+                  matchElapsed: activeMatch?.elapsed,
                   onReady: () {
                     final match = ref.read(liveStateProvider).activeMatch;
                     if (match != null) {

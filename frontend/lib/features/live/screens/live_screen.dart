@@ -109,6 +109,7 @@ class LiveScreen extends ConsumerWidget {
                       nextOpensAt: predictState.upcomingQuestions.isNotEmpty
                           ? predictState.upcomingQuestions.first.opensAt
                           : null,
+                      matchElapsed: liveState.activeMatch?.elapsed,
                     ),
                   ),
                 ),
