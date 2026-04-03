@@ -125,7 +125,10 @@ class PredictNotifier extends StateNotifier<PredictState> {
     final isMatchChange = _currentFixtureId != null && _currentFixtureId != fixtureId;
     _currentFixtureId = fixtureId;
 
-    if (isMatchChange || (state.activeQuestion == null && state.answeredQuestions.isEmpty)) {
+    // Clear stale data on match change so spinner shows
+    if (isMatchChange) {
+      state = const PredictState(isLoading: true);
+    } else if (state.activeQuestion == null && state.answeredQuestions.isEmpty) {
       state = state.copyWith(isLoading: true);
     }
 
