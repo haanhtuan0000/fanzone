@@ -489,26 +489,31 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     if (lastCheck) return;
     await this.redis.set(cooldownKey, '1', 60);
 
+    // Count ALL non-terminal questions (OPEN, PENDING, LOCKED)
+    // LOCKED questions are still "active" — they're waiting for resolution
     const activeCount = await this.prisma.question.count({
-      where: { fixtureId, status: { in: ['OPEN', 'PENDING'] } },
+      where: { fixtureId, status: { in: ['OPEN', 'PENDING', 'LOCKED'] } },
+    });
+
+    // Also count total questions ever generated for this fixture
+    const totalGenerated = await this.prisma.question.count({
+      where: { fixtureId },
     });
 
     const state = this.matchStates.get(fixtureId);
 
-    if (activeCount === 0) {
-      this.logger.log(`Fixture ${fixtureId}: no active questions at ${period} ${elapsed}' — generating`);
+    // Only generate if truly no questions exist for this fixture at all
+    // (catches cold-start case). Don't re-generate if questions were
+    // already created but are all resolved/closed — that's normal.
+    if (totalGenerated === 0) {
+      this.logger.log(`Fixture ${fixtureId}: zero questions ever — generating for ${period} ${elapsed}'`);
       await this.questionGenerator.generateForPhase(fixtureId, elapsed, teams, score, period);
       if (state) state.hasActiveQuestions = true;
-    } else {
+    } else if (activeCount > 0) {
       if (state) state.hasActiveQuestions = true;
-    }
-
-    // Also check LOCKED questions for hasActiveQuestions flag
-    if (state && activeCount === 0) {
-      const lockedCount = await this.prisma.question.count({
-        where: { fixtureId, status: 'LOCKED' },
-      });
-      state.hasActiveQuestions = lockedCount > 0;
+    } else {
+      // All questions resolved/closed, no active ones — mark inactive
+      if (state) state.hasActiveQuestions = false;
     }
   }
 
