@@ -18,6 +18,7 @@ interface MatchState {
   fixtureId: number;
   period: string;
   elapsed: number;
+  lastPhase: string; // Internal phase (EARLY_H1, MID_H1, etc.) for detecting phase changes
   teams: { home: string; away: string };
   score: { home: number; away: number };
   lineupsLoaded: boolean;
@@ -175,15 +176,17 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
       if (!state) {
         // New match detected
+        const initialPhase = this.questionGenerator.determinePhase(elapsed, period);
         state = {
-          fixtureId: id, period, elapsed, teams, score,
+          fixtureId: id, period, elapsed, lastPhase: initialPhase,
+          teams, score,
           lineupsLoaded: false, lineupRetries: 0,
           hasActiveQuestions: false,
           lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
           lastSeenInApi: Date.now(),
         };
         this.matchStates.set(id, state);
-        this.logger.log(`New match detected: ${homeTeam} vs ${awayTeam} (${period} ${elapsed}')`);
+        this.logger.log(`New match detected: ${homeTeam} vs ${awayTeam} (${period} ${elapsed}' → phase ${initialPhase})`);
 
         // Generate questions for current phase
         if (LIVE_STATUSES.has(period)) {
@@ -212,13 +215,22 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       state.score = score;
       state.lastSeenInApi = Date.now();
 
-      // Handle period transitions
+      // Handle API period transitions (1H→HT→2H→FT)
       if (prevPeriod !== period) {
         await this.handlePeriodTransition(id, prevPeriod, period, elapsed, teams, score);
+        state.lastPhase = this.questionGenerator.determinePhase(elapsed, period);
       }
 
-      // Ensure questions exist (every 60s check)
+      // Handle internal phase transitions (EARLY_H1→MID_H1→LATE_H1, etc.)
+      // These happen within the same API period (e.g. all within "1H")
       if (LIVE_STATUSES.has(period)) {
+        const currentPhase = this.questionGenerator.determinePhase(elapsed, period);
+        if (currentPhase !== state.lastPhase) {
+          this.logger.log(`Fixture ${id}: internal phase ${state.lastPhase} → ${currentPhase} at ${elapsed}'`);
+          state.lastPhase = currentPhase;
+          await this.questionGenerator.generateForPhase(id, elapsed, teams, score, period);
+          state.hasActiveQuestions = true;
+        }
         await this.ensureQuestionsExist(id, period, elapsed, teams, score);
       }
     }

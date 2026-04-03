@@ -177,7 +177,7 @@ export class QuestionsService {
 
   async openNextPending(fixtureId: number) {
     const next = await this.prisma.question.findFirst({
-      where: { fixtureId, status: 'PENDING' },
+      where: { fixtureId, status: 'PENDING', opensAt: { lte: new Date() } },
       orderBy: { opensAt: 'asc' },
     });
     if (next) {

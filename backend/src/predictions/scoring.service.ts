@@ -142,6 +142,9 @@ export class ScoringService {
     const results: Array<{ userId: string; coinsRefunded: number }> = [];
 
     for (const prediction of predictions) {
+      // Skip already-resolved predictions (prevents double-refund)
+      if (prediction.resolvedAt) continue;
+
       const refundAmount = prediction.coinsBet;
 
       // Update prediction as voided

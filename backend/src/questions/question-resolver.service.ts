@@ -283,15 +283,17 @@ export class QuestionResolverService {
       this.logger.error(`Failed to refund question ${question.id}: ${e}`);
     }
 
-    // Open next pending question
+    // Open next pending question (only if its scheduled opensAt has arrived)
     const next = await this.prisma.question.findFirst({
-      where: { fixtureId, status: 'PENDING' },
+      where: { fixtureId, status: 'PENDING', opensAt: { lte: new Date() } },
       orderBy: { opensAt: 'asc' },
     });
     if (next) {
+      const now = new Date();
+      const windowMs = next.closesAt.getTime() - next.opensAt.getTime();
       await this.prisma.question.update({
         where: { id: next.id },
-        data: { status: 'OPEN' },
+        data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + windowMs) },
       });
     }
 
@@ -360,15 +362,17 @@ export class QuestionResolverService {
       this.logger.error(`Failed to score question ${question.id}: ${e}`);
     }
 
-    // Open next pending question
+    // Open next pending question (only if its scheduled opensAt has arrived)
     const next = await this.prisma.question.findFirst({
-      where: { fixtureId, status: 'PENDING' },
+      where: { fixtureId, status: 'PENDING', opensAt: { lte: new Date() } },
       orderBy: { opensAt: 'asc' },
     });
     if (next) {
+      const now = new Date();
+      const windowMs = next.closesAt.getTime() - next.opensAt.getTime();
       await this.prisma.question.update({
         where: { id: next.id },
-        data: { status: 'OPEN' },
+        data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + windowMs) },
       });
     }
 

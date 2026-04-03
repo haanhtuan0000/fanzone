@@ -44,6 +44,13 @@ export class QuestionGeneratorService {
   }
 
   /**
+   * Map elapsed minutes to internal phase (EARLY_H1, MID_H1, etc.).
+   */
+  determinePhase(elapsed: number, period?: string): string {
+    return this.scenarioEngine.determinePhase(elapsed, period);
+  }
+
+  /**
    * Cleanup scenario state when a fixture ends.
    */
   async cleanupFixture(fixtureId: number) {
