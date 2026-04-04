@@ -133,7 +133,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                             color: AppColors.red.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text("${activeMatch.elapsed}'",
+                          child: Text(activeMatch.status == 'HT' ? 'HT' : "${activeMatch.elapsed}'",
                             style: const TextStyle(color: AppColors.red, fontSize: 14, fontWeight: FontWeight.bold)),
                         ),
                       ],
@@ -238,22 +238,20 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
 
             ],
 
-            // Empty state — only if truly no questions at all
-            if (question == null && answered.isEmpty)
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.bolt, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
-                      const SizedBox(height: 16),
-                      Text(s.noQuestionsEmpty,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 18)),
-                      const SizedBox(height: 8),
-                      Text(s.waitForMatchStart,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-                    ],
-                  ),
+            // When no active question and no answered questions, show waiting strip
+            if (question == null && answered.isEmpty && (predictState.upcomingQuestions.isNotEmpty || activeMatch != null))
+              SliverToBoxAdapter(
+                child: NextQuestionStrip(
+                  nextOpensAt: predictState.upcomingQuestions.isNotEmpty
+                      ? predictState.upcomingQuestions.first.opensAt
+                      : null,
+                  matchElapsed: activeMatch?.elapsed,
+                  onReady: () {
+                    final match = ref.read(liveStateProvider).activeMatch;
+                    if (match != null) {
+                      ref.read(predictStateProvider.notifier).loadQuestions(match.fixtureId);
+                    }
+                  },
                 ),
               ),
 

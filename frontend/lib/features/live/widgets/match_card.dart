@@ -201,7 +201,7 @@ class MatchCard extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            'LIVE ${match.elapsed ?? ""}\'',
+            match.status == 'HT' ? 'HT' : 'LIVE ${match.elapsed ?? ""}\'',
             style: const TextStyle(
               fontFamily: AppFonts.bebasNeue,
               fontSize: 11,
