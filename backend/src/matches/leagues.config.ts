@@ -2,7 +2,7 @@
 export const TRACKED_LEAGUE_IDS = { has: (_id: number) => true } as Set<number>;
 
 /** Maximum live matches to process simultaneously (API budget constraint) */
-export const MAX_LIVE_MATCHES = 20;
+export const MAX_LIVE_MATCHES = 8;
 
 /** Priority leagues — these matches are processed first when over the cap */
 export const PRIORITY_LEAGUE_IDS = new Set([
