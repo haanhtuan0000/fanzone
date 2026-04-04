@@ -61,20 +61,23 @@ export class VariableResolverService {
     // Build score prediction options based on current score
     const scoreOptions = this.buildScoreOptions(homeScore, awayScore);
 
+    const hasLineup = !!(lineup?.home?.strikers?.length || lineup?.away?.strikers?.length);
+
     const ctx: MatchContext = {
+      _hasLineup: hasLineup ? 'true' : 'false',
       home_team: teams.home,
       away_team: teams.away,
-      home_striker: lineup?.home?.strikers?.[0] ?? teams.home,
-      away_striker: lineup?.away?.strikers?.[0] ?? teams.away,
-      home_midfielder: lineup?.home?.midfielders?.[0] ?? teams.home,
-      away_midfielder: lineup?.away?.midfielders?.[0] ?? teams.away,
-      home_keeper: lineup?.home?.goalkeeper ?? teams.home,
-      away_keeper: lineup?.away?.goalkeeper ?? teams.away,
-      risky_player_home: lineup?.home?.midfielders?.[1] ?? teams.home,
-      risky_player_away: lineup?.away?.midfielders?.[1] ?? teams.away,
-      home_sub_striker: lineup?.home?.strikers?.[1] ?? teams.home,
-      away_sub_striker: lineup?.away?.strikers?.[1] ?? teams.away,
-      sub_midfielder: lineup?.home?.midfielders?.[2] ?? teams.home,
+      home_striker: lineup?.home?.strikers?.[0] ?? `${teams.home} ST`,
+      away_striker: lineup?.away?.strikers?.[0] ?? `${teams.away} ST`,
+      home_midfielder: lineup?.home?.midfielders?.[0] ?? `${teams.home} MF`,
+      away_midfielder: lineup?.away?.midfielders?.[0] ?? `${teams.away} MF`,
+      home_keeper: lineup?.home?.goalkeeper ?? `${teams.home} GK`,
+      away_keeper: lineup?.away?.goalkeeper ?? `${teams.away} GK`,
+      risky_player_home: lineup?.home?.midfielders?.[1] ?? `${teams.home} MF2`,
+      risky_player_away: lineup?.away?.midfielders?.[1] ?? `${teams.away} MF2`,
+      home_sub_striker: lineup?.home?.strikers?.[1] ?? `${teams.home} SUB`,
+      away_sub_striker: lineup?.away?.strikers?.[1] ?? `${teams.away} SUB`,
+      sub_midfielder: lineup?.home?.midfielders?.[2] ?? `${teams.home} MF3`,
       leading_team: homeScore > awayScore ? teams.home : (awayScore > homeScore ? teams.away : teams.home),
       trailing_team: homeScore < awayScore ? teams.home : (awayScore < homeScore ? teams.away : teams.away),
       home_score: String(homeScore),
@@ -111,7 +114,7 @@ export class VariableResolverService {
     context: MatchContext,
     lang: 'vi' | 'en' = 'vi',
   ): Array<{ name: string; emoji: string; info?: string; multiplier: number }> {
-    return optionTemplates.map((opt) => {
+    const resolved = optionTemplates.map((opt) => {
       const rawName = lang === 'vi' ? opt.nameVi : opt.nameEn;
       const name = this.resolveText(rawName, context);
       // Compute multiplier from defaultPct: higher pct = lower multiplier
@@ -124,6 +127,15 @@ export class VariableResolverService {
         emoji: opt.emoji,
         multiplier,
       };
+    });
+
+    // Deduplicate: keep first occurrence of each name
+    const seen = new Set<string>();
+    return resolved.filter((opt) => {
+      const key = opt.name.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
   }
 

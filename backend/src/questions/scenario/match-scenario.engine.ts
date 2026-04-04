@@ -373,9 +373,36 @@ export class MatchScenarioEngine {
     scheduledOpensAt?: Date,
   ) {
     try {
+      // Skip player-specific templates when lineup data is not available
+      const tplStr = JSON.stringify(tpl.options ?? []) + (tpl.textVi ?? '') + (tpl.textEn ?? '');
+      const usesPlayerVars = /\{(home_striker|away_striker|home_midfielder|away_midfielder|home_keeper|away_keeper|risky_player_home|risky_player_away|home_sub_striker|away_sub_striker|sub_midfielder)\}/.test(tplStr);
+      if (usesPlayerVars && context._hasLineup !== 'true') {
+        this.logger.debug(`[${fixtureId}] Template ${tpl.code} requires lineup data — skipping (no lineup cached)`);
+        return null;
+      }
+
       // Resolve text (default to Vietnamese)
       const text = this.variableResolver.resolveText(tpl.textVi, context);
-      const options = this.variableResolver.resolveOptions(tpl.options as any, context, 'vi');
+      let options = this.variableResolver.resolveOptions(tpl.options as any, context, 'vi');
+
+      // Filter out time-range options that are already in the past
+      options = this.filterPastTimeOptions(options, elapsed ?? 0);
+
+      // Skip if too few options after dedup/filtering
+      if (options.length < 2) {
+        this.logger.warn(`[${fixtureId}] Template ${tpl.code} has < 2 valid options at minute ${elapsed} — skipping`);
+        return null;
+      }
+
+      // Skip leading/trailing team questions when score is tied
+      if (tpl.code === 'Q007') {
+        const homeScore = parseInt(context.home_score) || 0;
+        const awayScore = parseInt(context.away_score) || 0;
+        if (homeScore === awayScore) {
+          this.logger.debug(`[${fixtureId}] Q007 skipped — score is tied`);
+          return null;
+        }
+      }
 
       const opensAt = scheduledOpensAt ?? new Date();
       const closesAt = new Date(opensAt.getTime() + tpl.answerWindowSec * 1000);
@@ -420,6 +447,31 @@ export class MatchScenarioEngine {
       this.logger.error(`[${fixtureId}] Failed to create question from template ${tpl.code}: ${err}`);
       return null;
     }
+  }
+
+  /**
+   * Remove time-range options that are already in the past based on elapsed minutes.
+   * E.g., "Before minute 60" is impossible at minute 66.
+   */
+  private filterPastTimeOptions(
+    options: Array<{ name: string; emoji: string; multiplier: number }>,
+    elapsed: number,
+  ): Array<{ name: string; emoji: string; multiplier: number }> {
+    if (!elapsed || elapsed <= 0) return options;
+
+    return options.filter((opt) => {
+      const name = opt.name.toLowerCase();
+
+      // "Before minute X" / "Trước phút X"
+      const beforeMatch = name.match(/(?:before|trước)\s*(?:minute|phút)?\s*(\d+)/i);
+      if (beforeMatch && elapsed >= parseInt(beforeMatch[1])) return false;
+
+      // "Minute X–Y" / "Phút X–Y" — remove if elapsed > Y (range fully passed)
+      const rangeMatch = name.match(/(?:minute|phút)?\s*(\d+)\s*[-–]\s*(\d+)/);
+      if (rangeMatch && elapsed > parseInt(rangeMatch[2])) return false;
+
+      return true;
+    });
   }
 
   // ──────────────────────────────────────────────

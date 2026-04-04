@@ -158,8 +158,8 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     rewardCoins: 240,
     answerWindowSec: 35,
     options: [
-      { nameVi: 'Có, đội đang dẫn ghi', nameEn: 'Yes, leading team scores', emoji: '⚽', defaultPct: 20 },
-      { nameVi: 'Có, đội đang thua ghi', nameEn: 'Yes, trailing team scores', emoji: '⚽', defaultPct: 25 },
+      { nameVi: 'Có, {leading_team} ghi', nameEn: 'Yes, {leading_team} scores', emoji: '⚽', defaultPct: 20 },
+      { nameVi: 'Có, {trailing_team} ghi', nameEn: 'Yes, {trailing_team} scores', emoji: '⚽', defaultPct: 25 },
       { nameVi: 'Không có bàn', nameEn: 'No goal', emoji: '🚫', defaultPct: 55 },
     ],
     resolutionStrategy: 'AUTO',

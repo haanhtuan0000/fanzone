@@ -106,6 +106,7 @@ class PredictNotifier extends StateNotifier<PredictState> {
   int? _currentFixtureId;
 
   bool _loading = false;
+  bool _autoSubmitting = false;
   Timer? _pollTimer;
 
   PredictNotifier(this._apiClient, this._onCoinsChanged) : super(const PredictState());
@@ -252,11 +253,11 @@ class PredictNotifier extends StateNotifier<PredictState> {
 
     // Auto-submit: if user selected an option but didn't confirm, submit now
     if (state.selectedOptionId != null && !state.isLocked) {
+      _autoSubmitting = true;
       confirmPrediction(); // Fire-and-forget, will complete async
     }
 
     // Move current question to answered list immediately
-    // This prevents the 2-3s flash where the card disappears
     final current = state.activeQuestion;
     final updatedAnswered = [...state.answeredQuestions];
     if (current != null) {
@@ -269,12 +270,15 @@ class PredictNotifier extends StateNotifier<PredictState> {
     state = state.copyWith(
       isExpired: true,
       isLocked: true,
+      clearActive: true,
       answeredQuestions: updatedAnswered,
     );
-    // Then refresh from server to get actual state
-    if (mounted && _currentFixtureId != null) {
-      loadQuestions(_currentFixtureId!);
-    }
+    // Delay refresh to let auto-submit complete on server
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && _currentFixtureId != null) {
+        loadQuestions(_currentFixtureId!);
+      }
+    });
   }
 
   /// Poll every 30s when idle (no active/upcoming questions) to detect new questions from next phase.
@@ -296,8 +300,10 @@ class PredictNotifier extends StateNotifier<PredictState> {
   }
 
   Future<void> confirmPrediction() async {
-    if (state.selectedOptionId == null || state.isLocked) return;
-    if (state.activeQuestion == null) return;
+    final questionId = state.activeQuestion?.id;
+    final optionId = state.selectedOptionId;
+    if (optionId == null || state.isLocked) return;
+    if (questionId == null) return;
 
     state = state.copyWith(isLocked: true);
 
@@ -305,8 +311,8 @@ class PredictNotifier extends StateNotifier<PredictState> {
       final response = await _apiClient.post(
         ApiEndpoints.submitPrediction,
         data: {
-          'questionId': state.activeQuestion!.id,
-          'optionId': state.selectedOptionId,
+          'questionId': questionId,
+          'optionId': optionId,
         },
       );
 
@@ -331,8 +337,13 @@ class PredictNotifier extends StateNotifier<PredictState> {
       }
 
       // Start polling for result (fallback if WS misses it)
-      _pollForResult(state.activeQuestion!.id);
+      _pollForResult(questionId);
     } catch (e) {
+      // Silently ignore errors from auto-submit on expiry
+      if (_autoSubmitting) {
+        _autoSubmitting = false;
+        return;
+      }
       state = state.copyWith(isLocked: false, error: _parseError(e));
     }
   }

@@ -171,10 +171,15 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
 
             // Active question section (only if not expired)
             if (question != null && !predictState.isExpired) ...[
-              // Countdown
+              // Section divider
+              SliverToBoxAdapter(
+                child: _sectionDivider(s.activeQuestion),
+              ),
+
+              // Countdown (below divider, directly above question card)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: CountdownStrip(
                     closesAt: question.closesAt,
                     opensAt: question.opensAt,
@@ -183,11 +188,6 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                     },
                   ),
                 ),
-              ),
-
-              // Section divider
-              SliverToBoxAdapter(
-                child: _sectionDivider(s.activeQuestion),
               ),
 
               // Question card
@@ -302,7 +302,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                   (context, index) {
                     final resolvedList = answered.where((a) => a.status == 'correct' || a.status == 'wrong' || a.status == 'voided').toList();
                     if (index >= resolvedList.length) return null;
-                    return AnsweredCard(answered: resolvedList[index], index: index + 1);
+                    return AnsweredCard(key: ValueKey(resolvedList[index].question.id), answered: resolvedList[index], index: index + 1);
                   },
                   childCount: answered.where((a) => a.status == 'correct' || a.status == 'wrong' || a.status == 'voided').length,
                 ),
@@ -318,7 +318,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                   (context, index) {
                     final pendingList = answered.where((a) => a.status == 'pending').toList();
                     if (index >= pendingList.length) return null;
-                    return AnsweredCard(answered: pendingList[index], index: index + 1);
+                    return AnsweredCard(key: ValueKey(pendingList[index].question.id), answered: pendingList[index], index: index + 1);
                   },
                   childCount: answered.where((a) => a.status == 'pending').length,
                 ),
