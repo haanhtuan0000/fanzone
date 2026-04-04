@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/feed_event.dart';
 import '../../../shared/utils/time_ago.dart';
+
+String _localizedMessage(String message) {
+  final parts = message.split('|');
+  if (parts.length == 2) {
+    return identical(AppStrings.current, AppStrings.en) ? parts[0] : parts[1];
+  }
+  return message;
+}
 
 class FeedCardRank extends StatelessWidget {
   final FeedEvent event;
@@ -29,7 +38,7 @@ class FeedCardRank extends StatelessWidget {
                   event.userDisplayName ?? 'Fan',
                   style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary, fontSize: 14),
                 ),
-                Text(event.message, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                Text(_localizedMessage(event.message), style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
               ],
             ),
           ),

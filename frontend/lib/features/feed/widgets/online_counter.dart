@@ -49,7 +49,7 @@ class _OnlineCounterState extends State<OnlineCounter> with SingleTickerProvider
           ),
           const SizedBox(width: 8),
           Text(
-            '${widget.count} fan dang online',
+            '${widget.count} live match${widget.count != 1 ? 'es' : ''} now',
             style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
           ),
         ],

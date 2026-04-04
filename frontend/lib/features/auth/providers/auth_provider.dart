@@ -69,48 +69,44 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _checkAuth() async {
-    final token = await _storage.getAccessToken();
+    // Read token + onboarded in parallel
+    final results = await Future.wait([
+      _storage.getAccessToken(),
+      _storage.isOnboarded(),
+      _storage.getRefreshToken(),
+    ]);
+    final token = results[0] as String?;
+    final onboarded = results[1] as bool;
+    final refreshToken = results[2] as String?;
+
     if (token == null) return;
 
     // Optimistic: if token exists, assume authenticated immediately
-    final onboarded = await _storage.isOnboarded();
     state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded);
 
-    // Try to refresh the token proactively (handles expired access tokens)
-    // This way the app always has a fresh token without waiting for a 401
+    // Try to refresh the token proactively in background (don't block UI)
+    if (refreshToken != null) {
+      _refreshInBackground(token, refreshToken);
+    }
+  }
+
+  Future<void> _refreshInBackground(String token, String refreshToken) async {
     try {
-      final refreshToken = await _storage.getRefreshToken();
-      if (refreshToken != null) {
-        final response = await Dio().post(
-          '${ApiEndpoints.baseUrl}${ApiEndpoints.refresh}',
-          data: {'refreshToken': refreshToken},
-          options: Options(
-            receiveTimeout: const Duration(seconds: 15),
-            sendTimeout: const Duration(seconds: 15),
-          ),
-        );
-        await _storage.saveTokens(
-          accessToken: response.data['accessToken'],
-          refreshToken: response.data['refreshToken'],
-        );
-        // Fresh tokens saved — stay authenticated
-      }
+      final response = await Dio().post(
+        '${ApiEndpoints.baseUrl}${ApiEndpoints.refresh}',
+        data: {'refreshToken': refreshToken},
+        options: Options(
+          receiveTimeout: const Duration(seconds: 15),
+          sendTimeout: const Duration(seconds: 15),
+        ),
+      );
+      await _storage.saveTokens(
+        accessToken: response.data['accessToken'],
+        refreshToken: response.data['refreshToken'],
+      );
     } catch (_) {
-      // Refresh failed — check if the existing token still works
-      try {
-        await Dio().get(
-          '${ApiEndpoints.baseUrl}${ApiEndpoints.profileMe}',
-          options: Options(
-            headers: {'Authorization': 'Bearer $token'},
-            receiveTimeout: const Duration(seconds: 10),
-          ),
-        );
-        // Token still valid — stay authenticated
-      } catch (_) {
-        // Both refresh and existing token failed
-        // Don't log out if server is unreachable — keep optimistic auth
-        // Only the ApiClient 401 interceptor should trigger logout
-      }
+      // Don't log out if server is unreachable — keep optimistic auth
+      // Only the ApiClient 401 interceptor should trigger logout
     }
   }
 
@@ -163,13 +159,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final result = await _authService.login(email, password);
-      await _storage.saveTokens(
-        accessToken: result['accessToken'],
-        refreshToken: result['refreshToken'],
-      );
       final user = User.fromJson(result['user']);
-      // Existing user logging in — skip onboarding
-      await _storage.setOnboarded();
+      // Save tokens + onboarded flag in parallel
+      await Future.wait([
+        _storage.saveTokens(
+          accessToken: result['accessToken'],
+          refreshToken: result['refreshToken'],
+        ),
+        _storage.setOnboarded(),
+      ]);
       state = state.copyWith(
         user: user,
         isAuthenticated: true,
@@ -202,13 +200,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
 
       final loginResult = await _authService.googleLogin(idToken);
-      await _storage.saveTokens(
-        accessToken: loginResult['accessToken'],
-        refreshToken: loginResult['refreshToken'],
-      );
       final user = User.fromJson(loginResult['user']);
-      // Google users skip onboarding — they already have name/avatar from Google
-      await _storage.setOnboarded();
+      // Save tokens + onboarded flag in parallel
+      await Future.wait([
+        _storage.saveTokens(
+          accessToken: loginResult['accessToken'],
+          refreshToken: loginResult['refreshToken'],
+        ),
+        _storage.setOnboarded(),
+      ]);
       state = state.copyWith(
         user: user,
         isAuthenticated: true,

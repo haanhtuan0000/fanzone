@@ -1,25 +1,31 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../shared/utils/country_utils.dart';
 
 class FilterTabs extends StatelessWidget {
   final String selectedScope;
   final ValueChanged<String> onScopeChanged;
+  final String? countryCode;
 
   const FilterTabs({
     super.key,
     required this.selectedScope,
     required this.onScopeChanged,
+    this.countryCode,
   });
 
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.current;
+    final countryLabel = countryCode != null
+        ? '${countryFlag(countryCode)} $countryCode'
+        : '🌍';
     final tabs = [
       ('match', s.tabMatch),
       ('week', s.tabWeek),
       ('global', s.tabGlobal),
-      ('country', '🇻🇳'),
+      ('country', countryLabel),
     ];
 
     return Container(

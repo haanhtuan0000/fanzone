@@ -23,7 +23,8 @@ class FeedScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(s.activity)),
       body: Column(
         children: [
-          OnlineCounter(count: liveState.liveMatches.length),
+          if (liveState.liveMatches.isNotEmpty)
+            OnlineCounter(count: liveState.liveMatches.length),
           Expanded(
             child: feedState.isLoading && feedState.events.isEmpty
                 ? const Center(child: CircularProgressIndicator())

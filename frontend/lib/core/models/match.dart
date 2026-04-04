@@ -13,6 +13,10 @@ class MatchData {
   final DateTime? kickoffTime;
   final String? league;
   final String? leagueLogoUrl;
+  final String? leagueRound;
+  final String? homeForm; // e.g. "W8 D2 L1"
+  final String? awayForm;
+  final int? fanOnlineCount;
   final Map<String, dynamic>? statistics;
 
   const MatchData({
@@ -30,6 +34,10 @@ class MatchData {
     this.kickoffTime,
     this.league,
     this.leagueLogoUrl,
+    this.leagueRound,
+    this.homeForm,
+    this.awayForm,
+    this.fanOnlineCount,
     this.statistics,
   });
 
@@ -63,6 +71,7 @@ class MatchData {
       kickoffTime: fixture['date'] != null ? DateTime.tryParse(fixture['date'] as String) : null,
       league: league['name'] as String?,
       leagueLogoUrl: league['logo'] as String?,
+      leagueRound: league['round'] as String?,
       statistics: stats,
     );
   }
@@ -84,6 +93,10 @@ class MatchData {
       kickoffTime: kickoffTime,
       league: league,
       leagueLogoUrl: leagueLogoUrl,
+      leagueRound: leagueRound,
+      homeForm: homeForm,
+      awayForm: awayForm,
+      fanOnlineCount: fanOnlineCount,
       statistics: stats,
     );
   }

@@ -11,14 +11,14 @@ class PodiumTop3 extends StatelessWidget {
     if (entries.length < 3) return const SizedBox();
 
     return SizedBox(
-      height: 200,
+      height: 220,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // #2 - Left
           Expanded(child: _PodiumSlot(entry: entries[1], height: 140, color: AppColors.silver, rank: 2)),
           const SizedBox(width: 8),
-          // #1 - Center (tallest)
+          // #1 - Center (tallest, with crown)
           Expanded(child: _PodiumSlot(entry: entries[0], height: 180, color: AppColors.gold, rank: 1)),
           const SizedBox(width: 8),
           // #3 - Right
@@ -47,8 +47,35 @@ class _PodiumSlot extends StatelessWidget {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Text(entry.avatarEmoji, style: const TextStyle(fontSize: 32)),
+        // Crown for #1
+        if (rank == 1)
+          const Text('👑', style: TextStyle(fontSize: 20))
+        else
+          const SizedBox(height: 20),
         const SizedBox(height: 4),
+        // Country code circle
+        Container(
+          width: rank == 1 ? 56 : 48,
+          height: rank == 1 ? 56 : 48,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.cardSurfaceLight,
+            border: Border.all(color: color, width: 2),
+          ),
+          child: Center(
+            child: Text(
+              entry.countryCode ?? '??',
+              style: TextStyle(
+                fontFamily: AppFonts.bebasNeue,
+                fontSize: rank == 1 ? 18 : 16,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        // Name
         Text(
           entry.displayName,
           style: const TextStyle(
@@ -59,7 +86,24 @@ class _PodiumSlot extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 8),
+        // Coins
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${entry.coins}',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Text('🪙', style: TextStyle(fontSize: 10)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        // Podium bar
         Container(
           height: height,
           decoration: BoxDecoration(
@@ -71,26 +115,13 @@ class _PodiumSlot extends StatelessWidget {
             borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
           ),
           child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '#$rank',
-                  style: TextStyle(
-                    fontFamily: AppFonts.bebasNeue,
-                    fontSize: 24,
-                    color: AppColors.background,
-                  ),
-                ),
-                Text(
-                  '${entry.coins}',
-                  style: TextStyle(
-                    fontFamily: AppFonts.bebasNeue,
-                    fontSize: 18,
-                    color: AppColors.background,
-                  ),
-                ),
-              ],
+            child: Text(
+              '$rank',
+              style: TextStyle(
+                fontFamily: AppFonts.bebasNeue,
+                fontSize: 28,
+                color: AppColors.background,
+              ),
             ),
           ),
         ),

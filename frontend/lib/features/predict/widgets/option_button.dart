@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/question.dart';
 import '../../../shared/utils/haptics.dart';
+
+String _localized(String text) {
+  final parts = text.split('|');
+  if (parts.length == 2) {
+    return identical(AppStrings.current, AppStrings.en) ? parts[0].trim() : parts[1].trim();
+  }
+  return text;
+}
 
 class OptionButton extends StatelessWidget {
   final QuestionOption option;
@@ -51,7 +60,7 @@ class OptionButton extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    option.name,
+                    _localized(option.name),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

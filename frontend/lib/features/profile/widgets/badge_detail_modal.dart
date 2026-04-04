@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/achievement.dart';
 
 class BadgeDetailModal extends StatelessWidget {
@@ -56,7 +57,7 @@ class BadgeDetailModal extends StatelessWidget {
           const SizedBox(height: 16),
           if (achievement.earned && achievement.earnedAt != null)
             Text(
-              'Dat duoc ngay ${achievement.earnedAt!.day}/${achievement.earnedAt!.month}/${achievement.earnedAt!.year}',
+              AppStrings.current.earnedOn(achievement.earnedAt!.day, achievement.earnedAt!.month, achievement.earnedAt!.year),
               style: const TextStyle(color: AppColors.neonGreen, fontSize: 13),
             )
           else ...[

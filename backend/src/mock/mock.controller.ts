@@ -108,116 +108,453 @@ const MOCK_STATS: Record<number, any[]> = {
   ],
 };
 
-// ── Questions per fixture ──
+// ── Questions per fixture (following FanZone_Question_Bank.docx) ──
+// 13–15 questions per match, 8 phases, proper difficulty/reward/window
+// Difficulty rewards: EASY=60, MEDIUM=125-150, HARD=240, EXPERT=480
+// Fixed bet: 50🪙. Win = 50 × multiplier. Lose = -50🪙.
 const QUESTIONS_PER_MATCH: Record<number, any[]> = {
+  // ═══ Man City 2-1 Bayern Munich (67' 2H, Champions League) ═══
+  // 15 questions across all 8 phases
   99001: [
+    // Phase 1: Pre-match (-5'–0') — goal, corner
     {
-      text: 'Ai ghi bàn tiếp theo? ⚽|Who scores next? ⚽',
-      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Đội nào ghi bàn trước trong trận?|Who scores first in the match?',
+      category: 'GOAL', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 45,
       options: [
-        { name: 'Man City', emoji: '🔵', multiplier: 2.5 },
-        { name: 'Bayern', emoji: '🔴', multiplier: 3.0 },
-        { name: 'Không ai', emoji: '🚫', multiplier: 1.5 },
+        { name: 'Man City ghi trước', emoji: '🔵', multiplier: 2.2 },
+        { name: 'Bayern ghi trước', emoji: '🔴', multiplier: 2.8 },
+        { name: 'Không có bàn thắng', emoji: '🚫', multiplier: 4.0 },
       ],
     },
     {
-      text: 'Có phạt góc trong 5 phút tới không?|Corner kick in next 5 minutes?',
-      category: 'CORNER', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Phạt góc tiếp theo có dẫn đến bàn thắng không?|Will the next corner lead to a goal?',
+      category: 'CORNER', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 30,
       options: [
-        { name: 'Có — Man City', emoji: '🚩', multiplier: 2.2 },
-        { name: 'Có — Bayern', emoji: '🚩', multiplier: 2.4 },
-        { name: 'Không có', emoji: '🚫', multiplier: 2.0 },
+        { name: 'Có — bàn trực tiếp', emoji: '⚽', multiplier: 8.0 },
+        { name: 'Có — bàn từ pha 2', emoji: '⚽', multiplier: 5.0 },
+        { name: 'Không có bàn', emoji: '🚫', multiplier: 1.2 },
+      ],
+    },
+    // Phase 2: Early H1 (1'–25') — card, stat
+    {
+      text: 'Cầu thủ nào nhiều khả năng nhận thẻ tiếp theo?|Who is most likely to get the next card?',
+      category: 'CARD', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 35,
+      options: [
+        { name: 'Rodri (Man City)', emoji: '🟨', multiplier: 2.8 },
+        { name: 'Kimmich (Bayern)', emoji: '🟨', multiplier: 2.5 },
+        { name: 'Cầu thủ khác', emoji: '🟨', multiplier: 2.2 },
       ],
     },
     {
-      text: 'Thẻ vàng tiếp theo cho đội nào?|Next yellow card for which team?',
-      category: 'CARD', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Tổng số cú sút trong cả trận là bao nhiêu?|How many total shots in the match?',
+      category: 'STAT', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 40,
       options: [
-        { name: 'Man City', emoji: '🟨', multiplier: 2.0 },
-        { name: 'Bayern', emoji: '🟨', multiplier: 2.0 },
-        { name: 'Không có', emoji: '✅', multiplier: 2.5 },
+        { name: 'Dưới 20 cú sút', emoji: '📊', multiplier: 3.5 },
+        { name: '20–27 cú sút', emoji: '📊', multiplier: 2.0 },
+        { name: '28–34 cú sút', emoji: '📊', multiplier: 2.8 },
+        { name: 'Trên 34 cú sút', emoji: '📊', multiplier: 5.0 },
+      ],
+    },
+    // Phase 3: Mid H1 (26'–40') — var, substitution
+    {
+      text: 'Có penalty nào được chỉ định trong trận không?|Will a penalty be awarded?',
+      category: 'VAR', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 40,
+      options: [
+        { name: 'Có — Man City được đá', emoji: '🎯', multiplier: 3.5 },
+        { name: 'Có — Bayern được đá', emoji: '🎯', multiplier: 4.0 },
+        { name: 'Không có penalty', emoji: '🚫', multiplier: 1.5 },
       ],
     },
     {
-      text: 'Tỷ số cuối trận?|Final score?',
-      category: 'STAT', difficulty: 'HARD', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Đội nào thực hiện thay người đầu tiên?|Which team makes the first substitution?',
+      category: 'SUB', difficulty: 'EASY', rewardCoins: 60, answerWindowSec: 35,
       options: [
-        { name: '2-1 (giữ nguyên)', emoji: '📊', multiplier: 2.5 },
-        { name: '3-1 Man City', emoji: '📊', multiplier: 3.0 },
-        { name: '2-2 hoà', emoji: '📊', multiplier: 3.5 },
-        { name: 'Bayern thắng ngược', emoji: '📊', multiplier: 5.0 },
+        { name: 'Man City', emoji: '🔄', multiplier: 1.5 },
+        { name: 'Bayern', emoji: '🔄', multiplier: 1.5 },
+      ],
+    },
+    // Phase 4: Late H1 (41'–45') — goal, corner
+    {
+      text: 'Có phạt góc trong 5 phút tới không?|Corner kick in the next 5 minutes?',
+      category: 'CORNER', difficulty: 'EASY', rewardCoins: 60, answerWindowSec: 30,
+      options: [
+        { name: 'Có — Man City', emoji: '🚩', multiplier: 1.6 },
+        { name: 'Có — Bayern', emoji: '🚩', multiplier: 1.8 },
+        { name: 'Không có phạt góc', emoji: '🚫', multiplier: 1.4 },
+      ],
+    },
+    // Phase 5: Half-time (45'–46') — momentum, goal
+    {
+      text: 'Đội nào tạo ra bước ngoặt sau nghỉ giữa hiệp?|Who creates the turning point after HT?',
+      category: 'MOMENTUM', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 40,
+      options: [
+        { name: 'Man City — tấn công mạnh hơn', emoji: '🔵', multiplier: 2.0 },
+        { name: 'Bayern — phản công hiệu quả', emoji: '🔴', multiplier: 2.8 },
+        { name: 'Không có thay đổi rõ', emoji: '⚖️', multiplier: 3.5 },
       ],
     },
     {
-      text: 'Có bàn thắng trước phút 80 không?|Goal before minute 80?',
-      category: 'GOAL', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Đội nào ghi bàn đầu tiên trong hiệp 2?|Who scores first in the second half?',
+      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 150, answerWindowSec: 40,
       options: [
-        { name: 'Có', emoji: '⚽', multiplier: 1.8 },
-        { name: 'Không', emoji: '🚫', multiplier: 2.2 },
+        { name: 'Man City', emoji: '🔵', multiplier: 2.2 },
+        { name: 'Bayern', emoji: '🔴', multiplier: 2.8 },
+        { name: 'Không ai ghi trước phút 65', emoji: '🚫', multiplier: 2.5 },
+      ],
+    },
+    // Phase 6: Early H2 (46'–65') — substitution, var
+    {
+      text: 'Khi nào diễn ra thay người tiếp theo?|When will the next substitution happen?',
+      category: 'SUB', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 35,
+      options: [
+        { name: 'Trước phút 60', emoji: '🔄', multiplier: 3.0 },
+        { name: 'Phút 60–70', emoji: '🔄', multiplier: 2.0 },
+        { name: 'Phút 71–80', emoji: '🔄', multiplier: 2.2 },
+        { name: 'Sau phút 80', emoji: '🔄', multiplier: 3.5 },
+      ],
+    },
+    {
+      text: 'Bàn thắng tiếp theo vào phút nào?|When will the next goal be scored?',
+      category: 'GOAL', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 35,
+      options: [
+        { name: 'Trước phút 75', emoji: '⚽', multiplier: 2.5 },
+        { name: 'Phút 75–85', emoji: '⚽', multiplier: 3.0 },
+        { name: 'Sau phút 85', emoji: '⚽', multiplier: 3.5 },
+        { name: 'Không có thêm bàn', emoji: '🚫', multiplier: 2.0 },
+      ],
+    },
+    // Phase 7: Mid H2 (66'–80') — card, goal
+    {
+      text: 'Có thẻ vàng nào trong 15 phút tới?|Yellow card in the next 15 minutes?',
+      category: 'CARD', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 30,
+      options: [
+        { name: 'Có — cầu thủ Man City', emoji: '🟨', multiplier: 2.5 },
+        { name: 'Có — cầu thủ Bayern', emoji: '🟨', multiplier: 2.2 },
+        { name: 'Không có thẻ vàng', emoji: '✅', multiplier: 2.0 },
+      ],
+    },
+    {
+      text: 'Bàn thắng tiếp theo là đầu hay chân?|Next goal: header or foot?',
+      category: 'GOAL', difficulty: 'EXPERT', rewardCoins: 480, answerWindowSec: 35,
+      options: [
+        { name: 'Đánh đầu', emoji: '🗣️', multiplier: 5.0 },
+        { name: 'Chân thuận', emoji: '🦶', multiplier: 2.0 },
+        { name: 'Chân trái', emoji: '🦶', multiplier: 4.0 },
+        { name: 'Phản lưới', emoji: '😱', multiplier: 10.0 },
+      ],
+    },
+    // Phase 8: Late match (81'–90+') — time, goal
+    {
+      text: 'Trọng tài bù thêm bao nhiêu phút?|How many minutes of added time?',
+      category: 'TIME', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 35,
+      options: [
+        { name: '1–3 phút', emoji: '⏱️', multiplier: 3.5 },
+        { name: '4–5 phút', emoji: '⏱️', multiplier: 1.8 },
+        { name: '6–7 phút', emoji: '⏱️', multiplier: 2.5 },
+        { name: '8 phút trở lên', emoji: '⏱️', multiplier: 5.0 },
+      ],
+    },
+    {
+      text: 'Có bàn thắng nào trong giờ bù không?|Goal in stoppage time?',
+      category: 'GOAL', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 30,
+      options: [
+        { name: 'Có, đội đang dẫn ghi', emoji: '⚽', multiplier: 3.5 },
+        { name: 'Có, đội đang thua ghi', emoji: '⚽', multiplier: 3.0 },
+        { name: 'Không có bàn', emoji: '🚫', multiplier: 1.5 },
       ],
     },
   ],
+
+  // ═══ Barcelona 1-0 Real Madrid (34' 1H, La Liga — El Clasico) ═══
+  // 14 questions
   99002: [
+    // Phase 1: Pre-match — goal, corner
     {
-      text: 'Barca ghi bàn tiếp không?|Will Barca score again?',
-      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Đội nào ghi bàn trước trong trận El Clasico?|Who scores first in El Clasico?',
+      category: 'GOAL', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 45,
       options: [
-        { name: 'Có — trước HT', emoji: '⚽', multiplier: 2.8 },
-        { name: 'Không — giữ 1-0', emoji: '🛡️', multiplier: 1.6 },
-        { name: 'Real gỡ hoà', emoji: '⚽', multiplier: 3.0 },
+        { name: 'Barcelona ghi trước', emoji: '🔵🔴', multiplier: 2.2 },
+        { name: 'Real Madrid ghi trước', emoji: '⚪', multiplier: 2.8 },
+        { name: 'Không có bàn thắng', emoji: '🚫', multiplier: 4.0 },
       ],
     },
     {
-      text: 'Ai kiểm soát bóng nhiều hơn lúc HT?|Who has more possession at HT?',
-      category: 'STAT', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Đội nào có nhiều phạt góc hơn sau 10 phút nữa?|More corners after 10 minutes?',
+      category: 'CORNER', difficulty: 'MEDIUM', rewardCoins: 150, answerWindowSec: 35,
       options: [
-        { name: 'Barca > 55%', emoji: '📊', multiplier: 1.5 },
-        { name: 'Real > 55%', emoji: '📊', multiplier: 3.0 },
-        { name: 'Cân bằng', emoji: '⚖️', multiplier: 2.5 },
+        { name: 'Barcelona', emoji: '🚩', multiplier: 2.0 },
+        { name: 'Real Madrid', emoji: '🚩', multiplier: 2.8 },
+        { name: 'Bằng nhau', emoji: '⚖️', multiplier: 4.0 },
+      ],
+    },
+    // Phase 2: Early H1 — card, stat
+    {
+      text: 'Cầu thủ nào nhiều khả năng nhận thẻ tiếp theo?|Who gets the next card?',
+      category: 'CARD', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 35,
+      options: [
+        { name: 'Gavi (Barcelona)', emoji: '🟨', multiplier: 2.5 },
+        { name: 'Tchouaméni (Real)', emoji: '🟨', multiplier: 2.8 },
+        { name: 'Cầu thủ khác', emoji: '🟨', multiplier: 2.2 },
       ],
     },
     {
-      text: 'Thẻ đỏ trong trận El Clasico?|Red card in El Clasico?',
-      category: 'CARD', difficulty: 'HARD', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Đội nào kiểm soát bóng nhiều hơn sau 90 phút?|Who has more possession at FT?',
+      category: 'STAT', difficulty: 'MEDIUM', rewardCoins: 150, answerWindowSec: 40,
       options: [
-        { name: 'Có', emoji: '🟥', multiplier: 4.0 },
-        { name: 'Không', emoji: '✅', multiplier: 1.3 },
+        { name: 'Barcelona trên 55%', emoji: '📊', multiplier: 1.8 },
+        { name: 'Real Madrid trên 55%', emoji: '📊', multiplier: 3.0 },
+        { name: 'Cân bằng 45–55%', emoji: '⚖️', multiplier: 2.5 },
+      ],
+    },
+    // Phase 3: Mid H1 — var, substitution
+    {
+      text: 'VAR có được gọi trong 15 phút tới không?|VAR call in next 15 minutes?',
+      category: 'VAR', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 35,
+      options: [
+        { name: 'Có — từ chối bàn thắng', emoji: '📺', multiplier: 5.0 },
+        { name: 'Có — chỉ penalty', emoji: '📺', multiplier: 4.0 },
+        { name: 'Có — kiểm tra thẻ đỏ', emoji: '📺', multiplier: 6.0 },
+        { name: 'Không có VAR', emoji: '🚫', multiplier: 1.5 },
+      ],
+    },
+    {
+      text: 'Đội nào thay người đầu tiên?|Which team subs first?',
+      category: 'SUB', difficulty: 'EASY', rewardCoins: 60, answerWindowSec: 35,
+      options: [
+        { name: 'Barcelona', emoji: '🔄', multiplier: 1.5 },
+        { name: 'Real Madrid', emoji: '🔄', multiplier: 1.5 },
+      ],
+    },
+    // Phase 4: Late H1 — goal
+    {
+      text: 'Có bàn thắng trong 10 phút tới không?|Goal in the next 10 minutes?',
+      category: 'GOAL', difficulty: 'EASY', rewardCoins: 60, answerWindowSec: 30,
+      options: [
+        { name: 'Có — Barcelona ghi', emoji: '🔵🔴', multiplier: 1.8 },
+        { name: 'Có — Real Madrid ghi', emoji: '⚪', multiplier: 2.0 },
+        { name: 'Không có bàn thắng', emoji: '🚫', multiplier: 1.3 },
+      ],
+    },
+    // Phase 5: Half-time — momentum, goal
+    {
+      text: 'Ai tạo bước ngoặt sau nghỉ giữa hiệp?|Who turns it around after HT?',
+      category: 'MOMENTUM', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 40,
+      options: [
+        { name: 'Barca — tấn công mạnh hơn', emoji: '🔵🔴', multiplier: 2.0 },
+        { name: 'Real — phản công sắc bén', emoji: '⚪', multiplier: 2.8 },
+        { name: 'Không có thay đổi rõ', emoji: '⚖️', multiplier: 3.5 },
+      ],
+    },
+    {
+      text: 'Ai ghi bàn đầu tiên hiệp 2?|Who scores first in H2?',
+      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 150, answerWindowSec: 40,
+      options: [
+        { name: 'Lewandowski', emoji: '🔵🔴', multiplier: 2.5 },
+        { name: 'Mbappé', emoji: '⚪', multiplier: 2.8 },
+        { name: 'Cầu thủ khác', emoji: '⚽', multiplier: 2.0 },
+        { name: 'Không ai', emoji: '🚫', multiplier: 3.0 },
+      ],
+    },
+    // Phase 6: Early H2 — substitution, var
+    {
+      text: 'Tổng số thay người trong hiệp 2 là bao nhiêu?|Total subs in H2?',
+      category: 'SUB', difficulty: 'MEDIUM', rewardCoins: 150, answerWindowSec: 40,
+      options: [
+        { name: '3 thay người', emoji: '🔄', multiplier: 3.5 },
+        { name: '4 thay người', emoji: '🔄', multiplier: 2.5 },
+        { name: '5 thay người', emoji: '🔄', multiplier: 2.0 },
+        { name: '6 người (tối đa)', emoji: '🔄', multiplier: 2.8 },
+      ],
+    },
+    // Phase 7: Mid H2 — card, goal
+    {
+      text: 'Có thẻ đỏ nào trong trận El Clasico?|Red card in El Clasico?',
+      category: 'CARD', difficulty: 'EXPERT', rewardCoins: 480, answerWindowSec: 35,
+      options: [
+        { name: 'Có — Barca bị đuổi', emoji: '🟥', multiplier: 8.0 },
+        { name: 'Có — Real bị đuổi', emoji: '🟥', multiplier: 8.0 },
+        { name: 'Không có thẻ đỏ', emoji: '✅', multiplier: 1.2 },
+      ],
+    },
+    {
+      text: 'Tỷ số cuối trận El Clasico?|Final score of El Clasico?',
+      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 150, answerWindowSec: 40,
+      options: [
+        { name: '1-0 Barca giữ sạch', emoji: '🛡️', multiplier: 2.5 },
+        { name: '2-0 Barca thắng đậm', emoji: '🔵🔴', multiplier: 3.0 },
+        { name: '1-1 Hoà', emoji: '⚖️', multiplier: 2.8 },
+        { name: 'Real thắng ngược', emoji: '⚪', multiplier: 4.0 },
+      ],
+    },
+    // Phase 8: Late match — time, goal
+    {
+      text: 'Trọng tài bù bao nhiêu phút?|How much stoppage time?',
+      category: 'TIME', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 35,
+      options: [
+        { name: '1–3 phút', emoji: '⏱️', multiplier: 3.5 },
+        { name: '4–5 phút', emoji: '⏱️', multiplier: 1.8 },
+        { name: '6–7 phút', emoji: '⏱️', multiplier: 2.5 },
+        { name: '8 phút trở lên', emoji: '⏱️', multiplier: 5.0 },
+      ],
+    },
+    {
+      text: 'Có bàn thắng phút bù giờ?|Stoppage time goal?',
+      category: 'GOAL', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 30,
+      options: [
+        { name: 'Có', emoji: '⚽', multiplier: 3.0 },
+        { name: 'Không', emoji: '🚫', multiplier: 1.4 },
       ],
     },
   ],
+
+  // ═══ Liverpool 0-0 Arsenal (12' 1H, Premier League) ═══
+  // 15 questions
   99003: [
+    // Phase 1: Pre-match — goal, corner
     {
       text: 'Đội nào ghi bàn trước?|Who scores first?',
-      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 30,
+      category: 'GOAL', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 45,
       options: [
-        { name: 'Liverpool', emoji: '🔴', multiplier: 2.2 },
-        { name: 'Arsenal', emoji: '🔴', multiplier: 2.5 },
-        { name: 'Hoà 0-0 hiệp 1', emoji: '🤝', multiplier: 2.0 },
+        { name: 'Liverpool ghi trước', emoji: '🔴', multiplier: 2.2 },
+        { name: 'Arsenal ghi trước', emoji: '🔴', multiplier: 2.5 },
+        { name: 'Hoà 0-0 hiệp 1', emoji: '🤝', multiplier: 2.5 },
       ],
     },
     {
-      text: 'Phạt góc đầu tiên cho ai?|First corner for who?',
-      category: 'CORNER', difficulty: 'EASY', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Có phạt góc trong 5 phút tới không?|Corner in next 5 minutes?',
+      category: 'CORNER', difficulty: 'EASY', rewardCoins: 60, answerWindowSec: 30,
       options: [
-        { name: 'Liverpool', emoji: '🚩', multiplier: 2.0 },
-        { name: 'Arsenal', emoji: '🚩', multiplier: 2.0 },
+        { name: 'Có — Liverpool', emoji: '🚩', multiplier: 1.6 },
+        { name: 'Có — Arsenal', emoji: '🚩', multiplier: 1.8 },
+        { name: 'Không có', emoji: '🚫', multiplier: 1.4 },
+      ],
+    },
+    // Phase 2: Early H1 — card, stat
+    {
+      text: 'Có thẻ vàng nào trong 15 phút tới?|Yellow card in next 15 minutes?',
+      category: 'CARD', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 30,
+      options: [
+        { name: 'Có — cầu thủ Liverpool', emoji: '🟨', multiplier: 2.5 },
+        { name: 'Có — cầu thủ Arsenal', emoji: '🟨', multiplier: 2.2 },
+        { name: 'Không có thẻ vàng', emoji: '✅', multiplier: 2.0 },
       ],
     },
     {
-      text: 'Tổng bàn thắng trận này?|Total goals this match?',
-      category: 'GOAL', difficulty: 'HARD', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Tổng số cú sút cả trận là bao nhiêu?|Total shots in the match?',
+      category: 'STAT', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 40,
       options: [
-        { name: '0-1 bàn', emoji: '🤏', multiplier: 2.5 },
-        { name: '2-3 bàn', emoji: '⚽', multiplier: 1.8 },
-        { name: '4+ bàn', emoji: '🔥', multiplier: 3.0 },
+        { name: 'Dưới 20 cú sút', emoji: '📊', multiplier: 3.5 },
+        { name: '20–27 cú sút', emoji: '📊', multiplier: 2.0 },
+        { name: '28–34 cú sút', emoji: '📊', multiplier: 2.8 },
+        { name: 'Trên 34 cú sút', emoji: '📊', multiplier: 5.0 },
+      ],
+    },
+    // Phase 3: Mid H1 — var, substitution
+    {
+      text: 'VAR có được gọi trong 15 phút tới?|VAR in the next 15 minutes?',
+      category: 'VAR', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 35,
+      options: [
+        { name: 'Có — từ chối bàn thắng', emoji: '📺', multiplier: 5.0 },
+        { name: 'Có — chỉ penalty', emoji: '📺', multiplier: 4.0 },
+        { name: 'Có — kiểm tra thẻ đỏ', emoji: '📺', multiplier: 6.0 },
+        { name: 'Không có VAR', emoji: '🚫', multiplier: 1.5 },
       ],
     },
     {
-      text: 'VAR can thiệp trong hiệp 1?|VAR intervention in first half?',
-      category: 'VAR', difficulty: 'MEDIUM', rewardCoins: 50, answerWindowSec: 30,
+      text: 'Đội nào thay người đầu tiên?|Which team subs first?',
+      category: 'SUB', difficulty: 'EASY', rewardCoins: 60, answerWindowSec: 35,
       options: [
-        { name: 'Có', emoji: '📺', multiplier: 3.5 },
-        { name: 'Không', emoji: '❌', multiplier: 1.4 },
+        { name: 'Liverpool', emoji: '🔄', multiplier: 1.5 },
+        { name: 'Arsenal', emoji: '🔄', multiplier: 1.5 },
+      ],
+    },
+    // Phase 4: Late H1 — corner
+    {
+      text: 'Tổng số phạt góc trong hiệp 1?|Total corners in the first half?',
+      category: 'CORNER', difficulty: 'MEDIUM', rewardCoins: 150, answerWindowSec: 35,
+      options: [
+        { name: 'Ít hơn 4', emoji: '🚩', multiplier: 2.0 },
+        { name: '4–6 phạt góc', emoji: '🚩', multiplier: 1.8 },
+        { name: '7–9 phạt góc', emoji: '🚩', multiplier: 2.8 },
+        { name: '10 trở lên', emoji: '🚩', multiplier: 5.0 },
+      ],
+    },
+    // Phase 5: Half-time — momentum, goal
+    {
+      text: 'Đội nào tạo bước ngoặt sau HT?|Who creates the turning point after HT?',
+      category: 'MOMENTUM', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 40,
+      options: [
+        { name: 'Liverpool — pressing mạnh hơn', emoji: '🔴', multiplier: 2.0 },
+        { name: 'Arsenal — phản công sắc bén', emoji: '🔴', multiplier: 2.8 },
+        { name: 'Không có thay đổi rõ', emoji: '⚖️', multiplier: 3.5 },
+      ],
+    },
+    {
+      text: 'Ai ghi bàn đầu tiên hiệp 2?|Who scores first in H2?',
+      category: 'GOAL', difficulty: 'MEDIUM', rewardCoins: 150, answerWindowSec: 40,
+      options: [
+        { name: 'Salah', emoji: '🔴', multiplier: 2.5 },
+        { name: 'Saka', emoji: '🔴', multiplier: 3.0 },
+        { name: 'Cầu thủ khác', emoji: '⚽', multiplier: 2.0 },
+        { name: 'Không ai ghi trước phút 65', emoji: '🚫', multiplier: 2.5 },
+      ],
+    },
+    // Phase 6: Early H2 — substitution, goal
+    {
+      text: 'Cầu thủ vào thay có ghi bàn không?|Will a substitute score?',
+      category: 'SUB', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 35,
+      options: [
+        { name: 'Có — ghi bàn', emoji: '⚽', multiplier: 4.0 },
+        { name: 'Không ghi bàn', emoji: '🚫', multiplier: 1.2 },
+      ],
+    },
+    {
+      text: 'Bàn thắng tiếp theo vào phút nào?|When is the next goal?',
+      category: 'GOAL', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 35,
+      options: [
+        { name: 'Trước phút 60', emoji: '⚽', multiplier: 2.5 },
+        { name: 'Phút 60–75', emoji: '⚽', multiplier: 2.0 },
+        { name: 'Phút 76–90', emoji: '⚽', multiplier: 2.8 },
+        { name: 'Không có bàn nào', emoji: '🚫', multiplier: 3.0 },
+      ],
+    },
+    // Phase 7: Mid H2 — card, goal
+    {
+      text: 'Trọng tài rút bao nhiêu thẻ vàng còn lại?|How many more yellow cards?',
+      category: 'CARD', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 35,
+      options: [
+        { name: '0 thẻ', emoji: '✅', multiplier: 2.5 },
+        { name: '1 thẻ', emoji: '🟨', multiplier: 2.0 },
+        { name: '2 thẻ', emoji: '🟨', multiplier: 2.5 },
+        { name: '3 thẻ trở lên', emoji: '🟨', multiplier: 4.0 },
+      ],
+    },
+    {
+      text: 'VAR lật lại quyết định của trọng tài?|VAR overturns the referee decision?',
+      category: 'VAR', difficulty: 'EXPERT', rewardCoins: 480, answerWindowSec: 60,
+      options: [
+        { name: 'Có — lật quyết định', emoji: '📺', multiplier: 3.0 },
+        { name: 'Không — giữ nguyên', emoji: '❌', multiplier: 1.3 },
+      ],
+    },
+    // Phase 8: Late match — time, goal
+    {
+      text: 'Trọng tài bù bao nhiêu phút?|How much added time?',
+      category: 'TIME', difficulty: 'MEDIUM', rewardCoins: 125, answerWindowSec: 35,
+      options: [
+        { name: '1–3 phút', emoji: '⏱️', multiplier: 3.5 },
+        { name: '4–5 phút', emoji: '⏱️', multiplier: 1.8 },
+        { name: '6–7 phút', emoji: '⏱️', multiplier: 2.5 },
+        { name: '8 phút trở lên', emoji: '⏱️', multiplier: 5.0 },
+      ],
+    },
+    {
+      text: 'Có bàn thắng trong phút bù giờ không?|Goal in stoppage time?',
+      category: 'GOAL', difficulty: 'HARD', rewardCoins: 240, answerWindowSec: 30,
+      options: [
+        { name: 'Có, Liverpool ghi', emoji: '🔴', multiplier: 3.0 },
+        { name: 'Có, Arsenal ghi', emoji: '🔴', multiplier: 3.5 },
+        { name: 'Không có bàn', emoji: '🚫', multiplier: 1.4 },
       ],
     },
   ],
@@ -277,7 +614,7 @@ export class MockController {
 
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
-        const opensAt = new Date(now.getTime() + i * 60_000);
+        const opensAt = new Date(now.getTime() + i * 90_000);
         const closesAt = new Date(opensAt.getTime() + q.answerWindowSec * 1000);
 
         const question = await this.questionsService.createQuestion({
@@ -425,22 +762,22 @@ export class MockController {
       data: { userId, questionId: q3.id, optionId: q3.options[0].id, coinsBet: 50, coinsResult: 260, isCorrect: true },
     });
 
-    // Q4: OPEN — active question for user to answer (30s window)
+    // Q4: OPEN — active question for user to answer (3 min window for testing)
     const q4 = questions[3];
     await this.prisma.question.update({
       where: { id: q4.id },
-      data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + 30_000) },
+      data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + 180_000) },
     });
     for (const opt of q4.options) {
       const fakeFanCount = Math.floor(Math.random() * 20) + 5;
       await this.prisma.questionOption.update({ where: { id: opt.id }, data: { fanCount: fakeFanCount } });
     }
 
-    // Q5: PENDING — next question, opens 60s from now (shows countdown after Q4 expires)
+    // Q5: PENDING — next question, opens 5 min from now (shows countdown after Q4 expires)
     const q5 = questions[4];
     await this.prisma.question.update({
       where: { id: q5.id },
-      data: { status: 'PENDING', opensAt: new Date(now.getTime() + 60_000), closesAt: new Date(now.getTime() + 90_000) },
+      data: { status: 'PENDING', opensAt: new Date(now.getTime() + 300_000), closesAt: new Date(now.getTime() + 330_000) },
     });
 
     this.logger.log(`Scenario seeded for user ${userId}: 3 resolved + 1 open (30s) + 1 pending (opens in 60s)`);

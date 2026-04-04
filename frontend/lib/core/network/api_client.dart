@@ -11,6 +11,7 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 class ApiClient {
   late final Dio _dio;
   final SecureStorageService _storage;
+  String? _cachedToken;
 
   ApiClient(this._storage) {
     _dio = Dio(BaseOptions(
@@ -22,8 +23,9 @@ class ApiClient {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _storage.getAccessToken();
+        final token = _cachedToken ?? await _storage.getAccessToken();
         if (token != null) {
+          _cachedToken = token;
           options.headers['Authorization'] = 'Bearer $token';
         }
         handler.next(options);
@@ -32,8 +34,7 @@ class ApiClient {
         if (error.response?.statusCode == 401) {
           final refreshed = await _refreshToken();
           if (refreshed) {
-            final token = await _storage.getAccessToken();
-            error.requestOptions.headers['Authorization'] = 'Bearer $token';
+            error.requestOptions.headers['Authorization'] = 'Bearer $_cachedToken';
             final response = await _dio.fetch(error.requestOptions);
             handler.resolve(response);
             return;
@@ -42,6 +43,11 @@ class ApiClient {
         handler.next(error);
       },
     ));
+  }
+
+  /// Update the cached token (called after login/refresh from outside)
+  void setCachedToken(String token) {
+    _cachedToken = token;
   }
 
   Future<bool> _refreshToken() async {
@@ -59,20 +65,19 @@ class ApiClient {
       );
 
       final data = response.data;
+      _cachedToken = data['accessToken'];
       await _storage.saveTokens(
         accessToken: data['accessToken'],
         refreshToken: data['refreshToken'],
       );
       return true;
     } on DioException catch (e) {
-      // Only clear tokens on definitive server rejection (401/403)
-      // NOT on network errors, timeouts, or server unavailable
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        _cachedToken = null;
         await _storage.clearTokens();
       }
       return false;
     } catch (_) {
-      // Unknown error — don't clear tokens
       return false;
     }
   }

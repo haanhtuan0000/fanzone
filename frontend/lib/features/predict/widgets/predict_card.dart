@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/question.dart';
+
+String _localized(String text) {
+  final parts = text.split('|');
+  if (parts.length == 2) {
+    return identical(AppStrings.current, AppStrings.en) ? parts[0].trim() : parts[1].trim();
+  }
+  return text;
+}
 
 class PredictCard extends StatelessWidget {
   final Question question;
@@ -86,7 +95,7 @@ class PredictCard extends StatelessWidget {
           const SizedBox(height: 16),
           // Question text
           Text(
-            question.text,
+            _localized(question.text),
             style: const TextStyle(
               fontFamily: AppFonts.barlowCondensed,
               fontSize: 22,

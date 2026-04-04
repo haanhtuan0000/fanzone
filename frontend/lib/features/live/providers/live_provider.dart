@@ -45,8 +45,12 @@ class LiveNotifier extends StateNotifier<LiveState> {
 
   Future<void> _loadMatches() async {
     try {
-      final matches = await _matchService.getLiveMatches();
-      final todayMatches = await _matchService.getTodayMatches();
+      final results = await Future.wait([
+        _matchService.getLiveMatches(),
+        _matchService.getTodayMatches(),
+      ]);
+      final matches = results[0];
+      final todayMatches = results[1];
 
       final allMatches = [...matches, ...todayMatches];
       // Remove duplicates by fixtureId
@@ -101,10 +105,17 @@ class LiveNotifier extends StateNotifier<LiveState> {
           awayLogoUrl: m.awayLogoUrl,
           homeScore: homeScore,
           awayScore: awayScore,
+          homeHtScore: m.homeHtScore,
+          awayHtScore: m.awayHtScore,
           status: m.status,
           elapsed: elapsed ?? m.elapsed,
+          kickoffTime: m.kickoffTime,
           league: m.league,
           leagueLogoUrl: m.leagueLogoUrl,
+          leagueRound: m.leagueRound,
+          homeForm: m.homeForm,
+          awayForm: m.awayForm,
+          fanOnlineCount: m.fanOnlineCount,
           statistics: m.statistics,
         );
       }

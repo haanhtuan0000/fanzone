@@ -11,13 +11,16 @@ class SecureStorageService {
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
   static const _onboardedKey = 'onboarded';
+  static const _tutorialCompleteKey = 'tutorial_complete';
 
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
   }) async {
-    await _storage.write(key: _accessTokenKey, value: accessToken);
-    await _storage.write(key: _refreshTokenKey, value: refreshToken);
+    await Future.wait([
+      _storage.write(key: _accessTokenKey, value: accessToken),
+      _storage.write(key: _refreshTokenKey, value: refreshToken),
+    ]);
   }
 
   Future<String?> getAccessToken() async {
@@ -29,8 +32,10 @@ class SecureStorageService {
   }
 
   Future<void> clearTokens() async {
-    await _storage.delete(key: _accessTokenKey);
-    await _storage.delete(key: _refreshTokenKey);
+    await Future.wait([
+      _storage.delete(key: _accessTokenKey),
+      _storage.delete(key: _refreshTokenKey),
+    ]);
   }
 
   Future<void> setOnboarded() async {
@@ -39,6 +44,15 @@ class SecureStorageService {
 
   Future<bool> isOnboarded() async {
     final value = await _storage.read(key: _onboardedKey);
+    return value == 'true';
+  }
+
+  Future<void> setTutorialComplete() async {
+    await _storage.write(key: _tutorialCompleteKey, value: 'true');
+  }
+
+  Future<bool> isTutorialComplete() async {
+    final value = await _storage.read(key: _tutorialCompleteKey);
     return value == 'true';
   }
 }

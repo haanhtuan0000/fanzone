@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/feed_event.dart';
 import '../../../shared/utils/time_ago.dart';
+
+String _localizedMessage(String message) {
+  final parts = message.split('|');
+  if (parts.length == 2) {
+    return identical(AppStrings.current, AppStrings.en) ? parts[0] : parts[1];
+  }
+  return message;
+}
 
 class FeedCardSystem extends StatelessWidget {
   final FeedEvent event;
@@ -31,7 +40,7 @@ class FeedCardSystem extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              event.message,
+              _localizedMessage(event.message),
               style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
             ),
           ),

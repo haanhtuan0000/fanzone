@@ -35,8 +35,14 @@ class XpBar extends StatelessWidget {
             child: Stack(
               children: [
                 Container(color: AppColors.cardSurface),
-                FractionallySizedBox(
-                  widthFactor: progress,
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: progress),
+                  duration: AppDurations.slow,
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, child) => FractionallySizedBox(
+                    widthFactor: value,
+                    child: child,
+                  ),
                   child: Container(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(

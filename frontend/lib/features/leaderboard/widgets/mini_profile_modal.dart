@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../shared/utils/country_utils.dart';
 
 class MiniProfileModal extends StatelessWidget {
   final String displayName;
@@ -8,6 +9,8 @@ class MiniProfileModal extends StatelessWidget {
   final String title;
   final int accuracy;
   final int totalPredictions;
+  final String? countryCode;
+  final int streakDays;
 
   const MiniProfileModal({
     super.key,
@@ -17,15 +20,19 @@ class MiniProfileModal extends StatelessWidget {
     required this.title,
     required this.accuracy,
     required this.totalPredictions,
+    this.countryCode,
+    this.streakDays = 0,
   });
 
   static void show(BuildContext context, {
     required String displayName,
     required String avatarEmoji,
     int level = 1,
-    String title = 'Fan Moi',
+    String title = 'Fan',
     int accuracy = 0,
     int totalPredictions = 0,
+    String? countryCode,
+    int streakDays = 0,
   }) {
     showModalBottomSheet(
       context: context,
@@ -40,6 +47,8 @@ class MiniProfileModal extends StatelessWidget {
         title: title,
         accuracy: accuracy,
         totalPredictions: totalPredictions,
+        countryCode: countryCode,
+        streakDays: streakDays,
       ),
     );
   }
@@ -74,12 +83,20 @@ class MiniProfileModal extends StatelessWidget {
             'Lv.$level - $title',
             style: const TextStyle(color: AppColors.amber, fontSize: 14),
           ),
+          if (countryCode != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${countryFlag(countryCode)} ${countryName(countryCode)}',
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _MiniStat(label: 'Chinh xac', value: '$accuracy%'),
-              _MiniStat(label: 'Du doan', value: '$totalPredictions'),
+              _MiniStat(label: 'Accuracy', value: '$accuracy%'),
+              _MiniStat(label: 'Predictions', value: '$totalPredictions'),
+              _MiniStat(label: 'Streak', value: '$streakDays'),
             ],
           ),
           const SizedBox(height: 16),

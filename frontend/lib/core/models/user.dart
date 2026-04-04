@@ -1,3 +1,5 @@
+import '../l10n/app_strings.dart';
+
 class User {
   final String id;
   final String email;
@@ -8,7 +10,8 @@ class User {
   final int coins;
   final int currentXp;
   final int level;
-  final String? title;
+  final String? titleVi;
+  final String? titleEn;
   final int? xpToNextLevel;
   final int streakDays;
   final int totalPredictions;
@@ -16,6 +19,11 @@ class User {
   final int accuracy;
   final int? globalRank;
   final DateTime? createdAt;
+
+  String get title {
+    if (identical(AppStrings.current, AppStrings.en)) return titleEn ?? titleVi ?? 'New Fan';
+    return titleVi ?? titleEn ?? 'Fan Mới';
+  }
 
   const User({
     required this.id,
@@ -27,7 +35,8 @@ class User {
     this.coins = 500,
     this.currentXp = 0,
     this.level = 1,
-    this.title,
+    this.titleVi,
+    this.titleEn,
     this.xpToNextLevel,
     this.streakDays = 0,
     this.totalPredictions = 0,
@@ -48,7 +57,8 @@ class User {
       coins: json['coins'] as int? ?? 500,
       currentXp: json['currentXp'] as int? ?? 0,
       level: json['level'] as int? ?? 1,
-      title: json['title'] as String?,
+      titleVi: json['titleVi'] as String? ?? json['title'] as String?,
+      titleEn: json['titleEn'] as String? ?? json['title'] as String?,
       xpToNextLevel: json['xpToNextLevel'] as int?,
       streakDays: json['streakDays'] as int? ?? 0,
       totalPredictions: json['totalPredictions'] as int? ?? 0,
@@ -69,7 +79,8 @@ class User {
     'coins': coins,
     'currentXp': currentXp,
     'level': level,
-    'title': title,
+    'titleVi': titleVi,
+    'titleEn': titleEn,
     'streakDays': streakDays,
     'totalPredictions': totalPredictions,
     'correctPredictions': correctPredictions,

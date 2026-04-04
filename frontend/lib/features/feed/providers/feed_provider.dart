@@ -56,9 +56,16 @@ final feedStateProvider = StateNotifierProvider<FeedNotifier, FeedState>((ref) {
   final notifier = FeedNotifier(apiClient);
 
   final liveState = ref.watch(liveStateProvider);
-  final activeMatch = liveState.activeMatch;
-  if (activeMatch != null) {
-    Future.microtask(() => notifier.loadFeed(activeMatch.fixtureId));
+  // Load feed for active live match, or first live match, or first match
+  final match = liveState.activeMatch?.isLive == true
+      ? liveState.activeMatch
+      : liveState.liveMatches.isNotEmpty
+          ? liveState.liveMatches.first
+          : liveState.matches.isNotEmpty
+              ? liveState.matches.first
+              : null;
+  if (match != null) {
+    Future.microtask(() => notifier.loadFeed(match.fixtureId));
   }
 
   return notifier;

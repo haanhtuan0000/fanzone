@@ -13,6 +13,7 @@ import '../features/predict/screens/predict_screen.dart';
 import '../features/leaderboard/screens/leaderboard_screen.dart';
 import '../features/feed/screens/feed_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
+import '../features/profile/screens/edit_profile_screen.dart';
 import '../shared/widgets/bottom_nav_bar.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -75,6 +76,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (context, state) => const EditProfileScreen(),
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,

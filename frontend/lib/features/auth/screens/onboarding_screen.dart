@@ -3,7 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_endpoints.dart';
 import '../providers/auth_provider.dart';
+
+const _avatarEmojis = ['⚽', '🦁', '🐯', '🦅', '🐺', '🔥', '⭐', '👑', '🎯', '💎', '🏆', '⚡'];
+
+const _popularTeams = [
+  {'id': 50, 'name': 'Man City', 'emoji': '🔵'},
+  {'id': 33, 'name': 'Man United', 'emoji': '🔴'},
+  {'id': 40, 'name': 'Liverpool', 'emoji': '🔴'},
+  {'id': 42, 'name': 'Arsenal', 'emoji': '🔴'},
+  {'id': 49, 'name': 'Chelsea', 'emoji': '🔵'},
+  {'id': 157, 'name': 'Bayern', 'emoji': '🔴'},
+  {'id': 529, 'name': 'Barcelona', 'emoji': '🔵'},
+  {'id': 541, 'name': 'Real Madrid', 'emoji': '⚪'},
+  {'id': 489, 'name': 'AC Milan', 'emoji': '🔴'},
+  {'id': 496, 'name': 'Juventus', 'emoji': '⚪'},
+  {'id': 85, 'name': 'PSG', 'emoji': '🔵'},
+  {'id': 505, 'name': 'Inter', 'emoji': '🔵'},
+];
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -13,11 +32,12 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
+  static const _totalSteps = 4;
   int _step = 0;
   String _selectedEmoji = '⚽';
+  int? _selectedTeamId;
   final _nameController = TextEditingController();
-
-  final _avatarEmojis = ['⚽', '🦁', '🐯', '🦅', '🐺', '🔥', '⭐', '👑', '🎯', '💎', '🏆', '⚡'];
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -25,12 +45,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
-  void _nextStep() {
-    if (_step < 2) {
+  Future<void> _nextStep() async {
+    if (_step < _totalSteps - 1) {
       setState(() => _step++);
     } else {
+      // Final step — persist profile and complete onboarding
+      setState(() => _isSaving = true);
+      try {
+        final apiClient = ref.read(apiClientProvider);
+        final data = <String, dynamic>{
+          'avatarEmoji': _selectedEmoji,
+        };
+        if (_nameController.text.trim().isNotEmpty) {
+          data['displayName'] = _nameController.text.trim();
+        }
+        if (_selectedTeamId != null) {
+          data['favoriteTeamId'] = _selectedTeamId;
+        }
+        await apiClient.put(ApiEndpoints.profileMe, data: data);
+      } catch (_) {
+        // Best-effort — don't block onboarding
+      }
+      setState(() => _isSaving = false);
       ref.read(authStateProvider.notifier).completeOnboarding();
-      context.go('/live');
+      if (mounted) context.go('/live');
     }
   }
 
@@ -45,7 +83,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             children: [
               // Progress indicator
               Row(
-                children: List.generate(3, (i) {
+                children: List.generate(_totalSteps, (i) {
                   return Expanded(
                     child: Container(
                       height: 4,
@@ -69,11 +107,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _nextStep,
-                  child: Text(
-                    _step < 2 ? s.continueBtn : s.startPlaying,
-                    style: const TextStyle(letterSpacing: 2),
-                  ),
+                  onPressed: _isSaving ? null : _nextStep,
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.background),
+                        )
+                      : Text(
+                          _step < _totalSteps - 1 ? s.continueBtn : s.letsGo,
+                          style: const TextStyle(letterSpacing: 2),
+                        ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -87,20 +131,98 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget _buildStep() {
     switch (_step) {
       case 0:
-        return _buildAvatarStep();
+        return _buildTeamStep();
       case 1:
-        return _buildNameStep();
+        return _buildAvatarStep();
       case 2:
+        return _buildNameStep();
+      case 3:
         return _buildTutorialStep();
       default:
         return const SizedBox();
     }
   }
 
+  // Step 0: Choose favorite team
+  Widget _buildTeamStep() {
+    final s = AppStrings.current;
+    return Column(
+      key: const ValueKey('team'),
+      children: [
+        Text(
+          s.chooseTeam,
+          style: const TextStyle(
+            fontFamily: AppFonts.bebasNeue,
+            fontSize: 36,
+            color: AppColors.textPrimary,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          s.chooseTeamDesc,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+        ),
+        const SizedBox(height: 32),
+        Expanded(
+          child: GridView.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1,
+            ),
+            itemCount: _popularTeams.length,
+            itemBuilder: (context, index) {
+              final team = _popularTeams[index];
+              final teamId = team['id'] as int;
+              final isSelected = _selectedTeamId == teamId;
+
+              return GestureDetector(
+                onTap: () => setState(() => _selectedTeamId = teamId),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.neonGreen.withOpacity(0.15) : AppColors.cardSurface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: isSelected
+                        ? Border.all(color: AppColors.neonGreen, width: 2)
+                        : Border.all(color: AppColors.divider, width: 1),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        team['emoji'] as String,
+                        style: const TextStyle(fontSize: 28),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        team['name'] as String,
+                        style: TextStyle(
+                          color: isSelected ? AppColors.neonGreen : AppColors.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Step 1: Choose avatar
   Widget _buildAvatarStep() {
     final s = AppStrings.current;
     return Column(
-      key: const ValueKey(0),
+      key: const ValueKey('avatar'),
       children: [
         Text(
           s.chooseAvatar,
@@ -167,10 +289,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
+  // Step 2: Set display name
   Widget _buildNameStep() {
     final s = AppStrings.current;
     return Column(
-      key: const ValueKey(1),
+      key: const ValueKey('name'),
       children: [
         Text(
           s.yourName,
@@ -200,10 +323,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
+  // Step 3: Tutorial preview
   Widget _buildTutorialStep() {
     final s = AppStrings.current;
     return Column(
-      key: const ValueKey(2),
+      key: const ValueKey('tutorial'),
       children: [
         Text(
           s.howToPlay,
@@ -218,22 +342,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         _buildTutorialItem(
           Icons.sports_soccer,
           AppColors.neonGreen,
-          s.tutPredictTitle,
-          s.tutPredictDesc,
+          s.tutStep1,
+          s.tutStep1Desc,
         ),
         const SizedBox(height: 24),
         _buildTutorialItem(
-          Icons.monetization_on,
+          Icons.touch_app,
           AppColors.amber,
-          s.tutCoinsTitle,
-          s.tutCoinsDesc,
+          s.tutStep2,
+          s.tutStep2Desc,
         ),
         const SizedBox(height: 24),
         _buildTutorialItem(
           Icons.emoji_events,
           AppColors.blue,
-          s.tutLeaderboardTitle,
-          s.tutLeaderboardDesc,
+          s.tutStep3,
+          s.tutStep3Desc,
         ),
       ],
     );

@@ -221,17 +221,53 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                 ),
               ),
 
-              // Stake display (auto-submit on expiry — no confirm button)
+              // Stake display + confirm button
               if (predictState.selectedOptionId != null && !predictState.isExpired)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: CoinStakeDisplay(
-                      coinsBet: 50,
-                      multiplier: question.options
-                          .firstWhere((o) => o.id == predictState.selectedOptionId,
-                            orElse: () => question.options.first)
-                          .multiplier,
+                    child: Column(
+                      children: [
+                        CoinStakeDisplay(
+                          coinsBet: 50,
+                          multiplier: question.options
+                              .firstWhere((o) => o.id == predictState.selectedOptionId,
+                                orElse: () => question.options.first)
+                              .multiplier,
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: predictState.isLocked
+                                ? null
+                                : () {
+                                    ref.read(predictStateProvider.notifier).confirmPrediction();
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: predictState.isLocked
+                                  ? AppColors.cardSurface
+                                  : AppColors.neonGreen,
+                              foregroundColor: predictState.isLocked
+                                  ? AppColors.textSecondary
+                                  : AppColors.background,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              predictState.isLocked ? s.confirmedBtn : s.confirmBtn,
+                              style: const TextStyle(
+                                fontFamily: AppFonts.bebasNeue,
+                                fontSize: 20,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

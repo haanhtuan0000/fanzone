@@ -9,12 +9,18 @@ class ProfileState {
   final List<Achievement> achievements;
   final List<dynamic> activity;
   final bool isLoading;
+  final int activityPage;
+  final bool hasMoreActivity;
+  final bool isLoadingMore;
 
   const ProfileState({
     this.user,
     this.achievements = const [],
     this.activity = const [],
     this.isLoading = false,
+    this.activityPage = 1,
+    this.hasMoreActivity = true,
+    this.isLoadingMore = false,
   });
 
   ProfileState copyWith({
@@ -22,12 +28,18 @@ class ProfileState {
     List<Achievement>? achievements,
     List<dynamic>? activity,
     bool? isLoading,
+    int? activityPage,
+    bool? hasMoreActivity,
+    bool? isLoadingMore,
   }) {
     return ProfileState(
       user: user ?? this.user,
       achievements: achievements ?? this.achievements,
       activity: activity ?? this.activity,
       isLoading: isLoading ?? this.isLoading,
+      activityPage: activityPage ?? this.activityPage,
+      hasMoreActivity: hasMoreActivity ?? this.hasMoreActivity,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     );
   }
 }
@@ -62,9 +74,47 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         achievements: achievements,
         activity: activity,
         isLoading: false,
+        activityPage: 1,
+        hasMoreActivity: activity.length >= 10,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false);
+    }
+  }
+
+  Future<void> loadMoreActivity() async {
+    if (state.isLoadingMore || !state.hasMoreActivity) return;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final nextPage = state.activityPage + 1;
+      final response = await _apiClient.get(
+        ApiEndpoints.activity,
+        queryParams: {'page': nextPage.toString()},
+      );
+      final newItems = response.data as List<dynamic>;
+      state = state.copyWith(
+        activity: [...state.activity, ...newItems],
+        activityPage: nextPage,
+        hasMoreActivity: newItems.length >= 10,
+        isLoadingMore: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingMore: false);
+    }
+  }
+
+  Future<bool> updateProfile({String? displayName, String? avatarEmoji}) async {
+    try {
+      final data = <String, dynamic>{};
+      if (displayName != null) data['displayName'] = displayName;
+      if (avatarEmoji != null) data['avatarEmoji'] = avatarEmoji;
+
+      final response = await _apiClient.put(ApiEndpoints.profileMe, data: data);
+      final user = User.fromJson(response.data as Map<String, dynamic>);
+      state = state.copyWith(user: user);
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 
