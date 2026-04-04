@@ -249,6 +249,12 @@ class PredictNotifier extends StateNotifier<PredictState> {
 
   void expireQuestion() {
     if (state.isExpired) return;
+
+    // Auto-submit: if user selected an option but didn't confirm, submit now
+    if (state.selectedOptionId != null && !state.isLocked) {
+      confirmPrediction(); // Fire-and-forget, will complete async
+    }
+
     // Move current question to answered list immediately
     // This prevents the 2-3s flash where the card disappears
     final current = state.activeQuestion;

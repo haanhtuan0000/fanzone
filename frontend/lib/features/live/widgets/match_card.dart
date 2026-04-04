@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
 import '../../../core/models/match.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class MatchCard extends StatelessWidget {
   final MatchData match;
@@ -16,6 +17,7 @@ class MatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.current;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -25,6 +27,7 @@ class MatchCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? AppColors.neonGreen.withOpacity(0.4) : AppColors.divider,
+            width: isSelected ? 1.5 : 1,
           ),
         ),
         child: Column(
@@ -44,7 +47,7 @@ class MatchCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     match.league ?? '',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 11,
                       color: AppColors.textSecondary,
                       letterSpacing: 0.5,
@@ -62,21 +65,34 @@ class MatchCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            // Main row: home — score/vs — away
+            // Main row: home ● — score/vs — ● away
             Row(
               children: [
-                // Home team
+                // Home team + dot
                 Expanded(
-                  child: Text(
-                    match.homeTeam,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.left,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          match.homeTeam,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        width: 8, height: 8,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.blue,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 // Score or VS
@@ -91,7 +107,7 @@ class MatchCard extends StatelessWidget {
                             color: match.isLive ? AppColors.textPrimary : AppColors.textSecondary,
                           ),
                         )
-                      : Text(
+                      : const Text(
                           'VS',
                           style: TextStyle(
                             fontFamily: AppFonts.bebasNeue,
@@ -100,22 +116,66 @@ class MatchCard extends StatelessWidget {
                           ),
                         ),
                 ),
-                // Away team
+                // Away team + dot
                 Expanded(
-                  child: Text(
-                    match.awayTeam,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.right,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Container(
+                        width: 8, height: 8,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.red,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          match.awayTeam,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
+            // Engagement strip for selected live match
+            if (isSelected && match.isLive) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.neonGreen.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.bolt, color: AppColors.neonGreen, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      match.fanOnlineCount != null
+                          ? s.fanOnline(match.fanOnlineCount!)
+                          : s.predicting,
+                      style: const TextStyle(
+                        color: AppColors.neonGreen,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -126,7 +186,7 @@ class MatchCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.neonGreen.withOpacity(0.15),
+        color: AppColors.red.withOpacity(0.15),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -134,18 +194,18 @@ class MatchCard extends StatelessWidget {
         children: [
           Container(
             width: 6, height: 6,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.neonGreen,
+              color: AppColors.red,
             ),
           ),
           const SizedBox(width: 4),
           Text(
             'LIVE ${match.elapsed ?? ""}\'',
-            style: TextStyle(
+            style: const TextStyle(
               fontFamily: AppFonts.bebasNeue,
               fontSize: 11,
-              color: AppColors.neonGreen,
+              color: AppColors.red,
               letterSpacing: 0.5,
             ),
           ),
@@ -165,7 +225,7 @@ class MatchCard extends StatelessWidget {
       ),
       child: Text(
         '$hour:$minute',
-        style: TextStyle(
+        style: const TextStyle(
           fontFamily: AppFonts.bebasNeue,
           fontSize: 11,
           color: AppColors.amber,

@@ -57,8 +57,18 @@ class _Vi {
   // Live screen
   String get noLiveMatches => 'Không có trận đấu nào đang diễn ra';
   String get comeBackLater => 'Quay lại sau nhé!';
-  String get liveMatches => 'TRẬN ĐẤU ĐANG DIỄN RA';
+  String get liveMatches => 'ĐANG DIỄN RA';
   String get todayMatches => 'TRẬN ĐẤU HÔM NAY';
+  String get seeAll => 'Xem tất cả';
+  String get predictThisMatch => 'DỰ ĐOÁN TRẬN NÀY';
+  String get goPredict => 'Vào dự đoán';
+  String timeLeftShort(int s) => '${s}s còn lại để đặt';
+  String get statPossession => 'Bóng';
+  String get statShots => 'Sút tổng';
+  String get statCards => 'Thẻ vàng';
+  String get statCorners => 'Phạt góc';
+  String get fanLabel => 'fan';
+  String fanOnline(int n) => 'Đang dự đoán — $n fan online';
 
   // Predict screen
   String get predict => 'DỰ ĐOÁN';
@@ -79,6 +89,10 @@ class _Vi {
   String get noData => 'Chưa có dữ liệu';
   String get predictToRank => 'Dự đoán để lên bảng xếp hạng!';
   String get yourPosition => 'Vị trí của bạn';
+  String rosePositions(int n) => 'Tăng $n bậc';
+  String todayCoins(int n) => '+$n hôm nay';
+  String accuracyShort(int n) => '$n% đúng';
+  String get me => '(Tôi)';
 
   // Feed
   String get activity => 'HOẠT ĐỘNG';
@@ -96,6 +110,27 @@ class _Vi {
   String get noRecentActivity => 'Chưa có hoạt động nào';
   String streakDays(int days) => 'Streak: $days ngày';
   String earnedOn(int day, int month, int year) => 'Đạt được ngày $day/$month/$year';
+
+  // Profile - edit & pagination
+  String get editProfile => 'CHỈNH SỬA HỒ SƠ';
+  String get save => 'LƯU';
+  String get loadMore => 'Xem thêm';
+  String memberSince(int month, int year) => 'Thành viên từ $month/$year';
+
+  // Onboarding - team & tutorial
+  String get chooseTeam => 'CHỌN ĐỘI YÊU THÍCH';
+  String get chooseTeamDesc => 'Chọn đội bóng yêu thích của bạn';
+  String get tutStep1 => 'Chọn trận đấu';
+  String get tutStep1Desc => 'Xem trận đấu đang diễn ra và chọn để dự đoán';
+  String get tutStep2 => 'Đặt dự đoán';
+  String get tutStep2Desc => 'Trả lời câu hỏi và chờ kết quả từ trận đấu';
+  String get tutStep3 => 'Nhận điểm thưởng';
+  String get tutStep3Desc => 'Dự đoán đúng để nhận coins và leo bảng xếp hạng';
+  String get letsGo => 'BẮT ĐẦU!';
+  String get skip => 'Bỏ qua';
+  String get gotIt => 'HIỂU RỒI';
+  String get next => 'TIẾP';
+  String get firstPredictionBonus => 'Dự đoán đầu tiên! +20 xu thưởng + 10 XP';
 
   // Time ago
   String get justNow => 'Vừa xong';
@@ -134,7 +169,12 @@ class _Vi {
   String get correctPick => 'ĐÚNG';
   String get wrongPick => 'ĐÃ CHỌN';
   String get answerTag => 'ĐÁP ÁN';
-  String get lockedMessage => 'Đã đóng · Chờ trận đấu xác nhận kết quả';
+  String get lockedMessage => 'Sẽ cập nhật khi trận kết thúc';
+  String get questionClosesIn => 'Câu hỏi đóng sau';
+  String get nextQuestionIn => 'Câu hỏi mở sau';
+  String get waitingForNewQuestion => 'Đang chờ câu hỏi mới...';
+  String get predicting => 'Đang dự đoán';
+  String correctBonus(int n) => '+$n — Đoán đúng!';
   String get skippedMessage => 'Bạn đã không trả lời câu hỏi này.';
   String get categoryGoal => 'GHI BÀN';
   String get categoryCard => 'THẺ PHẠT';
@@ -202,8 +242,18 @@ class _En {
   // Live screen
   String get noLiveMatches => 'No live matches right now';
   String get comeBackLater => 'Come back later!';
-  String get liveMatches => 'LIVE MATCHES';
+  String get liveMatches => 'LIVE NOW';
   String get todayMatches => 'TODAY\'S MATCHES';
+  String get seeAll => 'See all';
+  String get predictThisMatch => 'PREDICT THIS MATCH';
+  String get goPredict => 'Go predict';
+  String timeLeftShort(int s) => '${s}s left to bet';
+  String get statPossession => 'Poss';
+  String get statShots => 'Shots';
+  String get statCards => 'Cards';
+  String get statCorners => 'Corners';
+  String get fanLabel => 'fan';
+  String fanOnline(int n) => 'Predicting — $n fans online';
 
   // Predict screen
   String get predict => 'PREDICT';
@@ -224,6 +274,10 @@ class _En {
   String get noData => 'No data yet';
   String get predictToRank => 'Make predictions to rank up!';
   String get yourPosition => 'Your position';
+  String rosePositions(int n) => 'Rose $n places';
+  String todayCoins(int n) => '+$n today';
+  String accuracyShort(int n) => '$n% correct';
+  String get me => '(Me)';
 
   // Feed
   String get activity => 'ACTIVITY';
@@ -241,6 +295,27 @@ class _En {
   String get noRecentActivity => 'No activity yet';
   String streakDays(int days) => 'Streak: $days days';
   String earnedOn(int day, int month, int year) => 'Earned on $day/$month/$year';
+
+  // Profile - edit & pagination
+  String get editProfile => 'EDIT PROFILE';
+  String get save => 'SAVE';
+  String get loadMore => 'Load more';
+  String memberSince(int month, int year) => 'Member since $month/$year';
+
+  // Onboarding - team & tutorial
+  String get chooseTeam => 'CHOOSE YOUR TEAM';
+  String get chooseTeamDesc => 'Pick your favorite team';
+  String get tutStep1 => 'Choose a match';
+  String get tutStep1Desc => 'Browse live matches and pick one to predict';
+  String get tutStep2 => 'Make predictions';
+  String get tutStep2Desc => 'Answer questions and wait for match results';
+  String get tutStep3 => 'Earn rewards';
+  String get tutStep3Desc => 'Correct predictions earn coins and climb the leaderboard';
+  String get letsGo => 'LET\'S GO!';
+  String get skip => 'Skip';
+  String get gotIt => 'GOT IT';
+  String get next => 'NEXT';
+  String get firstPredictionBonus => 'First prediction! +20 coins bonus + 10 XP';
 
   // Time ago
   String get justNow => 'Just now';
@@ -279,7 +354,12 @@ class _En {
   String get correctPick => 'CORRECT';
   String get wrongPick => 'PICKED';
   String get answerTag => 'ANSWER';
-  String get lockedMessage => 'Locked · Waiting for match to confirm result';
+  String get lockedMessage => 'Will update when match ends';
+  String get questionClosesIn => 'Question closes in';
+  String get nextQuestionIn => 'Next question opens in';
+  String get waitingForNewQuestion => 'Waiting for new question...';
+  String get predicting => 'Predicting';
+  String correctBonus(int n) => '+$n — Correct!';
   String get skippedMessage => 'You didn\'t answer this question in time.';
   String get categoryGoal => 'GOAL';
   String get categoryCard => 'CARD';

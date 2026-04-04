@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class CountdownStrip extends StatefulWidget {
   final DateTime closesAt;
@@ -84,15 +85,26 @@ class _CountdownStripState extends State<CountdownStrip> {
     final isUrgent = remainingSeconds <= 10;
     final isExpired = remainingSeconds <= 0;
 
+    final timerColor = isExpired ? AppColors.textSecondary : (isUrgent ? AppColors.red : AppColors.amber);
+
     return Column(
       children: [
+        // Label: "Câu hỏi đóng sau" / "Question closes in"
+        if (!isExpired)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              AppStrings.current.questionClosesIn,
+              style: TextStyle(fontSize: 11, color: AppColors.textSecondary, letterSpacing: 0.5),
+            ),
+          ),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               isExpired ? Icons.timer_off : Icons.timer,
-              color: isExpired ? AppColors.textSecondary : (isUrgent ? AppColors.red : AppColors.amber),
-              size: 20,
+              color: timerColor,
+              size: 24,
             ),
             const SizedBox(width: 8),
             Text(
@@ -100,7 +112,7 @@ class _CountdownStripState extends State<CountdownStrip> {
               style: TextStyle(
                 fontFamily: AppFonts.bebasNeue,
                 fontSize: 32,
-                color: isExpired ? AppColors.textSecondary : (isUrgent ? AppColors.red : AppColors.amber),
+                color: timerColor,
                 letterSpacing: 2,
               ),
             ),

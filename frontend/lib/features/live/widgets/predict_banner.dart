@@ -93,32 +93,6 @@ class _PredictBannerState extends State<PredictBanner> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: ⚽ PREDICT THIS MATCH ... Go predict →
-            Row(
-              children: [
-                const Text('⚽', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 6),
-                Text(
-                  s.predictThisMatch,
-                  style: const TextStyle(
-                    fontFamily: AppFonts.bebasNeue,
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '${s.goPredict} →',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.neonGreen,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-
             if (q != null) ...[
               const SizedBox(height: 10),
               // Question text

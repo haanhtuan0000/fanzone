@@ -98,10 +98,18 @@ class LiveScreen extends ConsumerWidget {
                     ),
                   ),
                 )
-              else
+              else ...[
+                SliverToBoxAdapter(
+                  child: _sectionHeader(
+                    icon: Icons.sports_soccer,
+                    title: s.predictThisMatch,
+                    trailing: s.goPredict,
+                    color: AppColors.amber,
+                  ),
+                ),
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                     child: PredictBanner(
                       activeQuestion: predictState.activeQuestion,
                       nextOpensAt: predictState.upcomingQuestions.isNotEmpty
@@ -111,6 +119,7 @@ class LiveScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+              ],
             ],
 
             // Empty state when no matches

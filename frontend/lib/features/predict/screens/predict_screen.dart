@@ -63,9 +63,15 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
       }
     });
 
+    final coins = ref.watch(userCoinsProvider);
+
     if (predictState.isLoading && predictState.activeQuestion == null && predictState.answeredQuestions.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('PREDICT')),
+        appBar: AppBar(
+          actions: [
+            _coinBadge(coins),
+          ],
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -76,18 +82,8 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PREDICT'),
         actions: [
-          if (activeMatch != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Center(
-                child: Text(
-                  '${activeMatch.homeTeam} ${activeMatch.homeScore}-${activeMatch.awayScore} ${activeMatch.awayTeam}',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                ),
-              ),
-            ),
+          _coinBadge(coins),
         ],
       ),
       body: RefreshIndicator(
@@ -104,8 +100,8 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
             if (activeMatch != null)
               SliverToBoxAdapter(
                 child: Container(
-                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: AppColors.cardSurface,
                     borderRadius: BorderRadius.circular(10),
@@ -114,17 +110,23 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(activeMatch.homeTeam,
-                        style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text('${activeMatch.homeScore} - ${activeMatch.awayScore}',
-                          style: const TextStyle(fontFamily: AppFonts.bebasNeue, color: AppColors.neonGreen, fontSize: 22)),
+                      Expanded(
+                        child: Text(activeMatch.homeTeam,
+                          style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
+                          textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
-                      Text(activeMatch.awayTeam,
-                        style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text('${activeMatch.homeScore} - ${activeMatch.awayScore}',
+                          style: const TextStyle(fontFamily: AppFonts.bebasNeue, color: AppColors.neonGreen, fontSize: 32)),
+                      ),
+                      Expanded(
+                        child: Text(activeMatch.awayTeam,
+                          style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
+                          textAlign: TextAlign.left, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
                       if (activeMatch.elapsed != null) ...[
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
@@ -132,7 +134,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text("${activeMatch.elapsed}'",
-                            style: const TextStyle(color: AppColors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: const TextStyle(color: AppColors.red, fontSize: 14, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ],
@@ -219,52 +221,17 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                 ),
               ),
 
-              // Stake + Confirm button
+              // Stake display (auto-submit on expiry — no confirm button)
               if (predictState.selectedOptionId != null && !predictState.isExpired)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      children: [
-                        CoinStakeDisplay(
-                          coinsBet: 50, // Fixed 50 coins per question
-                          multiplier: question.options
-                              .firstWhere((o) => o.id == predictState.selectedOptionId,
-                                orElse: () => question.options.first)
-                              .multiplier,
-                        ),
-                        const SizedBox(height: 12),
-                        if (!predictState.isLocked)
-                          SizedBox(
-                            width: double.infinity,
-                            height: 48,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                ref.read(predictStateProvider.notifier).confirmPrediction();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.neonGreen,
-                                foregroundColor: Colors.black,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                textStyle: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 16, letterSpacing: 1),
-                              ),
-                              child: Text(s.confirmBtn),
-                            ),
-                          ),
-                        if (predictState.isLocked)
-                          Container(
-                            height: 48,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: AppColors.neonGreen.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.neonGreen.withOpacity(0.3)),
-                            ),
-                            child: Text(s.confirmedBtn,
-                              style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 16,
-                                color: AppColors.neonGreen, letterSpacing: 2)),
-                          ),
-                      ],
+                    child: CoinStakeDisplay(
+                      coinsBet: 50,
+                      multiplier: question.options
+                          .firstWhere((o) => o.id == predictState.selectedOptionId,
+                            orElse: () => question.options.first)
+                          .multiplier,
                     ),
                   ),
                 ),
@@ -330,6 +297,20 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _coinBadge(int coins) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.monetization_on, color: AppColors.amber, size: 20),
+          const SizedBox(width: 4),
+          Text('$coins', style: const TextStyle(fontFamily: AppFonts.bebasNeue, color: AppColors.amber, fontSize: 18)),
+        ],
       ),
     );
   }

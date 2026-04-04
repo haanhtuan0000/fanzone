@@ -32,6 +32,7 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
   Timer? _timer;
   Duration _remaining = Duration.zero;
   bool _fired = false;
+  bool _loading = false; // Brief loading state after countdown hits 0
 
   @override
   void initState() {
@@ -57,10 +58,15 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
     final diff = widget.nextOpensAt!.toUtc().difference(DateTime.now().toUtc());
     setState(() => _remaining = diff.isNegative ? Duration.zero : diff);
 
-    // Fire onReady when countdown reaches 0
+    // Fire onReady when countdown reaches 0, show loading briefly
     if (diff.inSeconds <= 0 && !_fired) {
       _fired = true;
+      _loading = true;
       widget.onReady?.call();
+      // Clear loading after 3s (by then loadQuestions should have responded)
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _loading = false);
+      });
     }
   }
 
@@ -86,7 +92,10 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
     // HT awareness: during half-time (elapsed 45-47), show specific message
     final isHalfTime = widget.matchElapsed != null && widget.matchElapsed! >= 45 && widget.matchElapsed! <= 47;
 
-    if (hasCountdown) {
+    if (_loading) {
+      text = 'Loading question...';
+      icon = Icons.hourglass_top;
+    } else if (hasCountdown) {
       text = '${s.nextQuestionIn} ${_remaining.inSeconds}s';
       icon = Icons.hourglass_bottom;
     } else if (isHalfTime) {
