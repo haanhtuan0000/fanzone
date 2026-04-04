@@ -2,14 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 
 /**
  * Tracks API-Football call budget per hour.
- * Pro plan: 7,500/day. Budget: ~900/hour during peak.
+ * Pro plan: 7,500/day ≈ 312/hour. Budget: 300/hour to stay safe.
  */
 @Injectable()
 export class PollBudgetService {
   private readonly logger = new Logger(PollBudgetService.name);
   private callsThisHour = 0;
   private hourStart = Date.now();
-  private readonly MAX_PER_HOUR = 900;
+  private readonly MAX_PER_HOUR = 300;
 
   private maybeResetHour() {
     if (Date.now() - this.hourStart > 3600_000) {

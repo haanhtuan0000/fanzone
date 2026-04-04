@@ -42,6 +42,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
   private matchStates = new Map<number, MatchState>();
   private sleepMode = true;
   private lastStandingsPoll = 0;
+  private lastFixturePoll = 0;
 
   constructor(
     private apiFootball: ApiFootballService,
@@ -62,9 +63,9 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       this.logger.log('MatchDataManager DISABLED (MOCK_MODE=true)');
       return;
     }
-    this.logger.log('MatchDataManager starting (15s heartbeat)');
+    this.logger.log('MatchDataManager starting (30s heartbeat)');
     await this.scheduleTracker.refresh();
-    this.heartbeat = setInterval(() => this.tick(), 15_000);
+    this.heartbeat = setInterval(() => this.tick(), 30_000);
     // Run first tick immediately
     this.tick();
   }
@@ -104,8 +105,13 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
         return;
       }
 
-      // 3. Poll fixtures (1 API call for all live matches)
-      await this.pollFixtures();
+      // 3. Poll fixtures — skip if just waiting for kickoff (no matches live yet)
+      //    Only poll every 2 min when waiting, every 30s when matches are active
+      if (hasLiveMatches || minutesUntilNext <= 5) {
+        await this.pollFixtures();
+      } else if (!this.lastFixturePoll || Date.now() - this.lastFixturePoll > 120_000) {
+        await this.pollFixtures();
+      }
 
       // 4. Fetch lineups for new matches
       await this.fetchMissingLineups();
@@ -136,6 +142,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
     const allFixtures = await this.apiFootball.getLiveFixtures();
     this.budget.recordCall();
+    this.lastFixturePoll = Date.now();
 
     const allTracked = (allFixtures as any[]).filter(
       (f) => TRACKED_LEAGUE_IDS.has(f?.league?.id),
@@ -460,7 +467,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
   // ─── Step 8: Standings ───
 
   private async pollStandings() {
-    if (Date.now() - this.lastStandingsPoll < 1800_000) return; // 30 min
+    if (Date.now() - this.lastStandingsPoll < 7200_000) return; // 2 hours
     this.lastStandingsPoll = Date.now();
 
     const leagues = [
