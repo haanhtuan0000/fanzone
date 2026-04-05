@@ -251,11 +251,9 @@ class PredictNotifier extends StateNotifier<PredictState> {
   void expireQuestion() {
     if (state.isExpired) return;
 
-    // Auto-submit: if user selected an option but didn't confirm, submit now
-    if (state.selectedOptionId != null && !state.isLocked) {
-      _autoSubmitting = true;
-      confirmPrediction(); // Fire-and-forget, will complete async
-    }
+    // Capture before state change — confirmPrediction reads these
+    final questionId = state.activeQuestion?.id;
+    final optionId = state.selectedOptionId;
 
     // Move current question to answered list immediately
     final current = state.activeQuestion;
@@ -273,6 +271,13 @@ class PredictNotifier extends StateNotifier<PredictState> {
       clearActive: true,
       answeredQuestions: updatedAnswered,
     );
+
+    // Auto-submit AFTER state change, using captured values
+    if (questionId != null && optionId != null) {
+      _autoSubmitting = true;
+      _submitPrediction(questionId, optionId);
+    }
+
     // Delay refresh to let auto-submit complete on server
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted && _currentFixtureId != null) {
@@ -299,6 +304,23 @@ class PredictNotifier extends StateNotifier<PredictState> {
     state = state.copyWith(selectedOptionId: optionId);
   }
 
+  /// Direct submit with explicit IDs — used by auto-submit on expiry.
+  Future<void> _submitPrediction(String questionId, String optionId) async {
+    try {
+      await _apiClient.post(
+        ApiEndpoints.submitPrediction,
+        data: {
+          'questionId': questionId,
+          'optionId': optionId,
+        },
+      );
+    } catch (_) {
+      // Silently ignore — question may have already expired server-side
+    } finally {
+      _autoSubmitting = false;
+    }
+  }
+
   Future<void> confirmPrediction() async {
     final questionId = state.activeQuestion?.id;
     final optionId = state.selectedOptionId;
@@ -318,7 +340,6 @@ class PredictNotifier extends StateNotifier<PredictState> {
 
       final data = response.data as Map<String, dynamic>;
 
-      // Update multipliers from server response (do this BEFORE bonus flag)
       final updatedOptions = data['updatedOptions'] as List<dynamic>?;
       if (updatedOptions != null) {
         final pcts = <String, int>{};
@@ -328,21 +349,13 @@ class PredictNotifier extends StateNotifier<PredictState> {
         _updateFanDistribution(pcts);
       }
 
-      // Check for first prediction bonus — set AFTER other state changes
-      // so the flag isn't immediately reset by _updateFanDistribution's copyWith
       final isFirst = data['isFirstPrediction'] as bool? ?? false;
       if (isFirst) {
         state = state.copyWith(showFirstPredictionBonus: true);
       }
 
-      // Start polling for result (fallback if WS misses it)
       _pollForResult(questionId);
     } catch (e) {
-      // Silently ignore errors from auto-submit on expiry
-      if (_autoSubmitting) {
-        _autoSubmitting = false;
-        return;
-      }
       state = state.copyWith(isLocked: false, error: _parseError(e));
     }
   }
