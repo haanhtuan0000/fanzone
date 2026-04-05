@@ -32,6 +32,24 @@ class ApiClient {
       },
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
+          // First check if storage has a newer token (from background refresh)
+          final storedToken = await _storage.getAccessToken();
+          if (storedToken != null && storedToken != _cachedToken) {
+            _cachedToken = storedToken;
+            error.requestOptions.headers['Authorization'] = 'Bearer $_cachedToken';
+            try {
+              final response = await _dio.fetch(error.requestOptions);
+              handler.resolve(response);
+              return;
+            } on DioException catch (retryError) {
+              if (retryError.response?.statusCode != 401) {
+                handler.next(retryError);
+                return;
+              }
+              // Still 401 with new token — fall through to refresh
+            }
+          }
+          // Try full refresh
           final refreshed = await _refreshToken();
           if (refreshed) {
             error.requestOptions.headers['Authorization'] = 'Bearer $_cachedToken';
@@ -55,14 +73,25 @@ class ApiClient {
       final refreshToken = await _storage.getRefreshToken();
       if (refreshToken == null) return false;
 
-      final response = await Dio().post(
-        '${ApiEndpoints.baseUrl}${ApiEndpoints.refresh}',
-        data: {'refreshToken': refreshToken},
-        options: Options(
-          receiveTimeout: const Duration(seconds: 30),
-          sendTimeout: const Duration(seconds: 30),
-        ),
-      );
+      // Retry once on timeout/network error
+      Response? response;
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          response = await Dio().post(
+            '${ApiEndpoints.baseUrl}${ApiEndpoints.refresh}',
+            data: {'refreshToken': refreshToken},
+            options: Options(
+              receiveTimeout: const Duration(seconds: 15),
+              sendTimeout: const Duration(seconds: 15),
+            ),
+          );
+          break; // Success
+        } on DioException catch (e) {
+          // Only retry on timeout/network errors, not on 401/403
+          if (e.response != null || attempt == 1) rethrow;
+        }
+      }
+      if (response == null) return false;
 
       final data = response.data;
       _cachedToken = data['accessToken'];
@@ -72,12 +101,16 @@ class ApiClient {
       );
       return true;
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+      // Only clear tokens on definitive server rejection with valid response
+      // NOT on timeouts, connection errors, or server unavailable
+      final status = e.response?.statusCode;
+      if (status == 401 || status == 403) {
         _cachedToken = null;
         await _storage.clearTokens();
       }
       return false;
     } catch (_) {
+      // Network error, timeout, etc. — don't clear tokens
       return false;
     }
   }
