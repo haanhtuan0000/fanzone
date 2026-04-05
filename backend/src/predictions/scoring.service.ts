@@ -25,14 +25,9 @@ export class ScoringService {
 
     for (const prediction of predictions) {
       const isCorrect = prediction.optionId === correctOptionId;
-      const multiplier = prediction.option.multiplier;
-      // Coins were already deducted upfront (50🪙).
-      // Win = 50 × multiplier (doc: "Thắng = 50 × hệ số"). Display the full payout.
-      // Loss = -50 (already deducted).
-      const coinsToAdd = isCorrect ? Math.round(prediction.coinsBet * multiplier) : 0;
-      const coinsResult = isCorrect
-        ? Math.round(prediction.coinsBet * multiplier)  // +125 if 50 × 2.5
-        : -prediction.coinsBet;                          // -50
+      // No coin betting — just award XP for participation, bonus for correct
+      const coinsToAdd = 0;
+      const coinsResult = 0;
       const xpEarned = isCorrect ? 10 : 2;
 
       // Update prediction
@@ -142,12 +137,10 @@ export class ScoringService {
     const results: Array<{ userId: string; coinsRefunded: number }> = [];
 
     for (const prediction of predictions) {
-      // Skip already-resolved predictions (prevents double-refund)
+      // Skip already-resolved predictions (prevents double-void)
       if (prediction.resolvedAt) continue;
 
-      const refundAmount = prediction.coinsBet;
-
-      // Update prediction as voided
+      // Mark prediction as voided (no coins to refund since betting is disabled)
       await this.prisma.prediction.update({
         where: { id: prediction.id },
         data: {
@@ -158,26 +151,7 @@ export class ScoringService {
         },
       });
 
-      // Refund coins
-      const user = await this.prisma.user.update({
-        where: { id: prediction.userId },
-        data: {
-          coins: { increment: refundAmount },
-        },
-      });
-
-      // Record refund transaction
-      await this.prisma.coinTransaction.create({
-        data: {
-          userId: prediction.userId,
-          type: 'PREDICTION_REFUND',
-          amount: refundAmount,
-          balanceAfter: user.coins,
-          referenceId: prediction.id,
-        },
-      });
-
-      results.push({ userId: prediction.userId, coinsRefunded: refundAmount });
+      results.push({ userId: prediction.userId, coinsRefunded: 0 });
     }
 
     // Clean up Redis fan data

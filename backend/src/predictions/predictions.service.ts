@@ -11,8 +11,6 @@ export class PredictionsService {
     private usersService: UsersService,
   ) {}
 
-  private readonly FIXED_BET = 50; // Doc: "Cược điểm cố định 50🪙/câu"
-
   async submitPrediction(userId: string, questionId: string, optionId: string) {
     const question = await this.prisma.question.findUnique({
       where: { id: questionId },
@@ -31,29 +29,14 @@ export class PredictionsService {
     });
     if (existing) throw new ConflictException('Already predicted');
 
-    // Atomic: check balance + deduct + create prediction in one transaction
-    const prediction = await this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: { coins: true },
-      });
-      if (!user || user.coins < this.FIXED_BET) {
-        throw new BadRequestException('Not enough coins');
-      }
-
-      await tx.user.update({
-        where: { id: userId },
-        data: { coins: { decrement: this.FIXED_BET } },
-      });
-
-      return tx.prediction.create({
-        data: {
-          userId,
-          questionId,
-          optionId,
-          coinsBet: this.FIXED_BET,
-        },
-      });
+    // No coin deduction — predictions are free for now
+    const prediction = await this.prisma.prediction.create({
+      data: {
+        userId,
+        questionId,
+        optionId,
+        coinsBet: 0,
+      },
     });
 
     // Update fan count in Redis

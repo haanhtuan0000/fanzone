@@ -12,6 +12,7 @@ import '../widgets/answered_card.dart';
 import '../widgets/waiting_card.dart';
 import '../widgets/next_question_strip.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/models/question.dart';
 
 class PredictScreen extends ConsumerStatefulWidget {
   const PredictScreen({super.key});
@@ -151,6 +152,40 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                 ),
               ),
 
+            // ── DEBUG: All questions for this match ──
+            SliverToBoxAdapter(
+              child: _sectionDivider('DEBUG — ALL QUESTIONS'),
+            ),
+            // Active
+            if (question != null)
+              SliverToBoxAdapter(
+                child: _debugQuestionTile(question, 'OPEN'),
+              ),
+            // Upcoming (PENDING)
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final q = predictState.upcomingQuestions[index];
+                  return _debugQuestionTile(q, 'PENDING');
+                },
+                childCount: predictState.upcomingQuestions.length,
+              ),
+            ),
+            // Answered (LOCKED / RESOLVED / VOIDED)
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final a = answered[index];
+                  return _debugQuestionTile(a.question, a.status.toUpperCase(), pick: a.myPickOptionId);
+                },
+                childCount: answered.length,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _sectionDivider('END DEBUG'),
+            ),
+            // ── END DEBUG ──
+
             // Next question countdown (compact, inline — between questions)
             if ((question == null || predictState.isExpired) &&
                 (answered.isNotEmpty || predictState.upcomingQuestions.isNotEmpty))
@@ -221,53 +256,15 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                 ),
               ),
 
-              // Stake display + confirm button
+              // Selection indicator
               if (predictState.selectedOptionId != null && !predictState.isExpired)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      children: [
-                        CoinStakeDisplay(
-                          coinsBet: 50,
-                          multiplier: question.options
-                              .firstWhere((o) => o.id == predictState.selectedOptionId,
-                                orElse: () => question.options.first)
-                              .multiplier,
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: predictState.isLocked
-                                ? null
-                                : () {
-                                    ref.read(predictStateProvider.notifier).confirmPrediction();
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: predictState.isLocked
-                                  ? AppColors.cardSurface
-                                  : AppColors.neonGreen,
-                              foregroundColor: predictState.isLocked
-                                  ? AppColors.textSecondary
-                                  : AppColors.background,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: Text(
-                              predictState.isLocked ? s.confirmedBtn : s.confirmBtn,
-                              style: const TextStyle(
-                                fontFamily: AppFonts.bebasNeue,
-                                fontSize: 20,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Text(
+                      s.confirmed,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.neonGreen, fontSize: 12),
                     ),
                   ),
                 ),
@@ -362,6 +359,79 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                 color: AppColors.textSecondary, letterSpacing: 2)),
           ),
           Expanded(child: Container(height: 1, color: AppColors.divider)),
+        ],
+      ),
+    );
+  }
+
+  Widget _debugQuestionTile(Question q, String status, {String? pick}) {
+    final statusColor = {
+      'OPEN': AppColors.neonGreen,
+      'PENDING': AppColors.amber,
+      'LOCKED': AppColors.blue,
+      'RESOLVED': AppColors.textSecondary,
+      'CORRECT': AppColors.neonGreen,
+      'WRONG': AppColors.red,
+      'VOIDED': AppColors.purple,
+      'SKIP': AppColors.textSecondary,
+    }[status] ?? AppColors.textSecondary;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: statusColor.withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status badge + category
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(status,
+                  style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              ),
+              const SizedBox(width: 8),
+              Text(q.category, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+              const Spacer(),
+              Text('${q.rewardCoins}c', style: const TextStyle(color: AppColors.amber, fontSize: 10)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Question text
+          Text(q.text, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          // Options
+          ...q.options.map((o) {
+            final isPicked = o.id == pick;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Row(
+                children: [
+                  if (isPicked)
+                    const Icon(Icons.check_circle, color: AppColors.neonGreen, size: 14)
+                  else
+                    const Icon(Icons.circle_outlined, color: AppColors.textSecondary, size: 14),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text('${o.emoji ?? ''} ${o.name} (x${o.multiplier.toStringAsFixed(1)})',
+                      style: TextStyle(
+                        color: isPicked ? AppColors.neonGreen : AppColors.textSecondary,
+                        fontSize: 11,
+                      )),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
