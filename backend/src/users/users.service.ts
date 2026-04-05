@@ -29,6 +29,17 @@ export class UsersService {
     });
     if (!user) throw new NotFoundException('User not found');
 
+    // Update streak on profile view (counts as daily activity)
+    await this.updateStreak(userId);
+    // Re-read in case streak changed
+    const updated = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    return {
+      ...this.formatProfile(updated ?? user),
+    };
+  }
+
+  private formatProfile(user: any) {
     return {
       id: user.id,
       email: user.email,
