@@ -442,7 +442,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     if (Date.now() - this.lastOrphanCleanup > 600_000) {
       this.lastOrphanCleanup = Date.now();
       try {
-        const cutoff = new Date(Date.now() - 3 * 3600_000);
+        const cutoff = new Date(Date.now() - 2 * 3600_000);
         const orphaned = await this.prisma.question.findMany({
           where: {
             status: { in: ['LOCKED', 'OPEN'] },
