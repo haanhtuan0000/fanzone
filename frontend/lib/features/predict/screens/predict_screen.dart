@@ -6,7 +6,6 @@ import '../providers/predict_provider.dart';
 import '../widgets/countdown_strip.dart';
 import '../widgets/predict_card.dart';
 import '../widgets/option_button.dart';
-import '../widgets/coin_stake_display.dart';
 import '../widgets/progress_strip.dart';
 import '../widgets/answered_card.dart';
 import '../widgets/waiting_card.dart';
@@ -69,9 +68,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
     if (predictState.isLoading && predictState.activeQuestion == null && predictState.answeredQuestions.isEmpty) {
       return Scaffold(
         appBar: AppBar(
-          actions: [
-            _coinBadge(coins),
-          ],
+          actions: [_coinBadge(coins)],
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -83,9 +80,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        actions: [
-          _coinBadge(coins),
-        ],
+        actions: [_coinBadge(coins)],
       ),
       body: RefreshIndicator(
         onRefresh: () async {

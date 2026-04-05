@@ -63,7 +63,7 @@ class AnsweredCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  _buildStatusChip(status, answered.coinsResult),
+                  _buildStatusChip(status),
                 ],
               ),
             ),
@@ -93,9 +93,6 @@ class AnsweredCard extends StatelessWidget {
                   // Show correct answer for skipped
                   if (isSkip && q.correctOptionId != null)
                     _buildOptionRow(q, q.correctOptionId!, 'answer', false),
-                  // Coins result
-                  if (answered.coinsResult != null && !isSkip)
-                    _buildCoinsResult(answered.coinsResult!, status),
                   // Lock message
                   if (status == 'pending')
                     Padding(
@@ -115,7 +112,7 @@ class AnsweredCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        'Hoàn xu +50 🪙',
+                        'VOIDED',
                         style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 11, color: AppColors.blue),
                       ),
                     ),
@@ -175,17 +172,17 @@ class AnsweredCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusChip(String status, int? coins) {
+  Widget _buildStatusChip(String status) {
     final s = AppStrings.current;
     String text;
     Color color;
     switch (status) {
       case 'correct':
-        text = '${s.correctStatus} · +${coins ?? 0}';
+        text = '${s.correctStatus} +10 XP';
         color = AppColors.neonGreen;
         break;
       case 'wrong':
-        text = '${s.wrongStatus} · ${coins ?? -50}';
+        text = '${s.wrongStatus} +2 XP';
         color = AppColors.red;
         break;
       case 'pending':
@@ -193,7 +190,7 @@ class AnsweredCard extends StatelessWidget {
         color = AppColors.amber;
         break;
       case 'voided':
-        text = 'VOIDED · +50';
+        text = 'VOIDED';
         color = AppColors.blue;
         break;
       default:
