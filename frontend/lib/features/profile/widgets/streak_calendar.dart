@@ -9,8 +9,17 @@ class StreakCalendar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.current;
-    final days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    final dayLabels = identical(AppStrings.current, AppStrings.en)
+        ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        : ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
     final todayIndex = DateTime.now().weekday - 1; // 0 = Monday
+
+    // Build set of completed day indices (this week only)
+    // streakDays includes today, counting backwards
+    final completedIndices = <int>{};
+    for (int i = 0; i < streakDays && i <= todayIndex; i++) {
+      completedIndices.add(todayIndex - i);
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -39,14 +48,18 @@ class StreakCalendar extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(7, (index) {
-              final isCompleted = index <= todayIndex && index > todayIndex - streakDays;
+              final isCompleted = completedIndices.contains(index);
               final isToday = index == todayIndex;
+              final isFuture = index > todayIndex;
 
               return Column(
                 children: [
                   Text(
-                    days[index],
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                    dayLabels[index],
+                    style: TextStyle(
+                      color: isFuture ? AppColors.textSecondary.withOpacity(0.4) : AppColors.textSecondary,
+                      fontSize: 11,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Container(
@@ -58,7 +71,9 @@ class StreakCalendar extends StatelessWidget {
                           ? AppColors.neonGreen
                           : isToday
                               ? AppColors.amber.withOpacity(0.3)
-                              : AppColors.cardSurfaceLight,
+                              : isFuture
+                                  ? AppColors.cardSurface
+                                  : AppColors.cardSurfaceLight,
                       border: isToday && !isCompleted
                           ? Border.all(color: AppColors.amber, width: 2)
                           : null,
