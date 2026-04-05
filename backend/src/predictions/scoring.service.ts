@@ -28,10 +28,18 @@ export class ScoringService {
 
     for (const prediction of predictions) {
       const isCorrect = prediction.optionId === correctOptionId;
-      // Symmetric: correct = +rewardCoins, wrong = -rewardCoins
-      const coinsToAdd = isCorrect ? rewardCoins : -rewardCoins;
-      const coinsResult = coinsToAdd;
       const xpEarned = isCorrect ? 10 : 2;
+
+      // Prevent negative coin balance: clamp loss to current balance
+      let coinsToAdd = isCorrect ? rewardCoins : -rewardCoins;
+      if (!isCorrect) {
+        const currentUser = await this.prisma.user.findUnique({
+          where: { id: prediction.userId },
+          select: { coins: true },
+        });
+        coinsToAdd = Math.max(coinsToAdd, -(currentUser?.coins ?? 0));
+      }
+      const coinsResult = coinsToAdd;
 
       // Update prediction
       await this.prisma.prediction.update({
@@ -71,8 +79,7 @@ export class ScoringService {
       // Update streak
       await this.usersService.updateStreak(prediction.userId);
 
-      // Update leaderboard
-      const question = await this.prisma.question.findUnique({ where: { id: questionId } });
+      // Update leaderboard (question already fetched above)
       if (question) {
         // Match leaderboard: use match-specific earnings (sum of coinsResult for this fixture)
         const matchPredictions = await this.prisma.prediction.findMany({

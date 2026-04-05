@@ -314,8 +314,8 @@ class PredictNotifier extends StateNotifier<PredictState> {
           'optionId': optionId,
         },
       );
-    } catch (_) {
-      // Silently ignore — question may have already expired server-side
+    } catch (e) {
+      print('Auto-submit failed: $e');
     } finally {
       _autoSubmitting = false;
     }

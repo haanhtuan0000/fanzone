@@ -229,19 +229,8 @@ export class QuestionResolverService {
 
     // Open only ONE next pending question whose opensAt has arrived
     if (expired.length > 0 && !openedNext) {
-      const next = await this.prisma.question.findFirst({
-        where: { fixtureId, status: 'PENDING', opensAt: { lte: new Date() } },
-        orderBy: { opensAt: 'asc' },
-      });
-      if (next) {
-        const now = new Date();
-        const windowMs = next.closesAt.getTime() - next.opensAt.getTime();
-        await this.prisma.question.update({
-          where: { id: next.id },
-          data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + windowMs) },
-        });
-        openedNext = true;
-      }
+      await this.openNextPendingQuestion(fixtureId);
+      openedNext = true;
     }
   }
 
@@ -282,19 +271,7 @@ export class QuestionResolverService {
       this.logger.error(`Failed to refund question ${question.id}: ${e}`);
     }
 
-    // Open next pending question (only if its scheduled opensAt has arrived)
-    const next = await this.prisma.question.findFirst({
-      where: { fixtureId, status: 'PENDING', opensAt: { lte: new Date() } },
-      orderBy: { opensAt: 'asc' },
-    });
-    if (next) {
-      const now = new Date();
-      const windowMs = next.closesAt.getTime() - next.opensAt.getTime();
-      await this.prisma.question.update({
-        where: { id: next.id },
-        data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + windowMs) },
-      });
-    }
+    await this.openNextPendingQuestion(fixtureId);
 
     // Broadcast void
     try {
@@ -361,19 +338,7 @@ export class QuestionResolverService {
       this.logger.error(`Failed to score question ${question.id}: ${e}`);
     }
 
-    // Open next pending question (only if its scheduled opensAt has arrived)
-    const next = await this.prisma.question.findFirst({
-      where: { fixtureId, status: 'PENDING', opensAt: { lte: new Date() } },
-      orderBy: { opensAt: 'asc' },
-    });
-    if (next) {
-      const now = new Date();
-      const windowMs = next.closesAt.getTime() - next.opensAt.getTime();
-      await this.prisma.question.update({
-        where: { id: next.id },
-        data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + windowMs) },
-      });
-    }
+    await this.openNextPendingQuestion(fixtureId);
 
     // Broadcast results
     try {
@@ -1354,6 +1319,27 @@ export class QuestionResolverService {
   }
 
   // ─── Template code cache ───
+
+  // ─── Shared: open next pending question (race-safe) ───
+
+  private async openNextPendingQuestion(fixtureId: number): Promise<void> {
+    const next = await this.prisma.question.findFirst({
+      where: { fixtureId, status: 'PENDING', opensAt: { lte: new Date() } },
+      orderBy: { opensAt: 'asc' },
+    });
+    if (next) {
+      const now = new Date();
+      const windowMs = next.closesAt.getTime() - next.opensAt.getTime();
+      // Race-safe: only transition if still PENDING
+      const updated = await this.prisma.question.updateMany({
+        where: { id: next.id, status: 'PENDING' },
+        data: { status: 'OPEN', opensAt: now, closesAt: new Date(now.getTime() + windowMs) },
+      });
+      if (updated.count > 0) {
+        this.logger.log(`Opened next pending question (${next.id})`);
+      }
+    }
+  }
 
   private templateCodeCache = new Map<string, string>();
 

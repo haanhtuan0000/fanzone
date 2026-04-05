@@ -443,12 +443,14 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       this.lastOrphanCleanup = Date.now();
       try {
         const cutoff = new Date(Date.now() - 10 * 60_000); // 10 min
-        // Find orphaned questions that haven't been voided yet
+        // Only void questions whose match is no longer tracked (disappeared from API)
+        const liveFixtureIds = [...this.matchStates.keys()];
         const orphaned = await this.prisma.question.findMany({
           where: {
             status: { in: ['LOCKED', 'OPEN'] },
             closesAt: { lt: cutoff },
             resolvesAt: null,
+            ...(liveFixtureIds.length > 0 ? { fixtureId: { notIn: liveFixtureIds } } : {}),
           },
           include: { options: true },
           take: 20, // Process in batches to avoid long ticks

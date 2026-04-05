@@ -56,7 +56,7 @@ class _CountdownStripState extends State<CountdownStrip> {
       _timer.cancel();
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         setState(() {
-          _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc());
+          _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc()) - const Duration(seconds: 3);
           if (_remaining.isNegative || _remaining == Duration.zero) {
             _remaining = Duration.zero;
             _timer.cancel();
