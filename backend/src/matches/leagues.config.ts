@@ -6,15 +6,27 @@ export const MAX_LIVE_MATCHES = 8;
 
 /** Priority leagues — these matches are processed first when over the cap */
 export const PRIORITY_LEAGUE_IDS = new Set([
+  // Big 5 leagues
   39,  // England — Premier League
   140, // Spain — La Liga
   135, // Italy — Serie A
   78,  // Germany — Bundesliga
   61,  // France — Ligue 1
+  // UEFA
   2,   // UEFA Champions League
   3,   // UEFA Europa League
   848, // UEFA Conference League
+  // Domestic cups
+  45,  // England — FA Cup
+  48,  // England — League Cup (Carabao)
+  143, // Spain — Copa del Rey
+  137, // Italy — Coppa Italia
+  81,  // Germany — DFB Pokal
+  66,  // France — Coupe de France
+  // International
   1,   // FIFA World Cup
+  4,   // UEFA Euro
+  5,   // UEFA Nations League
 ]);
 
 export const TRACKED_LEAGUES = [

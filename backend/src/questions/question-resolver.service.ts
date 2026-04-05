@@ -137,8 +137,9 @@ export class QuestionResolverService {
     teams: { home: string; away: string },
     score: { home: number; away: number },
     stoppageMinutes?: number,
+    finishedStatus?: string,
   ) {
-    this.logger.log(`Full-time for fixture ${fixtureId}: ${score.home}-${score.away}`);
+    this.logger.log(`Full-time for fixture ${fixtureId}: ${score.home}-${score.away} (${finishedStatus ?? 'FT'})`);
 
     // Fetch final stats (1 API call)
     let stats: MatchStats | null = null;
@@ -177,22 +178,20 @@ export class QuestionResolverService {
         continue;
       }
 
-      const result = this.resolveAtFullTime(question, teams, score, stats, events, stoppageMinutes);
+      const result = this.resolveAtFullTime(question, teams, score, stats, events, stoppageMinutes, finishedStatus);
 
       if (result === 'VOID') {
         await this.voidQuestion(fixtureId, question, 'FULL_TIME');
       } else if (result) {
         await this.resolveQuestion(fixtureId, question, result, 'FULL_TIME');
       } else {
-        // Last resort: try default option, or close
+        // Last resort: try default option, or VOID + refund (never silently close)
         const defaultOpt = this.findDefaultOption(question.options);
         if (defaultOpt) {
           await this.resolveQuestion(fixtureId, question, defaultOpt, 'FULL_TIME');
         } else {
-          await this.prisma.question.update({
-            where: { id: question.id },
-            data: { status: 'CLOSED' },
-          });
+          this.logger.warn(`[${fixtureId}] Cannot resolve "${question.text}" — voiding with refund`);
+          await this.voidQuestion(fixtureId, question, 'FULL_TIME_UNRESOLVABLE');
         }
       }
     }
@@ -692,6 +691,7 @@ export class QuestionResolverService {
     stats: MatchStats | null,
     events: MatchEvent[],
     stoppageMinutes?: number,
+    finishedStatus?: string,
   ): string | null {
     const options: any[] = question.options;
     const tpl = this.getTemplateCode(question);
@@ -1122,11 +1122,9 @@ export class QuestionResolverService {
 
     // Q048: "Will match go to extra time?"
     if (tpl === 'Q048') {
-      // Check fixture status — would need fixture data. For now, check events
-      // If score is tied at FT and this is a cup match, it would go to ET
-      // Simplified: resolved based on whether the fixture actually went to ET
-      // This should be called with fixture status info
-      return this.findYesNoOption(options, false); // Default: no extra time
+      // AET = after extra time, PEN = penalties (both mean extra time happened)
+      const wentToExtraTime = finishedStatus === 'AET' || finishedStatus === 'PEN';
+      return this.findYesNoOption(options, wentToExtraTime);
     }
 
     // ═══ STAT ═══

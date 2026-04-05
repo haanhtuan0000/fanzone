@@ -511,7 +511,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     // Full-time
     if (FINISHED_STATUSES.has(period) && !FINISHED_STATUSES.has(prevPeriod)) {
       const stoppageMinutes = elapsed > 90 ? elapsed - 90 : undefined;
-      await this.questionResolver.onFullTime(fixtureId, teams, score, stoppageMinutes);
+      await this.questionResolver.onFullTime(fixtureId, teams, score, stoppageMinutes, period);
       await this.questionGenerator.cleanupFixture(fixtureId);
     }
 
