@@ -16,6 +16,9 @@ export class ScoringService {
   ) {}
 
   async scoreQuestion(questionId: string, correctOptionId: string) {
+    const question = await this.prisma.question.findUnique({ where: { id: questionId } });
+    const rewardCoins = question?.rewardCoins ?? 100;
+
     const predictions = await this.prisma.prediction.findMany({
       where: { questionId },
       include: { option: true },
@@ -25,12 +28,8 @@ export class ScoringService {
 
     for (const prediction of predictions) {
       const isCorrect = prediction.optionId === correctOptionId;
-      const multiplier = prediction.option.multiplier;
-      // No upfront deduction — coins awarded/deducted on result only
-      // Win: +bet × multiplier, Loss: -bet
-      const coinsToAdd = isCorrect
-        ? Math.round(prediction.coinsBet * multiplier)
-        : -prediction.coinsBet;
+      // Symmetric: correct = +rewardCoins, wrong = -rewardCoins
+      const coinsToAdd = isCorrect ? rewardCoins : -rewardCoins;
       const coinsResult = coinsToAdd;
       const xpEarned = isCorrect ? 10 : 2;
 
