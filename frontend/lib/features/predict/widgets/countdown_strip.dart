@@ -22,18 +22,19 @@ class _CountdownStripState extends State<CountdownStrip> {
   @override
   void initState() {
     super.initState();
-    _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc());
+    // Submit 3s early to beat server-side expiry check
+    const earlySubmit = Duration(seconds: 3);
+    _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc()) - earlySubmit;
     if (_remaining.isNegative) {
       _remaining = Duration.zero;
       _expired = true;
-      // Fire onExpired after build completes
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onExpired?.call();
       });
     }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
-        _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc());
+        _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc()) - earlySubmit;
         if (_remaining.isNegative || _remaining == Duration.zero) {
           _remaining = Duration.zero;
           _timer.cancel();
@@ -51,7 +52,7 @@ class _CountdownStripState extends State<CountdownStrip> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.closesAt != widget.closesAt) {
       _expired = false;
-      _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc());
+      _remaining = widget.closesAt.toUtc().difference(DateTime.now().toUtc()) - const Duration(seconds: 3);
       _timer.cancel();
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         setState(() {

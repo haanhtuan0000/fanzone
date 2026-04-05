@@ -19,7 +19,9 @@ export class PredictionsService {
 
     if (!question) throw new BadRequestException('Question not found');
     if (question.status !== 'OPEN') throw new BadRequestException('Question is not open');
-    if (new Date() > question.closesAt) throw new BadRequestException('Question expired');
+    // 5s grace period for clock drift and network latency
+    const graceMs = 5000;
+    if (new Date().getTime() > question.closesAt.getTime() + graceMs) throw new BadRequestException('Question expired');
 
     const option = question.options.find((o) => o.id === optionId);
     if (!option) throw new BadRequestException('Invalid option');
