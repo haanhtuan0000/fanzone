@@ -883,7 +883,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     category: 'TIME',
     difficulty: 'EASY',
     trigger: 'SCHEDULED',
-    phases: ['LATE_H2'],
+    phases: [], // Only relevant for cup/knockout — disabled for league matches
     textVi: 'Trận có đi vào hiệp phụ không?',
     textEn: 'Will the match go to extra time?',
     rewardCoins: 60,

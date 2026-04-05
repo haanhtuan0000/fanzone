@@ -443,6 +443,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       this.lastOrphanCleanup = Date.now();
       try {
         const cutoff = new Date(Date.now() - 2 * 3600_000);
+        // Find orphaned questions that haven't been voided yet
         const orphaned = await this.prisma.question.findMany({
           where: {
             status: { in: ['LOCKED', 'OPEN'] },
@@ -450,14 +451,15 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
             resolvesAt: null,
           },
           include: { options: true },
+          take: 20, // Process in batches to avoid long ticks
         });
 
-        if (orphaned.length > 0) {
-          this.logger.log(`Orphan cleanup: found ${orphaned.length} stuck questions`);
-        }
         for (const question of orphaned) {
           this.logger.warn(`Voiding orphaned "${question.text}" (${question.id})`);
-          await this.questionResolver.voidQuestion(question.fixtureId, question, 'ORPHANED_3H');
+          await this.questionResolver.voidQuestion(question.fixtureId, question, 'ORPHANED_2H');
+        }
+        if (orphaned.length > 0) {
+          this.logger.log(`Orphan cleanup: voided ${orphaned.length} stuck questions`);
         }
       } catch (e) {
         this.logger.error(`Orphan cleanup failed: ${e}`);
