@@ -295,7 +295,7 @@ export class QuestionResolverService {
       await this.feedService.createFeedEvent({
         fixtureId,
         type: 'SYSTEM',
-        message: `Voided: "${question.text}" — coins refunded|Hủy: "${question.text}" — hoàn xu`,
+        message: `Voided: "${question.text}"|Hủy: "${question.text}"`,
       });
     } catch (e) {
       this.logger.error(`Failed to create feed event for void ${question.id}: ${e}`);

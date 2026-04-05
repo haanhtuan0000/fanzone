@@ -20,7 +20,7 @@ export class ScoringService {
     const rewardCoins = question?.rewardCoins ?? 100;
 
     const predictions = await this.prisma.prediction.findMany({
-      where: { questionId },
+      where: { questionId, resolvedAt: null },
       include: { option: true },
     });
 
@@ -135,7 +135,7 @@ export class ScoringService {
   }
 
   /**
-   * VOID a question and refund 50 coins to all users who predicted.
+   * VOID a question — no coins refunded since predictions are free.
    * Used when a question can't be resolved (e.g. no goal scored, no card, no sub).
    */
   async voidQuestion(questionId: string) {
