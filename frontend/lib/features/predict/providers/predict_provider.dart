@@ -333,7 +333,6 @@ class PredictNotifier extends StateNotifier<PredictState> {
       final isFirst = data['isFirstPrediction'] as bool? ?? false;
       if (isFirst) {
         state = state.copyWith(showFirstPredictionBonus: true);
-        _onCoinsChanged(20); // Reflect the bonus in the coin display
       }
 
       // Start polling for result (fallback if WS misses it)

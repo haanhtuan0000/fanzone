@@ -29,13 +29,14 @@ export class PredictionsService {
     });
     if (existing) throw new ConflictException('Already predicted');
 
-    // No coin deduction — predictions are free for now
+    // Free to predict — no upfront deduction, but record bet amount for scoring
+    const VIRTUAL_BET = 50;
     const prediction = await this.prisma.prediction.create({
       data: {
         userId,
         questionId,
         optionId,
-        coinsBet: 0,
+        coinsBet: VIRTUAL_BET,
       },
     });
 

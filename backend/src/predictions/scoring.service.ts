@@ -25,9 +25,13 @@ export class ScoringService {
 
     for (const prediction of predictions) {
       const isCorrect = prediction.optionId === correctOptionId;
-      // No coin betting — just award XP for participation, bonus for correct
-      const coinsToAdd = 0;
-      const coinsResult = 0;
+      const multiplier = prediction.option.multiplier;
+      // No upfront deduction — coins awarded/deducted on result only
+      // Win: +bet × multiplier, Loss: -bet
+      const coinsToAdd = isCorrect
+        ? Math.round(prediction.coinsBet * multiplier)
+        : -prediction.coinsBet;
+      const coinsResult = coinsToAdd;
       const xpEarned = isCorrect ? 10 : 2;
 
       // Update prediction
@@ -42,7 +46,6 @@ export class ScoringService {
       });
 
       // Update user coins and stats
-      // coinsToAdd: win = full payout (bet × multiplier), loss = 0 (already deducted)
       const user = await this.prisma.user.update({
         where: { id: prediction.userId },
         data: {

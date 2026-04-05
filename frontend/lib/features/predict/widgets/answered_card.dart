@@ -63,7 +63,7 @@ class AnsweredCard extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  _buildStatusChip(status),
+                  _buildStatusChip(status, answered.coinsResult),
                 ],
               ),
             ),
@@ -93,6 +93,9 @@ class AnsweredCard extends StatelessWidget {
                   // Show correct answer for skipped
                   if (isSkip && q.correctOptionId != null)
                     _buildOptionRow(q, q.correctOptionId!, 'answer', false),
+                  // Coins result
+                  if (answered.coinsResult != null && answered.coinsResult != 0 && !isSkip)
+                    _buildCoinsResult(answered.coinsResult!, status),
                   // Lock message
                   if (status == 'pending')
                     Padding(
@@ -172,17 +175,17 @@ class AnsweredCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusChip(String status) {
+  Widget _buildStatusChip(String status, int? coins) {
     final s = AppStrings.current;
     String text;
     Color color;
     switch (status) {
       case 'correct':
-        text = '${s.correctStatus} +10 XP';
+        text = coins != null && coins > 0 ? '${s.correctStatus} +$coins' : s.correctStatus;
         color = AppColors.neonGreen;
         break;
       case 'wrong':
-        text = '${s.wrongStatus} +2 XP';
+        text = coins != null && coins < 0 ? '${s.wrongStatus} $coins' : s.wrongStatus;
         color = AppColors.red;
         break;
       case 'pending':
