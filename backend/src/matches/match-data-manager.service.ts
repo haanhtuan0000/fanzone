@@ -43,6 +43,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
   private sleepMode = true;
   private lastStandingsPoll = 0;
   private lastFixturePoll = 0;
+  private lastOrphanCleanup = 0;
 
   constructor(
     private apiFootball: ApiFootballService,
@@ -437,25 +438,30 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`Timer resolution failed: ${e}`);
     }
 
-    // Cleanup: VOID orphaned LOCKED questions older than 3 hours
-    // These are questions whose match disappeared from API before onFullTime fired
-    try {
-      const cutoff = new Date(Date.now() - 3 * 3600_000);
-      const orphaned = await this.prisma.question.findMany({
-        where: {
-          status: { in: ['LOCKED', 'OPEN'] },
-          closesAt: { lt: cutoff },
-          resolvesAt: null, // Not a TIMEOUT_DEFAULT question
-        },
-        include: { options: true },
-      });
+    // Cleanup: VOID orphaned LOCKED questions older than 3 hours (run every 10 min)
+    if (Date.now() - this.lastOrphanCleanup > 600_000) {
+      this.lastOrphanCleanup = Date.now();
+      try {
+        const cutoff = new Date(Date.now() - 3 * 3600_000);
+        const orphaned = await this.prisma.question.findMany({
+          where: {
+            status: { in: ['LOCKED', 'OPEN'] },
+            closesAt: { lt: cutoff },
+            resolvesAt: null,
+          },
+          include: { options: true },
+        });
 
-      for (const question of orphaned) {
-        this.logger.warn(`Orphaned LOCKED question "${question.text}" (${question.id}) — voiding with refund`);
-        await this.questionResolver.voidQuestion(question.fixtureId, question, 'ORPHANED_3H');
+        if (orphaned.length > 0) {
+          this.logger.log(`Orphan cleanup: found ${orphaned.length} stuck questions`);
+        }
+        for (const question of orphaned) {
+          this.logger.warn(`Voiding orphaned "${question.text}" (${question.id})`);
+          await this.questionResolver.voidQuestion(question.fixtureId, question, 'ORPHANED_3H');
+        }
+      } catch (e) {
+        this.logger.error(`Orphan cleanup failed: ${e}`);
       }
-    } catch (e) {
-      this.logger.error(`Orphan cleanup failed: ${e}`);
     }
   }
 
