@@ -269,7 +269,14 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       if (!liveIds.has(id)) {
         const missingFor = now - state.lastSeenInApi;
         if (missingFor > 300_000) { // 5 minutes
-          this.logger.log(`Match ${id} missing from API for ${Math.round(missingFor / 1000)}s — cleaning up`);
+          this.logger.log(`Match ${id} missing from API for ${Math.round(missingFor / 1000)}s — treating as finished`);
+          // Match likely ended — trigger onFullTime so questions get resolved
+          try {
+            await this.questionResolver.onFullTime(id, state.teams, state.score, undefined, 'FT');
+            await this.questionGenerator.cleanupFixture(id);
+          } catch (e) {
+            this.logger.error(`Failed onFullTime for disappeared match ${id}: ${e}`);
+          }
           this.matchStates.delete(id);
         }
       }
