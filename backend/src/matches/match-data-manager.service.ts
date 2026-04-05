@@ -436,6 +436,27 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     } catch (e) {
       this.logger.error(`Timer resolution failed: ${e}`);
     }
+
+    // Cleanup: VOID orphaned LOCKED questions older than 3 hours
+    // These are questions whose match disappeared from API before onFullTime fired
+    try {
+      const cutoff = new Date(Date.now() - 3 * 3600_000);
+      const orphaned = await this.prisma.question.findMany({
+        where: {
+          status: { in: ['LOCKED', 'OPEN'] },
+          closesAt: { lt: cutoff },
+          resolvesAt: null, // Not a TIMEOUT_DEFAULT question
+        },
+        include: { options: true },
+      });
+
+      for (const question of orphaned) {
+        this.logger.warn(`Orphaned LOCKED question "${question.text}" (${question.id}) — voiding with refund`);
+        await this.questionResolver.voidQuestion(question.fixtureId, question, 'ORPHANED_3H');
+      }
+    } catch (e) {
+      this.logger.error(`Orphan cleanup failed: ${e}`);
+    }
   }
 
   // ─── Step 7: Stats polling ───

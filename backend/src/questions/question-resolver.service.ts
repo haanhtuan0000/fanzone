@@ -754,7 +754,7 @@ export class QuestionResolverService {
         const beneficiary = this.goalBeneficiary(firstGoal, teams);
         if (beneficiary) return this.findOptionByTeamName(options, beneficiary) ?? null;
       }
-      return null;
+      return 'VOID'; // Can't determine first scorer → refund
     }
 
     // Q006: "Final score?"
@@ -944,7 +944,8 @@ export class QuestionResolverService {
     // ═══ CORNER ═══
 
     // Q015: "Total corners this half?"
-    if (tpl === 'Q015' && stats?.corners) {
+    if (tpl === 'Q015') {
+      if (!stats?.corners) return 'VOID';
       const totalMatchCorners = (stats.corners.home ?? 0) + (stats.corners.away ?? 0);
       const qPhase = question.matchPhase ?? '';
       if (qPhase.includes('H2') || qPhase === 'LATE_H2' || (question.matchMinute ?? 0) >= 46) {
@@ -955,20 +956,23 @@ export class QuestionResolverService {
     }
 
     // Q017: "Which team more corners?"
-    if (tpl === 'Q017' && stats?.corners) {
+    if (tpl === 'Q017') {
+      if (!stats?.corners) return 'VOID';
       if (stats.corners.home > stats.corners.away) return this.findOptionByTeamName(options, teams.home) ?? null;
       if (stats.corners.away > stats.corners.home) return this.findOptionByTeamName(options, teams.away) ?? null;
       return options.find((o) => o.name.toLowerCase().includes('bằng') || o.name.toLowerCase().includes('equal'))?.id ?? null;
     }
 
     // Q039: "Total corners in match?"
-    if (tpl === 'Q039' && stats?.corners) {
+    if (tpl === 'Q039') {
+      if (!stats?.corners) return 'VOID';
       const total = (stats.corners.home ?? 0) + (stats.corners.away ?? 0);
       return this.findRangeOption(options, total);
     }
 
     // Q040: "Which team more corners overall?"
-    if (tpl === 'Q040' && stats?.corners) {
+    if (tpl === 'Q040') {
+      if (!stats?.corners) return 'VOID';
       if (stats.corners.home > stats.corners.away) return this.findOptionByTeamName(options, teams.home) ?? null;
       if (stats.corners.away > stats.corners.home) return this.findOptionByTeamName(options, teams.away) ?? null;
       return options.find((o) => o.name.toLowerCase().includes('bằng') || o.name.toLowerCase().includes('equal'))?.id ?? null;
@@ -1017,7 +1021,7 @@ export class QuestionResolverService {
       if (!firstSub) return 'VOID'; // No subs at all → VOID + refund
       const subTeam = firstSub.team?.name;
       if (subTeam) return this.findOptionByTeamName(options, subTeam) ?? null;
-      return null;
+      return 'VOID'; // Can't determine sub team → refund
     }
 
     // Q023: "Total subs in 2H?" — v2.3: brackets 0-4/5-6/7-8/9-10
@@ -1086,7 +1090,8 @@ export class QuestionResolverService {
     // ═══ TIME ═══
 
     // Q026: "H2 stoppage time minutes?"
-    if (tpl === 'Q026' && stoppageMinutes != null) {
+    if (tpl === 'Q026') {
+      if (stoppageMinutes == null) return 'VOID';
       return this.findRangeOption(options, stoppageMinutes);
     }
 
@@ -1130,7 +1135,8 @@ export class QuestionResolverService {
     // ═══ STAT ═══
 
     // Q028: "Possession leader at FT?"
-    if (tpl === 'Q028' && stats?.possession) {
+    if (tpl === 'Q028') {
+      if (!stats?.possession) return 'VOID';
       const homePoss = parseInt(stats.possession.home) || 50;
       if (homePoss > 55) return this.findOptionByTeamName(options, teams.home) ?? null;
       if (homePoss < 45) return this.findOptionByTeamName(options, teams.away) ?? null;
@@ -1138,7 +1144,8 @@ export class QuestionResolverService {
     }
 
     // Q029: "Total shots?"
-    if (tpl === 'Q029' && stats?.shots) {
+    if (tpl === 'Q029') {
+      if (!stats?.shots) return 'VOID';
       const totalShots = (stats.shots.home ?? 0) + (stats.shots.away ?? 0);
       return this.findRangeOption(options, totalShots);
     }
@@ -1146,16 +1153,15 @@ export class QuestionResolverService {
     // Q049: "Which team more shots on target?"
     if (tpl === 'Q049') {
       const sot = stats?.shotsOnTarget ?? stats?.shots;
-      if (sot) {
-        if (sot.home > sot.away) return this.findOptionByTeamName(options, teams.home) ?? null;
-        if (sot.away > sot.home) return this.findOptionByTeamName(options, teams.away) ?? null;
-        return options.find((o) => o.name.toLowerCase().includes('bằng') || o.name.toLowerCase().includes('equal'))?.id ?? null;
-      }
-      return null;
+      if (!sot) return 'VOID';
+      if (sot.home > sot.away) return this.findOptionByTeamName(options, teams.home) ?? null;
+      if (sot.away > sot.home) return this.findOptionByTeamName(options, teams.away) ?? null;
+      return options.find((o) => o.name.toLowerCase().includes('bằng') || o.name.toLowerCase().includes('equal'))?.id ?? null;
     }
 
     // Q050: "Home possession in H1?" — already resolved at HT, fallback at FT
-    if (tpl === 'Q050' && stats?.possession) {
+    if (tpl === 'Q050') {
+      if (!stats?.possession) return 'VOID';
       const homePoss = parseInt(stats.possession.home) || 50;
       if (homePoss < 45) return options[0]?.id ?? null;
       if (homePoss <= 55) return options[1]?.id ?? null;
@@ -1163,7 +1169,8 @@ export class QuestionResolverService {
     }
 
     // Q051: "Total shots in H1?" — already resolved at HT, fallback at FT
-    if (tpl === 'Q051' && stats?.shots) {
+    if (tpl === 'Q051') {
+      if (!stats?.shots) return 'VOID';
       return this.findRangeOption(options, (stats.shots.home ?? 0) + (stats.shots.away ?? 0));
     }
 
@@ -1175,11 +1182,12 @@ export class QuestionResolverService {
     }
 
     // Q052: "Who dominates first 15 min?" — resolved by stats at minute 15
-    if (tpl === 'Q052' && stats) {
-      const homePoss = parseInt(stats.possession?.home ?? '50') || 50;
-      const homeShots = stats.shots?.home ?? 0;
+    if (tpl === 'Q052') {
+      if (!stats?.possession || !stats?.shots) return 'VOID';
+      const homePoss = parseInt(stats.possession.home ?? '50') || 50;
+      const homeShots = stats.shots.home ?? 0;
       const awayPoss = 100 - homePoss;
-      const awayShots = stats.shots?.away ?? 0;
+      const awayShots = stats.shots.away ?? 0;
       const homeDominates = homePoss > 55 && homeShots > 3;
       const awayDominates = awayPoss > 55 && awayShots > 3;
       if (homeDominates && !awayDominates) return this.findOptionByTeamName(options, teams.home) ?? null;
@@ -1188,25 +1196,25 @@ export class QuestionResolverService {
     }
 
     // Q053: "Trailing team attacks more in last 15 min?" — v2.3: threshold +1
-    if (tpl === 'Q053' && stats?.shots) {
+    if (tpl === 'Q053') {
+      if (!stats?.shots) return 'VOID';
       if (score.home === score.away) return 'VOID'; // v2.3: score became tied → VOID
-      // Determine losing/leading team shots
       const losingIsHome = score.home < score.away;
       const losingShots = losingIsHome ? (stats.shots.home ?? 0) : (stats.shots.away ?? 0);
       const leadingShots = losingIsHome ? (stats.shots.away ?? 0) : (stats.shots.home ?? 0);
-      // v2.3 #8: threshold reduced from +3 to +1
       if (losingShots > leadingShots + 1) return options[0]?.id ?? null; // A: yes, attacking more
       return options[1]?.id ?? null; // B: no change
     }
 
     // Q054: "First scoring team maintains control?"
-    if (tpl === 'Q054' && stats) {
-      const homePoss = parseInt(stats.possession?.home ?? '50') || 50;
+    if (tpl === 'Q054') {
+      if (!stats?.possession || !stats?.shots) return 'VOID';
+      const homePoss = parseInt(stats.possession.home ?? '50') || 50;
       const firstGoal = events.find((e) => e.type?.toLowerCase() === 'goal');
       if (!firstGoal) return options[1]?.id ?? null;
       const scorer = this.goalBeneficiary(firstGoal, teams);
       const scorerPoss = scorer === teams.home ? homePoss : (100 - homePoss);
-      const scorerShots = scorer === teams.home ? (stats.shots?.home ?? 0) : (stats.shots?.away ?? 0);
+      const scorerShots = scorer === teams.home ? (stats.shots.home ?? 0) : (stats.shots.away ?? 0);
       if (scorerPoss > 50 && scorerShots > 5) return options[0]?.id ?? null; // A: yes
       return options[1]?.id ?? null; // B: no
     }
