@@ -57,15 +57,22 @@ class LiveNotifier extends StateNotifier<LiveState> {
       final seen = <int>{};
       final uniqueMatches = allMatches.where((m) => seen.add(m.fixtureId)).toList();
 
+      // Preserve user's match selection if it still exists in the list
+      final currentId = state.activeMatch?.fixtureId;
+      final preserved = currentId != null
+          ? uniqueMatches.where((m) => m.fixtureId == currentId).firstOrNull
+          : null;
+      final activeMatch = preserved ?? (matches.isNotEmpty ? matches.first : null);
+
       state = state.copyWith(
         matches: uniqueMatches,
-        activeMatch: matches.isNotEmpty ? matches.first : null,
+        activeMatch: activeMatch,
         isLoading: false,
       );
 
       // Fetch stats for the active match
-      if (matches.isNotEmpty && _apiClient != null) {
-        _fetchStatsForMatch(matches.first.fixtureId);
+      if (activeMatch != null && _apiClient != null) {
+        _fetchStatsForMatch(activeMatch.fixtureId);
       }
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

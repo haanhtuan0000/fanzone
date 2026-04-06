@@ -553,8 +553,12 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       await this.questionGenerator.cleanupFixture(fixtureId);
     }
 
-    // 2H kick-off
-    if (period === '2H' && prevPeriod === HT_STATUS) {
+    // 2H kick-off (also handles case where HT was missed in API data)
+    if (period === '2H' && (prevPeriod === HT_STATUS || prevPeriod === '1H')) {
+      if (prevPeriod === '1H') {
+        this.logger.warn(`Fixture ${fixtureId}: HT missed (${prevPeriod} → ${period}) — running HT resolution`);
+        await this.questionResolver.onHalfTime(fixtureId, teams, score);
+      }
       await this.questionGenerator.generateForPhase(fixtureId, elapsed, teams, score, '2H');
     }
   }

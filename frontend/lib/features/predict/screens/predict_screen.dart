@@ -22,6 +22,7 @@ class PredictScreen extends ConsumerStatefulWidget {
 
 class _PredictScreenState extends ConsumerState<PredictScreen> {
   bool _refreshed = false;
+  int? _lastFixtureId;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +30,13 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
     final predictState = ref.watch(predictStateProvider);
     final activeMatch = ref.watch(liveStateProvider).activeMatch;
 
-    // Refresh questions when this screen is shown to avoid stale state from banner
+    // Reset refresh flag when match changes
+    if (activeMatch != null && activeMatch.fixtureId != _lastFixtureId) {
+      _refreshed = false;
+      _lastFixtureId = activeMatch.fixtureId;
+    }
+
+    // Refresh questions when this screen is shown or match changes
     if (!_refreshed && activeMatch != null && activeMatch.isLive) {
       _refreshed = true;
       Future.microtask(() {
@@ -396,6 +403,11 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
               ),
               const SizedBox(width: 8),
               Text(q.category, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+              const SizedBox(width: 8),
+              Text(
+                "${q.matchMinute ?? '?'}'${q.matchPhase != null ? ' ${q.matchPhase}' : ''}",
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontFamily: 'monospace'),
+              ),
               const Spacer(),
               Text('${q.rewardCoins}c', style: const TextStyle(color: AppColors.amber, fontSize: 10)),
             ],

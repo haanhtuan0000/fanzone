@@ -98,7 +98,7 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
     } else if (hasCountdown) {
       text = '${s.nextQuestionIn} ${_remaining.inSeconds}s';
       icon = Icons.hourglass_bottom;
-    } else if (isHalfTime) {
+    } else if (isHalfTime && widget.nextOpensAt == null) {
       text = 'Questions resume in the 2nd half';
       icon = Icons.coffee;
     } else if (hasEstimate && estimateMin > 0) {

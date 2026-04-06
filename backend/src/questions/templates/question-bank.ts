@@ -152,15 +152,14 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     category: 'GOAL',
     difficulty: 'HARD',
     trigger: 'SCHEDULED',
-    phases: ['MID_H2', 'LATE_H2'],
-    textVi: 'Có bàn thắng nào trong phút bù giờ không?',
-    textEn: 'Will there be a stoppage time goal?',
+    phases: ['LATE_H1'],
+    textVi: 'Có bàn thắng nào ở phút bù giờ hiệp 1 không?',
+    textEn: 'Will there be a goal in H1 stoppage time?',
     rewardCoins: 240,
     answerWindowSec: 35,
     options: [
-      { nameVi: 'Có, {leading_team} ghi', nameEn: 'Yes, {leading_team} scores', emoji: '⚽', defaultPct: 20 },
-      { nameVi: 'Có, {trailing_team} ghi', nameEn: 'Yes, {trailing_team} scores', emoji: '⚽', defaultPct: 25 },
-      { nameVi: 'Không có bàn', nameEn: 'No goal', emoji: '🚫', defaultPct: 55 },
+      { nameVi: 'Có — có bàn trong bù giờ H1', nameEn: 'Yes — H1 stoppage goal', emoji: '⚽', defaultPct: 18 },
+      { nameVi: 'Không có bàn', nameEn: 'No goal', emoji: '🚫', defaultPct: 82 },
     ],
     resolutionStrategy: 'AUTO',
     weight: 75,
@@ -580,6 +579,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     textEn: 'Will VAR overturn the decision?',
     rewardCoins: 480,
     answerWindowSec: 60,
+    timeoutWindowMin: 5, // v2.3: 300s timeout for VAR verdict
     options: [
       { nameVi: 'Có — lật quyết định', nameEn: 'Yes — overturned', emoji: '🔄', defaultPct: 35 },
       { nameVi: 'Không — giữ nguyên', nameEn: 'No — stands', emoji: '✅', defaultPct: 65 },
@@ -883,7 +883,7 @@ export const QUESTION_BANK: QuestionTemplateSeed[] = [
     category: 'TIME',
     difficulty: 'EASY',
     trigger: 'SCHEDULED',
-    phases: [], // Only relevant for cup/knockout — disabled for league matches
+    phases: ['LATE_H2'], // Only makes sense when score is tied (checked in engine)
     textVi: 'Trận có đi vào hiệp phụ không?',
     textEn: 'Will the match go to extra time?',
     rewardCoins: 60,

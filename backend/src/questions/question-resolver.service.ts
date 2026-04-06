@@ -580,6 +580,17 @@ export class QuestionResolverService {
     const options: any[] = question.options;
     const tpl = this.getTemplateCode(question);
 
+    // Q007: "H1 stoppage time goal?" — resolve at HT
+    if (tpl === 'Q007') {
+      const h1ExtraGoal = events.some((e) => {
+        if (e.type?.toLowerCase() !== 'goal') return false;
+        const elapsed = e.time?.elapsed ?? 0;
+        const extra = e.time?.extra;
+        return elapsed >= 45 && elapsed < 46 && extra != null && extra > 0;
+      });
+      return this.findYesNoOption(options, h1ExtraGoal);
+    }
+
     // Q005: "Who scores first?" — still 0-0 at HT means no goals in first half
     if (tpl === 'Q005' && score.home === 0 && score.away === 0) {
       return null; // Don't resolve yet — still a chance in 2H
@@ -730,29 +741,15 @@ export class QuestionResolverService {
       return options.find((o) => o.name.toLowerCase().includes('khác') || o.name.toLowerCase().includes('other'))?.id ?? null;
     }
 
-    // Q007: "Stoppage time goal?" — v2.1 FIX: detect both H1 and H2 extra time
+    // Q007: "H1 stoppage time goal?" — v2.3: only H1 extra time
     if (tpl === 'Q007') {
-      const extraTimeGoals = events.filter((e) => {
+      const h1ExtraGoal = events.some((e) => {
         if (e.type?.toLowerCase() !== 'goal') return false;
         const elapsed = e.time?.elapsed ?? 0;
         const extra = e.time?.extra;
-        const isH1Extra = elapsed >= 45 && elapsed < 46 && extra != null && extra > 0;
-        const isH2Extra = elapsed >= 90 && extra != null && extra > 0;
-        return isH1Extra || isH2Extra;
+        return elapsed >= 45 && elapsed < 46 && extra != null && extra > 0;
       });
-      if (extraTimeGoals.length > 0) {
-        const beneficiary = this.goalBeneficiary(extraTimeGoals[0], teams);
-        if (beneficiary) {
-          const scoreAt90 = this.reconstructScoreAtMinute(events, 90, teams);
-          const isHome = beneficiary === teams.home;
-          const wasLeading = isHome ? scoreAt90.home > scoreAt90.away : scoreAt90.away > scoreAt90.home;
-          const wasTrailing = isHome ? scoreAt90.home < scoreAt90.away : scoreAt90.away < scoreAt90.home;
-          if (wasLeading) return options.find((o) => o.name.toLowerCase().includes('dẫn') || o.name.toLowerCase().includes('leading'))?.id ?? null;
-          if (wasTrailing) return options.find((o) => o.name.toLowerCase().includes('thua') || o.name.toLowerCase().includes('trailing'))?.id ?? null;
-          return this.findOptionByTeamName(options, beneficiary) ?? this.findYesOption(options);
-        }
-      }
-      return this.findNoOption(options);
+      return this.findYesNoOption(options, h1ExtraGoal);
     }
 
     // Q008: "Who scores first in 2H?" — v2.1 FIX: cutoff at minute 65

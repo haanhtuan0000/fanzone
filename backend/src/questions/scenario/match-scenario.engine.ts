@@ -394,12 +394,20 @@ export class MatchScenarioEngine {
         return null;
       }
 
-      // Skip leading/trailing team questions when score is tied
-      if (tpl.code === 'Q007') {
+      // Q007 no longer needs tied-score guard — v2.3 uses simple Yes/No options
+
+      // v2.3 #7: Q054 only triggers when first goal is after minute 15
+      if (tpl.code === 'Q054' && (elapsed ?? 0) <= 15) {
+        this.logger.debug(`[${fixtureId}] Q054 skipped — first goal too early (minute ${elapsed})`);
+        return null;
+      }
+
+      // v2.3 #5: Q048 only when score is tied (extra time only possible in cups when drawn)
+      if (tpl.code === 'Q048') {
         const homeScore = parseInt(context.home_score) || 0;
         const awayScore = parseInt(context.away_score) || 0;
-        if (homeScore === awayScore) {
-          this.logger.debug(`[${fixtureId}] Q007 skipped — score is tied`);
+        if (homeScore !== awayScore) {
+          this.logger.debug(`[${fixtureId}] Q048 skipped — score not tied (${homeScore}-${awayScore})`);
           return null;
         }
       }
@@ -483,17 +491,32 @@ export class MatchScenarioEngine {
   }
 
   /**
-   * Get ALL template IDs already used for this fixture from the DB.
+   * Get template IDs in the sliding window (last 12 used).
+   * Falls back to DB if Redis is empty (e.g., after restart).
    */
   private async getUsedTemplateIds(fixtureId: number): Promise<string[]> {
-    const questions = await this.questionsService.getTemplateIdsForFixture(fixtureId);
-    return questions;
+    const cached = await this.redis.get(this.windowKey(fixtureId));
+    if (cached) {
+      try { return JSON.parse(cached); } catch { /* fall through */ }
+    }
+    // Fallback: load from DB and seed the window
+    const dbIds = await this.questionsService.getTemplateIdsForFixture(fixtureId);
+    const window = dbIds.slice(-WINDOW_SIZE);
+    if (window.length > 0) {
+      await this.redis.set(this.windowKey(fixtureId), JSON.stringify(window), WINDOW_TTL_SEC);
+    }
+    return window;
   }
 
   /**
-   * Record a template ID as used (no-op — DB is the source of truth).
+   * Record a template ID in the sliding window (Redis, last 12).
    */
-  private async recordUsedTemplate(_fixtureId: number, _templateId: string): Promise<void> {
-    // Template ID is stored on the question record via createQuestion({ templateId })
+  private async recordUsedTemplate(fixtureId: number, templateId: string): Promise<void> {
+    const key = this.windowKey(fixtureId);
+    const cached = await this.redis.get(key);
+    const list: string[] = cached ? (JSON.parse(cached) ?? []) : [];
+    list.push(templateId);
+    if (list.length > WINDOW_SIZE) list.shift(); // Keep last 12
+    await this.redis.set(key, JSON.stringify(list), WINDOW_TTL_SEC);
   }
 }

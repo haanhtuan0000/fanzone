@@ -8,6 +8,8 @@ class Question {
   final String? correctOptionId;
   final DateTime opensAt;
   final DateTime closesAt;
+  final int? matchMinute;
+  final String? matchPhase;
   final List<QuestionOption> options;
 
   const Question({
@@ -20,6 +22,8 @@ class Question {
     this.correctOptionId,
     required this.opensAt,
     required this.closesAt,
+    this.matchMinute,
+    this.matchPhase,
     this.options = const [],
   });
 
@@ -37,6 +41,8 @@ class Question {
       correctOptionId: json['correctOptionId'] as String?,
       opensAt: DateTime.parse(json['opensAt'] as String),
       closesAt: DateTime.parse(json['closesAt'] as String),
+      matchMinute: json['matchMinute'] as int?,
+      matchPhase: json['matchPhase'] as String?,
       options: (json['options'] as List<dynamic>?)
           ?.map((o) => QuestionOption.fromJson(o as Map<String, dynamic>))
           .toList() ?? [],
