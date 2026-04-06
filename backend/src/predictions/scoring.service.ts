@@ -106,6 +106,24 @@ export class ScoringService {
       // Check achievements
       await this.achievementService.checkAndUnlock(prediction.userId);
 
+      // Check rank milestones (top 10/50/100 on match leaderboard)
+      if (question) {
+        const rank = await this.redis.zrevrank(`lb:match:${question.fixtureId}`, prediction.userId);
+        if (rank !== null) {
+          const position = rank + 1; // zrevrank is 0-based
+          if (position === 1 || position === 10 || position === 50 || position === 100) {
+            await this.prisma.feedEvent.create({
+              data: {
+                fixtureId: question.fixtureId,
+                userId: prediction.userId,
+                type: 'RANK_CHANGE',
+                message: `Climbed to Top ${position}!|Leo lên Top ${position}!`,
+              },
+            });
+          }
+        }
+      }
+
       // Create feed event — short message with question topic
       if (question) {
         // Shorten question text to just the topic (first 30 chars)

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'websocket_client.dart';
 import '../../features/live/providers/live_provider.dart';
 import '../../features/predict/providers/predict_provider.dart';
+import '../../features/feed/providers/feed_provider.dart';
+import '../../core/models/feed_event.dart';
 
 /// Bridges WebSocket events to Riverpod state.
 /// Manages socket lifecycle: connect, join/leave match rooms,
@@ -134,6 +136,16 @@ class MatchSocketService with WidgetsBindingObserver {
         if (fixtureId != null) {
           _ref.read(liveStateProvider.notifier).updateMatchStats(fixtureId, data);
         }
+      }
+    });
+
+    // Feed event — real-time activity feed updates
+    _ws.on('feed_event', (data) {
+      if (data is Map<String, dynamic>) {
+        try {
+          final event = FeedEvent.fromJson(data);
+          _ref.read(feedStateProvider.notifier).addEvent(event);
+        } catch (_) {}
       }
     });
   }
