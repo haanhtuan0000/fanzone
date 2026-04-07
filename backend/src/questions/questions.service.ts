@@ -160,6 +160,13 @@ export class QuestionsService {
     return count > 0;
   }
 
+  async hasPendingQuestion(fixtureId: number): Promise<boolean> {
+    const count = await this.prisma.question.count({
+      where: { fixtureId, status: 'PENDING' },
+    });
+    return count > 0;
+  }
+
   async openQuestion(questionId: string) {
     return this.prisma.question.update({
       where: { id: questionId },

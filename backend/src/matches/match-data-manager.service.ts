@@ -9,7 +9,7 @@ import { QuestionGeneratorService } from '../questions/question-generator.servic
 import { QuestionsService } from '../questions/questions.service';
 import { ScheduleTracker } from './schedule-tracker';
 import { PollBudgetService } from './poll-budget.service';
-import { TRACKED_LEAGUE_IDS, MAX_LIVE_MATCHES, PRIORITY_LEAGUE_IDS } from './leagues.config';
+import { TRACKED_LEAGUE_IDS, PRIORITY_LEAGUE_IDS } from './leagues.config';
 
 const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN']);
 const LIVE_STATUSES = new Set(['1H', '2H', 'HT', 'ET', 'BT', 'P']);
@@ -154,22 +154,16 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       (f) => TRACKED_LEAGUE_IDS.has(f?.league?.id),
     );
 
-    // Cap to MAX_LIVE_MATCHES — prioritize major leagues
-    let fixtures: any[];
-    if (allTracked.length <= MAX_LIVE_MATCHES) {
-      fixtures = allTracked;
-    } else {
-      // Sort: priority leagues first, then by elapsed (more advanced matches first)
-      const sorted = allTracked.sort((a, b) => {
-        const aPriority = PRIORITY_LEAGUE_IDS.has(a?.league?.id) ? 0 : 1;
-        const bPriority = PRIORITY_LEAGUE_IDS.has(b?.league?.id) ? 0 : 1;
-        if (aPriority !== bPriority) return aPriority - bPriority;
-        return (b?.fixture?.status?.elapsed ?? 0) - (a?.fixture?.status?.elapsed ?? 0);
-      });
-      fixtures = sorted.slice(0, MAX_LIVE_MATCHES);
-      if (allTracked.length > MAX_LIVE_MATCHES) {
-        this.logger.warn(`${allTracked.length} live matches, capped to ${MAX_LIVE_MATCHES} (priority leagues first)`);
-      }
+    // Accept all tracked matches — no hard cap.
+    // Priority leagues sort first for event polling budget allocation.
+    const fixtures = allTracked.sort((a, b) => {
+      const aPriority = PRIORITY_LEAGUE_IDS.has(a?.league?.id) ? 0 : 1;
+      const bPriority = PRIORITY_LEAGUE_IDS.has(b?.league?.id) ? 0 : 1;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      return (b?.fixture?.status?.elapsed ?? 0) - (a?.fixture?.status?.elapsed ?? 0);
+    });
+    if (fixtures.length > 15) {
+      this.logger.log(`${fixtures.length} live matches tracked — budget-aware polling active`);
     }
 
     // Only cache the capped list — frontend only sees matches we actively process
@@ -249,14 +243,16 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       state.lastSeenInApi = Date.now();
 
       // Handle API period transitions (1H→HT→2H→FT)
+      let periodTransitioned = false;
       if (prevPeriod !== period) {
         await this.handlePeriodTransition(id, prevPeriod, period, elapsed, teams, score);
         state.lastPhase = this.questionGenerator.determinePhase(elapsed, period);
+        periodTransitioned = true;
       }
 
       // Handle internal phase transitions (EARLY_H1→MID_H1→LATE_H1, etc.)
-      // These happen within the same API period (e.g. all within "1H")
-      if (LIVE_STATUSES.has(period)) {
+      // Only if no period transition already generated questions this tick
+      if (LIVE_STATUSES.has(period) && !periodTransitioned) {
         const currentPhase = this.questionGenerator.determinePhase(elapsed, period);
         if (currentPhase !== state.lastPhase) {
           this.logger.log(`Fixture ${id}: internal phase ${state.lastPhase} → ${currentPhase} at ${elapsed}'`);
@@ -372,11 +368,20 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
   private async pollEvents() {
     const now = Date.now();
-    const interval = this.budget.isThrottled() ? 120_000 : 60_000; // 60s normal, 120s throttled
 
-    for (const [id, state] of this.matchStates) {
-      // Only poll if match has active questions
-      if (!state.hasActiveQuestions) continue;
+    // Smart interval: scale based on number of active matches and budget
+    // More matches → longer interval per match to stay within budget
+    const activeMatchCount = [...this.matchStates.values()].filter(s => s.hasActiveQuestions).length;
+    const baseInterval = this.budget.isThrottled() ? 120_000 : 60_000;
+    // With 5 active matches: 60s. With 15: 180s. With 30: 360s.
+    const interval = Math.max(baseInterval, activeMatchCount * 12_000);
+
+    // Sort matches: those with LOCKED questions (need resolution) poll first
+    const entries = [...this.matchStates.entries()]
+      .filter(([, s]) => s.hasActiveQuestions)
+      .sort((a, b) => a[1].lastEventPoll - b[1].lastEventPoll); // oldest poll first
+
+    for (const [id, state] of entries) {
       // Respect interval
       if (now - state.lastEventPoll < interval) continue;
       if (!this.budget.canMakeCall()) break;

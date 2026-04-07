@@ -10,6 +10,7 @@ import '../widgets/progress_strip.dart';
 import '../widgets/answered_card.dart';
 import '../widgets/next_question_strip.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/models/question.dart';
 
 class PredictScreen extends ConsumerStatefulWidget {
   const PredictScreen({super.key});
@@ -239,6 +240,28 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
               // Skipped/missed questions intentionally hidden
             ],
 
+            // ── DEBUG: All questions for this match ──
+            SliverToBoxAdapter(child: _sectionDivider('DEBUG — ALL QUESTIONS')),
+            if (question != null)
+              SliverToBoxAdapter(child: _debugQuestionTile(question, 'OPEN')),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _debugQuestionTile(predictState.upcomingQuestions[index], 'PENDING'),
+                childCount: predictState.upcomingQuestions.length,
+              ),
+            ),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final a = answered[index];
+                  return _debugQuestionTile(a.question, a.status.toUpperCase(), pick: a.myPickOptionId);
+                },
+                childCount: answered.length,
+              ),
+            ),
+            SliverToBoxAdapter(child: _sectionDivider('END DEBUG')),
+            // ── END DEBUG ──
+
             // Bottom padding
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
@@ -256,6 +279,81 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
           const Icon(Icons.monetization_on, color: AppColors.amber, size: 20),
           const SizedBox(width: 4),
           Text('$coins', style: const TextStyle(fontFamily: AppFonts.bebasNeue, color: AppColors.amber, fontSize: 18)),
+        ],
+      ),
+    );
+  }
+
+  Widget _debugQuestionTile(Question q, String status, {String? pick}) {
+    final statusColor = {
+      'OPEN': AppColors.neonGreen,
+      'PENDING': AppColors.amber,
+      'LOCKED': AppColors.blue,
+      'RESOLVED': AppColors.textSecondary,
+      'CORRECT': AppColors.neonGreen,
+      'WRONG': AppColors.red,
+      'VOIDED': AppColors.purple,
+      'SKIP': AppColors.textSecondary,
+    }[status] ?? AppColors.textSecondary;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: statusColor.withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(status,
+                  style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              ),
+              const SizedBox(width: 8),
+              Text(q.category, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+              const SizedBox(width: 8),
+              Text(
+                "${q.matchMinute ?? '?'}'${q.matchPhase != null ? ' ${q.matchPhase}' : ''}",
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontFamily: 'monospace'),
+              ),
+              const Spacer(),
+              Text('${q.rewardCoins}c', style: const TextStyle(color: AppColors.amber, fontSize: 10)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(q.text, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          ...q.options.map((o) {
+            final isPicked = o.id == pick;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 2),
+              child: Row(
+                children: [
+                  if (isPicked)
+                    const Icon(Icons.check_circle, color: AppColors.neonGreen, size: 14)
+                  else
+                    const Icon(Icons.circle_outlined, color: AppColors.textSecondary, size: 14),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text('${o.emoji ?? ''} ${o.name} (x${o.multiplier.toStringAsFixed(1)})',
+                      style: TextStyle(
+                        color: isPicked ? AppColors.neonGreen : AppColors.textSecondary,
+                        fontSize: 11,
+                      )),
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );

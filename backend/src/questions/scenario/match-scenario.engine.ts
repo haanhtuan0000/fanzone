@@ -225,6 +225,15 @@ export class MatchScenarioEngine {
       return null;
     }
 
+    // Skip event-triggered question if there's an OPEN or PENDING question
+    // (phase-scheduled questions already cover this period — don't stack)
+    const hasOpen = await this.questionsService.hasOpenQuestion(fixtureId);
+    const hasPending = await this.questionsService.hasPendingQuestion(fixtureId);
+    if (hasOpen || hasPending) {
+      this.logger.debug(`[${fixtureId}] Active/pending questions exist, skipping event ${eventType}`);
+      return null;
+    }
+
     const elapsed = event.time?.elapsed ?? 0;
     const phase = this.determinePhase(elapsed);
     const excludeIds = await this.getUsedTemplateIds(fixtureId);
