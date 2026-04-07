@@ -14,6 +14,9 @@ import '../features/leaderboard/screens/leaderboard_screen.dart';
 import '../features/feed/screens/feed_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
 import '../features/profile/screens/edit_profile_screen.dart';
+import '../features/match_detail/screens/match_detail_screen.dart';
+import '../features/match_detail/screens/match_info_screen.dart';
+import '../core/models/match.dart';
 import '../shared/widgets/bottom_nav_bar.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -80,6 +83,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/edit',
         builder: (context, state) => const EditProfileScreen(),
+      ),
+      GoRoute(
+        path: '/match/:fixtureId',
+        builder: (context, state) {
+          final fixtureId = int.parse(state.pathParameters['fixtureId']!);
+          final match = state.extra as MatchData?;
+          return MatchDetailScreen(fixtureId: fixtureId, match: match);
+        },
+      ),
+      GoRoute(
+        path: '/match-info/:fixtureId',
+        builder: (context, state) {
+          final fixtureId = int.parse(state.pathParameters['fixtureId']!);
+          final match = state.extra as MatchData?;
+          return MatchInfoScreen(fixtureId: fixtureId, match: match);
+        },
       ),
       ShellRoute(
         navigatorKey: _shellNavigatorKey,

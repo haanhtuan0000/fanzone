@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
 import '../../../shared/widgets/coin_display.dart';
 import '../../../features/auth/providers/auth_provider.dart';
@@ -68,8 +69,8 @@ class LiveScreen extends ConsumerWidget {
         },
         child: CustomScrollView(
           slivers: [
-            // Hero: integrated scoreboard (score + stats + fan bar)
-            if (liveState.activeMatch != null && liveState.activeMatch!.isLive) ...[
+            // Hero: scoreboard for any active match
+            if (liveState.activeMatch != null) ...[
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -77,48 +78,50 @@ class LiveScreen extends ConsumerWidget {
                 ),
               ),
 
-              // Predict preview card — show loading or banner
-              if (predictState.isLoading)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardSurface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: const Center(
-                        child: SizedBox(
-                          width: 20, height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.neonGreen),
+              // Predict preview card — only for live matches
+              if (liveState.activeMatch!.isLive) ...[
+                if (predictState.isLoading)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.cardSurface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 20, height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.neonGreen),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                )
-              else ...[
-                SliverToBoxAdapter(
-                  child: _sectionHeader(
-                    icon: Icons.sports_soccer,
-                    title: s.predictThisMatch,
-                    trailing: s.goPredict,
-                    color: AppColors.amber,
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                    child: PredictBanner(
-                      activeQuestion: predictState.activeQuestion,
-                      nextOpensAt: predictState.upcomingQuestions.isNotEmpty
-                          ? predictState.upcomingQuestions.first.opensAt
-                          : null,
-                      matchElapsed: liveState.activeMatch?.elapsed,
+                  )
+                else ...[
+                  SliverToBoxAdapter(
+                    child: _sectionHeader(
+                      icon: Icons.sports_soccer,
+                      title: s.predictThisMatch,
+                      trailing: s.goPredict,
+                      color: AppColors.amber,
                     ),
                   ),
-                ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      child: PredictBanner(
+                        activeQuestion: predictState.activeQuestion,
+                        nextOpensAt: predictState.upcomingQuestions.isNotEmpty
+                            ? predictState.upcomingQuestions.first.opensAt
+                            : null,
+                        matchElapsed: liveState.activeMatch?.elapsed,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ],
 
@@ -145,66 +148,105 @@ class LiveScreen extends ConsumerWidget {
                 ),
               ),
 
-            // Live matches section: ⚡ LIVE NOW ... See all
-            if (liveState.liveMatches.isNotEmpty) ...[
+            // Match list card — single card containing both sections
+            if (liveState.liveMatches.isNotEmpty || liveState.upcomingMatches.isNotEmpty)
               SliverToBoxAdapter(
-                child: _sectionHeader(
-                  icon: Icons.bolt,
-                  title: s.liveMatches,
-                  trailing: s.seeAll,
-                  color: AppColors.neonGreen,
-                ),
-              ),
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final match = liveState.liveMatches[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: MatchCard(
-                        match: match,
-                        isSelected: match.fixtureId == liveState.activeMatch?.fixtureId,
-                        onTap: () => ref.read(liveStateProvider.notifier).selectMatch(match),
-                      ),
-                    );
-                  },
-                  childCount: liveState.liveMatches.length,
-                ),
-              ),
-            ],
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: Column(
+                    children: [
+                      // ── SECTION 1: ĐANG DIỄN RA ──
+                      if (liveState.liveMatches.isNotEmpty) ...[
+                        _matchSectionHeader(
+                          dotColor: AppColors.red,
+                          dotAnimated: true,
+                          label: s.liveMatches,
+                          count: liveState.liveMatches.length,
+                          isExpanded: liveState.liveExpanded,
+                          showButton: liveState.liveMatches.length > 4,
+                          buttonColor: AppColors.neonGreen,
+                          onToggle: () => ref.read(liveStateProvider.notifier).toggleLiveExpanded(),
+                          s: s,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          child: Column(
+                            children: liveState.displayedLiveMatches.map((match) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 7),
+                                child: MatchCard(
+                                  match: match,
+                                  isSelected: match.fixtureId == liveState.activeMatch?.fixtureId,
+                                  onTap: () => ref.read(liveStateProvider.notifier).selectMatch(match),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
 
-            // Today's upcoming matches section
-            if (liveState.upcomingMatches.isNotEmpty) ...[
-              SliverToBoxAdapter(
-                child: _sectionHeader(
-                  icon: Icons.calendar_today,
-                  title: s.todayMatches,
-                  color: AppColors.textSecondary,
+                      // Divider between sections
+                      if (liveState.liveMatches.isNotEmpty && liveState.upcomingMatches.isNotEmpty)
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 12),
+                          height: 1,
+                          color: AppColors.divider.withOpacity(0.3),
+                        ),
+
+                      // ── SECTION 2: HÔM NAY ──
+                      if (liveState.upcomingMatches.isNotEmpty) ...[
+                        _matchSectionHeader(
+                          dotColor: AppColors.blue,
+                          dotAnimated: false,
+                          label: s.todayMatches,
+                          count: liveState.upcomingMatches.length,
+                          isExpanded: liveState.todayExpanded,
+                          showButton: liveState.upcomingMatches.length > 4,
+                          buttonColor: AppColors.blue,
+                          onToggle: () => ref.read(liveStateProvider.notifier).toggleTodayExpanded(),
+                          s: s,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          child: Column(
+                            children: liveState.displayedTodayMatches.map((match) {
+                              final isFt = match.status == 'FT' || match.status == 'AET' || match.status == 'PEN';
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 7),
+                                child: Opacity(
+                                  opacity: isFt ? 0.68 : 1.0,
+                                  child: MatchCard(
+                                    match: match,
+                                    isSelected: false,
+                                    onTap: () {
+                                      if (isFt) {
+                                        context.push('/match/${match.fixtureId}', extra: match);
+                                      } else if (match.status == 'NS' || match.status == 'TBD') {
+                                        context.push('/match-info/${match.fixtureId}', extra: match);
+                                      }
+                                    },
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final match = liveState.upcomingMatches[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      child: MatchCard(
-                        match: match,
-                        isSelected: false,
-                        onTap: () {},
-                      ),
-                    );
-                  },
-                  childCount: liveState.upcomingMatches.length,
-                ),
-              ),
-            ],
 
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
       ),
-      // Tutorial overlay — rendered inside Stack, not as a dialog
+      // Tutorial overlay
       if (showTutorial)
         TutorialOverlay(
           onComplete: () {
@@ -212,6 +254,65 @@ class LiveScreen extends ConsumerWidget {
             ref.read(secureStorageProvider).setTutorialComplete();
           },
         ),
+        ],
+      ),
+    );
+  }
+
+  Widget _matchSectionHeader({
+    required Color dotColor,
+    required bool dotAnimated,
+    required String label,
+    required int count,
+    required bool isExpanded,
+    required bool showButton,
+    required Color buttonColor,
+    required VoidCallback onToggle,
+    required dynamic s,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(15, 14, 15, 7),
+      child: Row(
+        children: [
+          // Dot
+          Container(
+            width: 5, height: 5,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor),
+          ),
+          const SizedBox(width: 7),
+          // Label
+          Text(label,
+            style: TextStyle(
+              fontFamily: AppFonts.barlowCondensed,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2,
+              color: AppColors.textSecondary.withOpacity(0.7),
+            )),
+          const Spacer(),
+          // See all / Collapse button
+          if (showButton)
+            GestureDetector(
+              onTap: onToggle,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: buttonColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(color: buttonColor.withOpacity(0.18)),
+                ),
+                child: Text(
+                  isExpanded ? s.collapse : s.seeAllCount(count),
+                  style: TextStyle(
+                    fontFamily: AppFonts.barlowCondensed,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                    color: buttonColor,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

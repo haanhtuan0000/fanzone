@@ -56,25 +56,15 @@ class OptionButton extends StatelessWidget {
             if (option.emoji != null) const SizedBox(width: 12),
             // Name + info
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _localized(option.name),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isLocked && !isSelected
-                          ? AppColors.textSecondary
-                          : AppColors.textPrimary,
-                    ),
-                  ),
-                  if (option.info != null)
-                    Text(
-                      option.info!,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                    ),
-                ],
+              child: Text(
+                _localized(option.name),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isLocked && !isSelected
+                      ? AppColors.textSecondary
+                      : AppColors.textPrimary,
+                ),
               ),
             ),
             // Fan % bar

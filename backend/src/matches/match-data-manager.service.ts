@@ -6,6 +6,7 @@ import { RedisService } from '../common/redis/redis.service';
 import { WebsocketGateway } from '../websocket/websocket.gateway';
 import { QuestionResolverService } from '../questions/question-resolver.service';
 import { QuestionGeneratorService } from '../questions/question-generator.service';
+import { QuestionsService } from '../questions/questions.service';
 import { ScheduleTracker } from './schedule-tracker';
 import { PollBudgetService } from './poll-budget.service';
 import { TRACKED_LEAGUE_IDS, MAX_LIVE_MATCHES, PRIORITY_LEAGUE_IDS } from './leagues.config';
@@ -52,6 +53,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     private ws: WebsocketGateway,
     private questionResolver: QuestionResolverService,
     private questionGenerator: QuestionGeneratorService,
+    private questionsService: QuestionsService,
     private scheduleTracker: ScheduleTracker,
     private budget: PollBudgetService,
     private config: ConfigService,
@@ -119,6 +121,9 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
       // 5a. Lock expired questions for all live matches (no API call needed)
       await this.lockAllExpired();
+
+      // 5a2. Open any PENDING questions whose opensAt has arrived (no API call)
+      await this.openReadyPending();
 
       // 5b. Poll events (only for matches with active questions)
       await this.pollEvents();
@@ -339,6 +344,29 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
   private async lockAllExpired() {
     for (const [id] of this.matchStates) {
       await this.questionResolver.lockExpiredQuestions(id);
+    }
+  }
+
+  /**
+   * Open PENDING questions whose opensAt has arrived, for ALL live matches.
+   * Fills the gap when no OPEN question exists and the next one is ready.
+   */
+  private async openReadyPending() {
+    for (const [id] of this.matchStates) {
+      // Only open if no OPEN question exists for this fixture
+      const hasOpen = await this.questionsService.hasOpenQuestion(id);
+      if (!hasOpen) {
+        const opened = await this.questionsService.openNextPending(id);
+        if (opened) {
+          this.logger.log(`Fixture ${id}: auto-opened ready pending question "${opened.text.substring(0, 30)}..."`);
+          this.ws.emitToMatch(id, 'new_question', {
+            fixtureId: id,
+            questionId: opened.id,
+            text: opened.text,
+            category: opened.category,
+          });
+        }
+      }
     }
   }
 
@@ -632,6 +660,18 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     result.corners = {
       home: findStat(home, 'Corner Kicks') ?? 0,
       away: findStat(away, 'Corner Kicks') ?? 0,
+    };
+    result.shotsOnTarget = {
+      home: findStat(home, 'Shots on Goal') ?? 0,
+      away: findStat(away, 'Shots on Goal') ?? 0,
+    };
+    result.fouls = {
+      home: findStat(home, 'Fouls') ?? 0,
+      away: findStat(away, 'Fouls') ?? 0,
+    };
+    result.offsides = {
+      home: findStat(home, 'Offsides') ?? 0,
+      away: findStat(away, 'Offsides') ?? 0,
     };
 
     return result;

@@ -189,6 +189,29 @@ class _Vi {
   String get tabMatch => 'Trận này';
   String get tabWeek => 'Tuần này';
   String get tabGlobal => 'Toàn cầu';
+
+  // v2.0 — Match detail & info
+  String get collapse => 'Thu gọn ↑';
+  String seeAllCount(int n) => 'Xem tất cả ($n)';
+  String get matchResult => 'KẾT QUẢ TRẬN ĐẤU';
+  String get fullTimeLabel => 'KẾT THÚC';
+  String get matchInfo => 'THÔNG TIN TRẬN ĐẤU';
+  String get setReminder => 'Đặt nhắc nhở cho trận này';
+  String get reminderSet => 'Đã đặt nhắc nhở!';
+  String get statOnTarget => 'Sút trúng đích';
+  String get statFouls => 'Lỗi';
+  String get statOffsides => 'Việt vị';
+  String get matchStats => 'Thống kê trận';
+  String get matchTimeline => 'Dòng sự kiện toàn trận';
+  String get myPredictionsTitle => 'Dự đoán của tôi trong trận này';
+  String get tapToExpand => 'Tap để xem chi tiết';
+  String get kickoffLabel => 'Kick-off hôm nay';
+  String get headToHead => 'Đối đầu';
+  String get draws => 'Hòa';
+  String wins(String team) => '$team thắng';
+  String get noStatsAvailable => 'Chưa có thống kê';
+  String get noTimeline => 'Chưa có sự kiện';
+  String get noPredictions => 'Bạn chưa dự đoán trận này';
 }
 
 class _En {
@@ -374,4 +397,27 @@ class _En {
   String get tabMatch => 'This match';
   String get tabWeek => 'This week';
   String get tabGlobal => 'Global';
+
+  // v2.0 — Match detail & info
+  String get collapse => 'Collapse ↑';
+  String seeAllCount(int n) => 'See all ($n)';
+  String get matchResult => 'MATCH RESULT';
+  String get fullTimeLabel => 'FULL TIME';
+  String get matchInfo => 'MATCH INFO';
+  String get setReminder => 'Set reminder for this match';
+  String get reminderSet => 'Reminder set!';
+  String get statOnTarget => 'On Target';
+  String get statFouls => 'Fouls';
+  String get statOffsides => 'Offsides';
+  String get matchStats => 'Match Stats';
+  String get matchTimeline => 'Full Match Timeline';
+  String get myPredictionsTitle => 'My predictions in this match';
+  String get tapToExpand => 'Tap for details';
+  String get kickoffLabel => 'Kick-off today';
+  String get headToHead => 'Head to Head';
+  String get draws => 'Draws';
+  String wins(String team) => '$team wins';
+  String get noStatsAvailable => 'No stats available';
+  String get noTimeline => 'No events yet';
+  String get noPredictions => 'You didn\'t predict in this match';
 }

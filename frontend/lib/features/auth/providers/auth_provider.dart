@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import '../../../core/models/user.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../core/l10n/app_strings.dart';
@@ -42,9 +43,16 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
   final SecureStorageService _storage;
+  final ApiClient? _apiClient;
   bool _googleInitialized = false;
 
-  AuthNotifier(this._authService, this._storage) : super(const AuthState()) {
+  AuthNotifier(this._authService, this._storage, [this._apiClient]) : super(const AuthState()) {
+    // Wire up force-logout: when ApiClient detects permanent 401, logout here
+    _apiClient?.setForceLogoutCallback(() {
+      if (mounted) {
+        state = const AuthState();
+      }
+    });
     _warmUpServer();
     _checkAuth();
   }
@@ -100,13 +108,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
           sendTimeout: const Duration(seconds: 15),
         ),
       );
+      final newAccessToken = response.data['accessToken'] as String;
+      final newRefreshToken = response.data['refreshToken'] as String;
       await _storage.saveTokens(
-        accessToken: response.data['accessToken'],
-        refreshToken: response.data['refreshToken'],
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
       );
+      // Update ApiClient cached token so it uses the fresh one
+      _apiClient?.setCachedToken(newAccessToken);
+    } on DioException catch (e) {
+      // Definitive rejection (refresh token expired) → force logout
+      final status = e.response?.statusCode;
+      if (status == 401 || status == 403) {
+        await _storage.clearTokens();
+        if (mounted) state = const AuthState();
+      }
+      // Network errors, timeouts → keep optimistic auth, ApiClient will retry
     } catch (_) {
-      // Don't log out if server is unreachable — keep optimistic auth
-      // Only the ApiClient 401 interceptor should trigger logout
+      // Unexpected error — keep optimistic auth
     }
   }
 
@@ -247,7 +266,8 @@ final authServiceProvider = Provider<AuthService>((ref) {
 final authStateProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final authService = AuthService();
   final storage = ref.watch(secureStorageProvider);
-  return AuthNotifier(authService, storage);
+  final apiClient = ref.watch(apiClientProvider);
+  return AuthNotifier(authService, storage, apiClient);
 });
 
 /// Standalone coins state — completely independent from authState/router

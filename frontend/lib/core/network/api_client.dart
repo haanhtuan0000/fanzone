@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../storage/secure_storage.dart';
 import 'api_endpoints.dart';
+
+/// Callback to notify auth layer when tokens are permanently invalid.
+typedef LogoutCallback = void Function();
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final storage = ref.watch(secureStorageProvider);
@@ -12,6 +16,10 @@ class ApiClient {
   late final Dio _dio;
   final SecureStorageService _storage;
   String? _cachedToken;
+  LogoutCallback? _onForceLogout;
+
+  /// Lock to prevent concurrent refresh attempts
+  Completer<bool>? _refreshLock;
 
   ApiClient(this._storage) {
     _dio = Dio(BaseOptions(
@@ -49,7 +57,7 @@ class ApiClient {
               // Still 401 with new token — fall through to refresh
             }
           }
-          // Try full refresh
+          // Try full refresh (with lock to prevent concurrent attempts)
           final refreshed = await _refreshToken();
           if (refreshed) {
             error.requestOptions.headers['Authorization'] = 'Bearer $_cachedToken';
@@ -63,15 +71,42 @@ class ApiClient {
     ));
   }
 
+  /// Set callback for when refresh permanently fails (triggers logout in auth provider)
+  void setForceLogoutCallback(LogoutCallback callback) {
+    _onForceLogout = callback;
+  }
+
   /// Update the cached token (called after login/refresh from outside)
   void setCachedToken(String token) {
     _cachedToken = token;
   }
 
   Future<bool> _refreshToken() async {
+    // If another refresh is in progress, wait for it
+    if (_refreshLock != null) {
+      return _refreshLock!.future;
+    }
+
+    _refreshLock = Completer<bool>();
+    try {
+      final result = await _doRefresh();
+      _refreshLock!.complete(result);
+      return result;
+    } catch (_) {
+      _refreshLock!.complete(false);
+      return false;
+    } finally {
+      _refreshLock = null;
+    }
+  }
+
+  Future<bool> _doRefresh() async {
     try {
       final refreshToken = await _storage.getRefreshToken();
-      if (refreshToken == null) return false;
+      if (refreshToken == null) {
+        _forceLogout();
+        return false;
+      }
 
       // Retry once on timeout/network error
       Response? response;
@@ -101,18 +136,22 @@ class ApiClient {
       );
       return true;
     } on DioException catch (e) {
-      // Only clear tokens on definitive server rejection with valid response
-      // NOT on timeouts, connection errors, or server unavailable
       final status = e.response?.statusCode;
       if (status == 401 || status == 403) {
-        _cachedToken = null;
-        await _storage.clearTokens();
+        // Refresh token is permanently invalid — force logout
+        _forceLogout();
       }
       return false;
     } catch (_) {
-      // Network error, timeout, etc. — don't clear tokens
+      // Network error, timeout — don't clear tokens, don't logout
       return false;
     }
+  }
+
+  void _forceLogout() {
+    _cachedToken = null;
+    _storage.clearTokens();
+    _onForceLogout?.call();
   }
 
   Future<Response> get(String path, {Map<String, dynamic>? queryParams}) {

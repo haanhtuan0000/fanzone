@@ -9,28 +9,46 @@ class LiveState {
   final MatchData? activeMatch;
   final bool isLoading;
   final String? error;
+  final bool liveExpanded;
+  final bool todayExpanded;
 
   const LiveState({
     this.matches = const [],
     this.activeMatch,
     this.isLoading = false,
     this.error,
+    this.liveExpanded = false,
+    this.todayExpanded = false,
   });
 
   List<MatchData> get liveMatches => matches.where((m) => m.isLive).toList();
   List<MatchData> get upcomingMatches => matches.where((m) => !m.isLive).toList();
+
+  List<MatchData> get displayedLiveMatches {
+    final live = liveMatches;
+    return liveExpanded ? live : live.take(4).toList();
+  }
+
+  List<MatchData> get displayedTodayMatches {
+    final today = upcomingMatches;
+    return todayExpanded ? today : today.take(4).toList();
+  }
 
   LiveState copyWith({
     List<MatchData>? matches,
     MatchData? activeMatch,
     bool? isLoading,
     String? error,
+    bool? liveExpanded,
+    bool? todayExpanded,
   }) {
     return LiveState(
       matches: matches ?? this.matches,
       activeMatch: activeMatch ?? this.activeMatch,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      liveExpanded: liveExpanded ?? this.liveExpanded,
+      todayExpanded: todayExpanded ?? this.todayExpanded,
     );
   }
 }
@@ -49,6 +67,7 @@ class LiveNotifier extends StateNotifier<LiveState> {
         _matchService.getLiveMatches(),
         _matchService.getTodayMatches(),
       ]);
+      if (!mounted) return;
       final matches = results[0];
       final todayMatches = results[1];
 
@@ -82,7 +101,8 @@ class LiveNotifier extends StateNotifier<LiveState> {
   Future<void> _fetchStatsForMatch(int fixtureId) async {
     if (_apiClient == null) return;
     try {
-      final response = await _apiClient.get(ApiEndpoints.matchDetail(fixtureId));
+      final response = await _apiClient!.get(ApiEndpoints.matchDetail(fixtureId));
+      if (!mounted) return;
       final data = response.data as Map<String, dynamic>;
       if (data['statistics'] != null && data['statistics'] is List && (data['statistics'] as List).isNotEmpty) {
         final stats = MatchData.parseApiFootballStats(data['statistics'] as List);
@@ -99,6 +119,14 @@ class LiveNotifier extends StateNotifier<LiveState> {
     if (match.statistics == null || match.statistics!.isEmpty) {
       _fetchStatsForMatch(match.fixtureId);
     }
+  }
+
+  void toggleLiveExpanded() {
+    state = state.copyWith(liveExpanded: !state.liveExpanded);
+  }
+
+  void toggleTodayExpanded() {
+    state = state.copyWith(todayExpanded: !state.todayExpanded);
   }
 
   void updateMatchScore(int fixtureId, int homeScore, int awayScore, int? elapsed) {

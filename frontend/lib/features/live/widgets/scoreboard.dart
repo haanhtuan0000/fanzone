@@ -4,48 +4,213 @@ import '../../../app/constants.dart';
 import '../../../core/models/match.dart';
 import '../../../core/l10n/app_strings.dart';
 
-/// Integrated hero card: scoreboard + stats row + fan support bar.
-class Scoreboard extends StatelessWidget {
+/// Integrated hero card: scoreboard + stats row + fan support bar + expandable stats.
+class Scoreboard extends StatefulWidget {
   final MatchData match;
   const Scoreboard({super.key, required this.match});
 
   @override
+  State<Scoreboard> createState() => _ScoreboardState();
+}
+
+class _ScoreboardState extends State<Scoreboard> {
+  bool _isExpanded = false;
+
+  MatchData get match => widget.match;
+
+  @override
   Widget build(BuildContext context) {
     final s = AppStrings.current;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: match.isLive
-            ? Border.all(color: AppColors.neonGreen.withOpacity(0.3), width: 1)
-            : null,
+    return GestureDetector(
+      onTap: () => setState(() => _isExpanded = !_isExpanded),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment(-1, -0.5),
+            end: Alignment(1, 1),
+            colors: [Color(0xFF081e0e), Color(0xFF060a1a)],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: match.isLive
+              ? Border.all(color: AppColors.neonGreen.withOpacity(0.3), width: 1)
+              : Border.all(color: AppColors.divider),
+        ),
+        child: Column(
+          children: [
+            // Hint
+            Text(
+              _isExpanded ? '' : s.tapToExpand,
+              style: TextStyle(
+                fontSize: 9,
+                color: AppColors.textSecondary.withOpacity(0.4),
+                letterSpacing: 1,
+                fontFamily: AppFonts.barlowCondensed,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (!_isExpanded) const SizedBox(height: 8),
+
+            // League name + round
+            _leagueHeader(),
+            const SizedBox(height: 14),
+
+            // Teams + Score
+            Row(
+              children: [
+                Expanded(child: _teamColumn(match.homeLogoUrl, match.homeTeam, match.homeForm)),
+                _scoreColumn(),
+                Expanded(child: _teamColumn(match.awayLogoUrl, match.awayTeam, match.awayForm)),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // Fan support bar
+            _fanBar(s),
+
+            // Expandable stats panel
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: _isExpanded ? _expandPanel(s) : const SizedBox.shrink(),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _expandPanel(dynamic s) {
+    final stats = match.statistics;
+    final possession = stats?['possession'];
+    final shots = stats?['shots'];
+    final shotsOnTarget = stats?['shotsOnTarget'];
+    final corners = stats?['corners'];
+    final yellowCards = stats?['yellowCards'];
+
+    return Column(
+      children: [
+        const SizedBox(height: 12),
+        Container(height: 1, color: AppColors.divider),
+        const SizedBox(height: 12),
+        _statRow(
+          _possVal(possession, 'home'),
+          s.statPossession,
+          _possVal(possession, 'away'),
+          _possPercent(possession, 'home'),
+        ),
+        _statRow(
+          _intVal(shots, 'home'),
+          s.statShots,
+          _intVal(shots, 'away'),
+          _intPercent(shots),
+        ),
+        _statRow(
+          _intVal(shotsOnTarget, 'home'),
+          s.statOnTarget,
+          _intVal(shotsOnTarget, 'away'),
+          _intPercent(shotsOnTarget),
+        ),
+        _statRow(
+          _intVal(corners, 'home'),
+          s.statCorners,
+          _intVal(corners, 'away'),
+          _intPercent(corners),
+        ),
+        _statRow(
+          _intVal(yellowCards, 'home'),
+          s.statCards,
+          _intVal(yellowCards, 'away'),
+          _intPercent(yellowCards),
+        ),
+      ],
+    );
+  }
+
+  String _possVal(Map<String, dynamic>? stat, String side) {
+    if (stat == null) return '-';
+    return '${stat[side]}'.replaceAll('%', '') + '%';
+  }
+
+  double _possPercent(Map<String, dynamic>? stat, String side) {
+    if (stat == null) return 0.5;
+    final v = int.tryParse('${stat[side]}'.replaceAll('%', '')) ?? 50;
+    return v / 100;
+  }
+
+  String _intVal(Map<String, dynamic>? stat, String side) {
+    if (stat == null) return '-';
+    return '${stat[side] ?? 0}';
+  }
+
+  double _intPercent(Map<String, dynamic>? stat) {
+    if (stat == null) return 0.5;
+    final h = (stat['home'] is int ? stat['home'] : int.tryParse('${stat['home']}') ?? 0) as int;
+    final a = (stat['away'] is int ? stat['away'] : int.tryParse('${stat['away']}') ?? 0) as int;
+    if (h + a == 0) return 0.5;
+    return h / (h + a);
+  }
+
+  Widget _statRow(String homeVal, String label, String awayVal, double homeRatio) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         children: [
-          // League name + round
-          _leagueHeader(),
-          const SizedBox(height: 14),
-
-          // Teams + Score
           Row(
             children: [
-              // Home team
-              Expanded(child: _teamColumn(match.homeLogoUrl, match.homeTeam, match.homeForm)),
-              // Score + clock
-              _scoreColumn(),
-              // Away team
-              Expanded(child: _teamColumn(match.awayLogoUrl, match.awayTeam, match.awayForm)),
+              Expanded(
+                child: Text(homeVal,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontFamily: AppFonts.barlowCondensed,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.blue,
+                  )),
+              ),
+              SizedBox(
+                width: 100,
+                child: Text(label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: AppColors.textSecondary.withOpacity(0.4),
+                    letterSpacing: 0.5,
+                    fontFamily: AppFonts.barlowCondensed,
+                    fontWeight: FontWeight.w600,
+                  )),
+              ),
+              Expanded(
+                child: Text(awayVal,
+                  textAlign: TextAlign.left,
+                  style: const TextStyle(
+                    fontFamily: AppFonts.barlowCondensed,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.amber,
+                  )),
+              ),
             ],
           ),
-          const SizedBox(height: 14),
-
-          // Stats row
-          _statsRow(s),
-          const SizedBox(height: 10),
-
-          // Fan support bar
-          _fanBar(s),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: SizedBox(
+              height: 3,
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: (homeRatio * 100).round().clamp(1, 99),
+                    child: Container(color: AppColors.blue),
+                  ),
+                  Expanded(
+                    flex: ((1 - homeRatio) * 100).round().clamp(1, 99),
+                    child: Container(color: AppColors.amber),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -169,78 +334,6 @@ class Scoreboard extends StatelessWidget {
     );
   }
 
-  Widget _statsRow(dynamic s) {
-    final stats = match.statistics;
-    final possession = stats?['possession'];
-    final shots = stats?['shots'];
-    final yellowCards = stats?['yellowCards'];
-    final corners = stats?['corners'];
-
-    final possessionStr = possession != null
-        ? '${possession['home']}'.replaceAll('%', '')
-        : '-';
-    final shotsTotal = shots != null
-        ? '${(shots['home'] as int? ?? 0) + (shots['away'] as int? ?? 0)}'
-        : '-';
-    final cardsTotal = yellowCards != null
-        ? '${(yellowCards['home'] as int? ?? 0) + (yellowCards['away'] as int? ?? 0)}'
-        : '-';
-    final cornersTotal = corners != null
-        ? '${(corners['home'] as int? ?? 0) + (corners['away'] as int? ?? 0)}'
-        : '-';
-
-    // Short team name for possession label (first 3 chars)
-    final homeShort = match.homeTeam.length > 3
-        ? match.homeTeam.substring(0, 3).toUpperCase()
-        : match.homeTeam.toUpperCase();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      decoration: BoxDecoration(
-        color: AppColors.background.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          _statItem(
-            possessionStr == '-' ? '-' : '$possessionStr%',
-            '${s.statPossession} $homeShort',
-            AppColors.blue,
-          ),
-          _statItem(shotsTotal, s.statShots, AppColors.textPrimary),
-          _statItem(cardsTotal, s.statCards, AppColors.amber),
-          _statItem(cornersTotal, s.statCorners, AppColors.neonGreen),
-        ],
-      ),
-    );
-  }
-
-  Widget _statItem(String value, String label, Color color) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: AppFonts.bebasNeue,
-              fontSize: 20,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 10,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _fanBar(dynamic s) {
     final possession = match.statistics?['possession'];
     int homePercent = 50;
@@ -256,7 +349,7 @@ class Scoreboard extends StatelessWidget {
           children: [
             Container(
               width: 8, height: 8,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.neonGreen),
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.blue),
             ),
             const SizedBox(width: 4),
             Text(
@@ -271,7 +364,7 @@ class Scoreboard extends StatelessWidget {
             const SizedBox(width: 4),
             Container(
               width: 8, height: 8,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.red),
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.amber),
             ),
           ],
         ),
@@ -279,28 +372,16 @@ class Scoreboard extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: SizedBox(
-            height: 6,
+            height: 3,
             child: Row(
               children: [
                 Expanded(
                   flex: homePercent,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [AppColors.neonGreen, Color(0xFF7CFF5C)],
-                      ),
-                    ),
-                  ),
+                  child: Container(color: AppColors.blue),
                 ),
                 Expanded(
                   flex: awayPercent,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFFF6666), AppColors.red],
-                      ),
-                    ),
-                  ),
+                  child: Container(color: AppColors.amber),
                 ),
               ],
             ),

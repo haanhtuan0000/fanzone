@@ -132,6 +132,18 @@ class MatchData {
         'home': int.tryParse(findStat(home, 'Corner Kicks') ?? '0') ?? 0,
         'away': int.tryParse(findStat(away, 'Corner Kicks') ?? '0') ?? 0,
       },
+      'shotsOnTarget': {
+        'home': int.tryParse(findStat(home, 'Shots on Goal') ?? '0') ?? 0,
+        'away': int.tryParse(findStat(away, 'Shots on Goal') ?? '0') ?? 0,
+      },
+      'fouls': {
+        'home': int.tryParse(findStat(home, 'Fouls') ?? '0') ?? 0,
+        'away': int.tryParse(findStat(away, 'Fouls') ?? '0') ?? 0,
+      },
+      'offsides': {
+        'home': int.tryParse(findStat(home, 'Offsides') ?? '0') ?? 0,
+        'away': int.tryParse(findStat(away, 'Offsides') ?? '0') ?? 0,
+      },
     };
   }
 }

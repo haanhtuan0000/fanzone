@@ -323,12 +323,17 @@ export class MatchScenarioEngine {
     }
 
     // Space evenly: interval = duration / (count + 1)
+    // Add random jitter (±30% of interval) so different matches feel unique
     const intervalMin = phaseDuration / (count + 1);
+    const jitterRange = intervalMin * 0.3; // ±30%
     const times: Date[] = [];
 
     for (let i = 0; i < count; i++) {
-      const targetMinute = timing.start + intervalMin * (i + 1);
-      const targetTime = new Date(kickoffTime.getTime() + targetMinute * 60_000);
+      const jitter = (Math.random() * 2 - 1) * jitterRange; // random between -jitterRange and +jitterRange
+      const targetMinute = timing.start + intervalMin * (i + 1) + jitter;
+      // Clamp within phase boundaries (with 30s padding from edges)
+      const clampedMinute = Math.max(timing.start + 0.5, Math.min(timing.end - 0.5, targetMinute));
+      const targetTime = new Date(kickoffTime.getTime() + clampedMinute * 60_000);
 
       // If target is in the past, use now (+ small offset to avoid race)
       if (targetTime.getTime() <= Date.now()) {
@@ -337,6 +342,9 @@ export class MatchScenarioEngine {
         times.push(targetTime);
       }
     }
+
+    // Ensure times are in order (jitter could swap them)
+    times.sort((a, b) => a.getTime() - b.getTime());
 
     return times;
   }

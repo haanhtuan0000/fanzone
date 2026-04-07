@@ -8,10 +8,8 @@ import '../widgets/predict_card.dart';
 import '../widgets/option_button.dart';
 import '../widgets/progress_strip.dart';
 import '../widgets/answered_card.dart';
-import '../widgets/waiting_card.dart';
 import '../widgets/next_question_strip.dart';
 import '../../../core/l10n/app_strings.dart';
-import '../../../core/models/question.dart';
 
 class PredictScreen extends ConsumerStatefulWidget {
   const PredictScreen({super.key});
@@ -87,6 +85,18 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        title: activeMatch != null
+            ? Text(
+                '${activeMatch.homeTeam} vs ${activeMatch.awayTeam}${activeMatch.elapsed != null ? ' · ${activeMatch.status == "HT" ? "HT" : "${activeMatch.elapsed}\'"}' : ''}',
+                style: const TextStyle(
+                  fontFamily: AppFonts.barlowCondensed,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                  color: AppColors.textSecondary,
+                ),
+              )
+            : null,
         actions: [_coinBadge(coins)],
       ),
       body: RefreshIndicator(
@@ -99,52 +109,6 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            // Match header
-            if (activeMatch != null)
-              SliverToBoxAdapter(
-                child: Container(
-                  margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardSurface,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text(activeMatch.homeTeam,
-                          style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
-                          textAlign: TextAlign.right, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text('${activeMatch.homeScore} - ${activeMatch.awayScore}',
-                          style: const TextStyle(fontFamily: AppFonts.bebasNeue, color: AppColors.neonGreen, fontSize: 32)),
-                      ),
-                      Expanded(
-                        child: Text(activeMatch.awayTeam,
-                          style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
-                          textAlign: TextAlign.left, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                      if (activeMatch.elapsed != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.red.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(activeMatch.status == 'HT' ? 'HT' : "${activeMatch.elapsed}'",
-                            style: const TextStyle(color: AppColors.red, fontSize: 14, fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-
             // Progress strip
             if (predictState.progressDots.isNotEmpty)
               SliverToBoxAdapter(
@@ -154,43 +118,9 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                 ),
               ),
 
-            // ── DEBUG: All questions for this match ──
-            SliverToBoxAdapter(
-              child: _sectionDivider('DEBUG — ALL QUESTIONS'),
-            ),
-            // Active
-            if (question != null)
-              SliverToBoxAdapter(
-                child: _debugQuestionTile(question, 'OPEN'),
-              ),
-            // Upcoming (PENDING)
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final q = predictState.upcomingQuestions[index];
-                  return _debugQuestionTile(q, 'PENDING');
-                },
-                childCount: predictState.upcomingQuestions.length,
-              ),
-            ),
-            // Answered (LOCKED / RESOLVED / VOIDED)
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final a = answered[index];
-                  return _debugQuestionTile(a.question, a.status.toUpperCase(), pick: a.myPickOptionId);
-                },
-                childCount: answered.length,
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: _sectionDivider('END DEBUG'),
-            ),
-            // ── END DEBUG ──
-
-            // Next question countdown (compact, inline — between questions)
+            // Next question countdown — shown whenever no active question
             if ((question == null || predictState.isExpired) &&
-                (answered.isNotEmpty || predictState.upcomingQuestions.isNotEmpty))
+                (answered.isNotEmpty || predictState.upcomingQuestions.isNotEmpty || activeMatch != null))
               SliverToBoxAdapter(
                 child: NextQuestionStrip(
                   nextOpensAt: predictState.upcomingQuestions.isNotEmpty
@@ -273,23 +203,6 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
 
             ],
 
-            // When no active question and no answered questions, show waiting strip
-            if (question == null && answered.isEmpty && (predictState.upcomingQuestions.isNotEmpty || activeMatch != null))
-              SliverToBoxAdapter(
-                child: NextQuestionStrip(
-                  nextOpensAt: predictState.upcomingQuestions.isNotEmpty
-                      ? predictState.upcomingQuestions.first.opensAt
-                      : null,
-                  matchElapsed: activeMatch?.elapsed,
-                  onReady: () {
-                    final match = ref.read(liveStateProvider).activeMatch;
-                    if (match != null) {
-                      ref.read(predictStateProvider.notifier).loadQuestions(match.fixtureId);
-                    }
-                  },
-                ),
-              ),
-
             // Answered questions section
             if (answered.isNotEmpty) ...[
               // Split into resolved and pending
@@ -366,81 +279,4 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
     );
   }
 
-  Widget _debugQuestionTile(Question q, String status, {String? pick}) {
-    final statusColor = {
-      'OPEN': AppColors.neonGreen,
-      'PENDING': AppColors.amber,
-      'LOCKED': AppColors.blue,
-      'RESOLVED': AppColors.textSecondary,
-      'CORRECT': AppColors.neonGreen,
-      'WRONG': AppColors.red,
-      'VOIDED': AppColors.purple,
-      'SKIP': AppColors.textSecondary,
-    }[status] ?? AppColors.textSecondary;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.cardSurface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: statusColor.withOpacity(0.4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Status badge + category
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(status,
-                  style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-              ),
-              const SizedBox(width: 8),
-              Text(q.category, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
-              const SizedBox(width: 8),
-              Text(
-                "${q.matchMinute ?? '?'}'${q.matchPhase != null ? ' ${q.matchPhase}' : ''}",
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontFamily: 'monospace'),
-              ),
-              const Spacer(),
-              Text('${q.rewardCoins}c', style: const TextStyle(color: AppColors.amber, fontSize: 10)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // Question text
-          Text(q.text, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 6),
-          // Options
-          ...q.options.map((o) {
-            final isPicked = o.id == pick;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: Row(
-                children: [
-                  if (isPicked)
-                    const Icon(Icons.check_circle, color: AppColors.neonGreen, size: 14)
-                  else
-                    const Icon(Icons.circle_outlined, color: AppColors.textSecondary, size: 14),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text('${o.emoji ?? ''} ${o.name} (x${o.multiplier.toStringAsFixed(1)})',
-                      style: TextStyle(
-                        color: isPicked ? AppColors.neonGreen : AppColors.textSecondary,
-                        fontSize: 11,
-                      )),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
 }
