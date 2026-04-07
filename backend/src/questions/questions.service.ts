@@ -182,6 +182,9 @@ export class QuestionsService {
     });
   }
 
+  /**
+   * Open next PENDING question whose opensAt wall-clock time has arrived.
+   */
   async openNextPending(fixtureId: number) {
     const next = await this.prisma.question.findFirst({
       where: { fixtureId, status: 'PENDING', opensAt: { lte: new Date() } },

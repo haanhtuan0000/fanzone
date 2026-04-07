@@ -623,18 +623,25 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
     const state = this.matchStates.get(fixtureId);
 
-    // Only generate if truly no questions exist for this fixture at all
-    // (catches cold-start case). Don't re-generate if questions were
-    // already created but are all resolved/closed — that's normal.
     if (totalGenerated === 0) {
+      // Cold start: no questions ever for this fixture — generate now
       this.logger.log(`Fixture ${fixtureId}: zero questions ever — generating for ${period} ${elapsed}'`);
       await this.questionGenerator.generateForPhase(fixtureId, elapsed, teams, score, period);
       if (state) state.hasActiveQuestions = true;
     } else if (activeCount > 0) {
       if (state) state.hasActiveQuestions = true;
     } else {
-      // All questions resolved/closed, no active ones — mark inactive
-      if (state) state.hasActiveQuestions = false;
+      // All questions resolved/closed — but match is still live?
+      // Generate fresh questions for the current phase (e.g. after server restart
+      // where old questions are all resolved but match is still going)
+      const maxReached = totalGenerated >= 15;
+      if (!maxReached) {
+        this.logger.log(`Fixture ${fixtureId}: all ${totalGenerated} questions resolved, match still live at ${elapsed}' — generating more`);
+        await this.questionGenerator.generateForPhase(fixtureId, elapsed, teams, score, period);
+        if (state) state.hasActiveQuestions = true;
+      } else {
+        if (state) state.hasActiveQuestions = false;
+      }
     }
   }
 
