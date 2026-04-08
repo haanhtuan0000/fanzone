@@ -52,6 +52,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: authListenable,
     redirect: (context, state) {
       final authState = ref.read(authStateProvider);
+
+      // Wait for auth check to complete before redirecting
+      if (authState.isInitializing) return null;
+
       final isAuth = authState.isAuthenticated;
       final isOnboarded = authState.isOnboarded;
       final loc = state.matchedLocation;

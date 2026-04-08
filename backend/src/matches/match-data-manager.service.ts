@@ -68,9 +68,68 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     }
     this.logger.log('MatchDataManager starting (30s heartbeat)');
     await this.scheduleTracker.refresh();
+    await this.recoverMatchStates();
     this.heartbeat = setInterval(() => this.tick(), 30_000);
     // Run first tick immediately
     this.tick();
+  }
+
+  /**
+   * Recover match states from DB on startup.
+   * Finds fixtures with active questions and pre-populates matchStates
+   * so pollFixtures() doesn't treat them as new matches.
+   */
+  private async recoverMatchStates() {
+    try {
+      // Find all fixtures that have active questions (OPEN, PENDING, LOCKED)
+      const activeFixtures = await this.prisma.question.groupBy({
+        by: ['fixtureId'],
+        where: { status: { in: ['OPEN', 'PENDING', 'LOCKED'] } },
+      });
+
+      if (activeFixtures.length === 0) {
+        this.logger.log('No active match states to recover from DB');
+        return;
+      }
+
+      for (const { fixtureId } of activeFixtures) {
+        // Get latest question to determine phase
+        const latestQuestion = await this.prisma.question.findFirst({
+          where: { fixtureId, status: { in: ['OPEN', 'PENDING', 'LOCKED'] } },
+          orderBy: { opensAt: 'desc' },
+        });
+
+        // Get cached score/period from Redis
+        const cached = await this.redis.getJson<any>(`cache:fixture:${fixtureId}:score`);
+        const period = cached?.period ?? '2H';
+        const elapsed = cached?.elapsed ?? latestQuestion?.matchMinute ?? 0;
+        const phase = latestQuestion?.matchPhase ?? this.questionGenerator.determinePhase(elapsed, period);
+
+        // Create match state — pollFixtures will update teams/score from API
+        this.matchStates.set(fixtureId, {
+          fixtureId,
+          period,
+          elapsed,
+          lastPhase: phase,
+          teams: { home: 'TBD', away: 'TBD' },
+          score: { home: cached?.homeScore ?? 0, away: cached?.awayScore ?? 0 },
+          lineupsLoaded: false,
+          lineupRetries: 0,
+          hasActiveQuestions: true,
+          lastEventPoll: 0,
+          lastStatsPoll: 0,
+          eventsLastCount: 0,
+          lastSeenInApi: Date.now(),
+        });
+
+        // Clear stale cooldown so ensureQuestionsExist runs fresh
+        await this.redis.del(`fixture:${fixtureId}:question-check`);
+      }
+
+      this.logger.log(`Recovered ${activeFixtures.length} match states from DB: ${activeFixtures.map(f => f.fixtureId).join(', ')}`);
+    } catch (e) {
+      this.logger.error(`Failed to recover match states: ${e}`);
+    }
   }
 
   onModuleDestroy() {

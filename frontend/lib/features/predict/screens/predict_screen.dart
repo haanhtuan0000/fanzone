@@ -20,30 +20,17 @@ class PredictScreen extends ConsumerStatefulWidget {
 }
 
 class _PredictScreenState extends ConsumerState<PredictScreen> {
-  bool _refreshed = false;
-  int? _lastFixtureId;
-
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.current;
     final predictState = ref.watch(predictStateProvider);
     final activeMatch = ref.watch(liveStateProvider).activeMatch;
 
-    // Reset refresh flag when match changes
-    if (activeMatch != null && activeMatch.fixtureId != _lastFixtureId) {
-      _refreshed = false;
-      _lastFixtureId = activeMatch.fixtureId;
-    }
-
-    // Refresh questions when this screen is shown or match changes
-    if (!_refreshed && activeMatch != null && activeMatch.isLive) {
-      _refreshed = true;
-      Future.microtask(() {
-        if (mounted) {
-          ref.read(predictStateProvider.notifier).loadQuestions(activeMatch.fixtureId);
-        }
-      });
-    }
+    // If predict state is for a different match, show loading
+    // (provider listener will trigger loadQuestions for the correct match)
+    final stateMatchesCurrent = predictState.fixtureId == null ||
+        activeMatch == null ||
+        predictState.fixtureId == activeMatch.fixtureId;
 
     // Show error as snackbar
     ref.listen<PredictState>(predictStateProvider, (prev, next) {
@@ -71,7 +58,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
 
     final coins = ref.watch(userCoinsProvider);
 
-    if (predictState.isLoading && predictState.activeQuestion == null && predictState.answeredQuestions.isEmpty) {
+    if (!stateMatchesCurrent || (predictState.isLoading && predictState.activeQuestion == null && predictState.answeredQuestions.isEmpty)) {
       return Scaffold(
         appBar: AppBar(
           actions: [_coinBadge(coins)],

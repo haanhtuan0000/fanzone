@@ -88,41 +88,51 @@ class _ScoreboardState extends State<Scoreboard> {
     final corners = stats?['corners'];
     final yellowCards = stats?['yellowCards'];
 
+    final hasAnyStats = possession != null || shots != null || corners != null;
+
     return Column(
       children: [
         const SizedBox(height: 12),
         Container(height: 1, color: AppColors.divider),
-        const SizedBox(height: 12),
-        _statRow(
-          _possVal(possession, 'home'),
-          s.statPossession,
-          _possVal(possession, 'away'),
-          _possPercent(possession, 'home'),
-        ),
-        _statRow(
-          _intVal(shots, 'home'),
-          s.statShots,
-          _intVal(shots, 'away'),
-          _intPercent(shots),
-        ),
-        _statRow(
-          _intVal(shotsOnTarget, 'home'),
-          s.statOnTarget,
-          _intVal(shotsOnTarget, 'away'),
-          _intPercent(shotsOnTarget),
-        ),
-        _statRow(
-          _intVal(corners, 'home'),
-          s.statCorners,
-          _intVal(corners, 'away'),
-          _intPercent(corners),
-        ),
-        _statRow(
-          _intVal(yellowCards, 'home'),
-          s.statCards,
-          _intVal(yellowCards, 'away'),
-          _intPercent(yellowCards),
-        ),
+        if (!hasAnyStats)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(s.noStatsAvailable,
+              style: TextStyle(color: AppColors.textSecondary.withOpacity(0.5), fontSize: 12)),
+          ),
+        if (hasAnyStats) ...[
+          const SizedBox(height: 12),
+          _statRow(
+            _possVal(possession, 'home'),
+            s.statPossession,
+            _possVal(possession, 'away'),
+            _possPercent(possession, 'home'),
+          ),
+          _statRow(
+            _intVal(shots, 'home'),
+            s.statShots,
+            _intVal(shots, 'away'),
+            _intPercent(shots),
+          ),
+          _statRow(
+            _intVal(shotsOnTarget, 'home'),
+            s.statOnTarget,
+            _intVal(shotsOnTarget, 'away'),
+            _intPercent(shotsOnTarget),
+          ),
+          _statRow(
+            _intVal(corners, 'home'),
+            s.statCorners,
+            _intVal(corners, 'away'),
+            _intPercent(corners),
+          ),
+          _statRow(
+            _intVal(yellowCards, 'home'),
+            s.statCards,
+            _intVal(yellowCards, 'away'),
+            _intPercent(yellowCards),
+          ),
+        ],
       ],
     );
   }

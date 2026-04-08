@@ -27,6 +27,7 @@ class AnsweredQuestion {
 }
 
 class PredictState {
+  final int? fixtureId; // Which match these questions belong to
   final Question? activeQuestion;
   final List<AnsweredQuestion> answeredQuestions; // LOCKED + RESOLVED (reverse chronological)
   final List<Question> upcomingQuestions;
@@ -40,6 +41,7 @@ class PredictState {
   final bool showFirstPredictionBonus;
 
   const PredictState({
+    this.fixtureId,
     this.activeQuestion,
     this.answeredQuestions = const [],
     this.upcomingQuestions = const [],
@@ -54,6 +56,7 @@ class PredictState {
   });
 
   PredictState copyWith({
+    int? fixtureId,
     Question? activeQuestion,
     bool clearActive = false,
     List<AnsweredQuestion>? answeredQuestions,
@@ -69,6 +72,7 @@ class PredictState {
     bool? showFirstPredictionBonus,
   }) {
     return PredictState(
+      fixtureId: fixtureId ?? this.fixtureId,
       activeQuestion: clearActive ? null : (activeQuestion ?? this.activeQuestion),
       answeredQuestions: answeredQuestions ?? this.answeredQuestions,
       upcomingQuestions: upcomingQuestions ?? this.upcomingQuestions,
@@ -128,7 +132,7 @@ class PredictNotifier extends StateNotifier<PredictState> {
 
     // Clear stale data on match change so spinner shows
     if (isMatchChange) {
-      state = const PredictState(isLoading: true);
+      state = PredictState(fixtureId: fixtureId, isLoading: true);
     } else if (state.activeQuestion == null && state.answeredQuestions.isEmpty) {
       state = state.copyWith(isLoading: true);
     }
@@ -223,6 +227,7 @@ class PredictNotifier extends StateNotifier<PredictState> {
       final sameQuestion = active != null && active.id == state.activeQuestion?.id;
 
       state = PredictState(
+        fixtureId: fixtureId,
         activeQuestion: active,
         answeredQuestions: answered,
         upcomingQuestions: upcoming,

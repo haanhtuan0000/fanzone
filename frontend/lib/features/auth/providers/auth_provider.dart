@@ -13,6 +13,7 @@ class AuthState {
   final bool isAuthenticated;
   final bool isOnboarded;
   final bool isLoading;
+  final bool isInitializing; // true until _checkAuth completes
   final String? error;
 
   const AuthState({
@@ -20,6 +21,7 @@ class AuthState {
     this.isAuthenticated = false,
     this.isOnboarded = false,
     this.isLoading = false,
+    this.isInitializing = true,
     this.error,
   });
 
@@ -28,6 +30,7 @@ class AuthState {
     bool? isAuthenticated,
     bool? isOnboarded,
     bool? isLoading,
+    bool? isInitializing,
     String? error,
   }) {
     return AuthState(
@@ -35,6 +38,7 @@ class AuthState {
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       isOnboarded: isOnboarded ?? this.isOnboarded,
       isLoading: isLoading ?? this.isLoading,
+      isInitializing: isInitializing ?? this.isInitializing,
       error: error,
     );
   }
@@ -87,10 +91,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final onboarded = results[1] as bool;
     final refreshToken = results[2] as String?;
 
-    if (token == null) return;
+    if (token == null) {
+      // No stored token — done initializing, stay unauthenticated
+      state = state.copyWith(isInitializing: false);
+      return;
+    }
 
-    // Optimistic: if token exists, assume authenticated immediately
-    state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded);
+    // Token exists — authenticate and finish initializing
+    state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded, isInitializing: false);
 
     // Try to refresh the token proactively in background (don't block UI)
     if (refreshToken != null) {
