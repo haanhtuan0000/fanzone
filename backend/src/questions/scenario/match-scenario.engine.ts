@@ -390,13 +390,8 @@ export class MatchScenarioEngine {
     scheduledOpensAt?: Date,
   ) {
     try {
-      // Skip player-specific templates when lineup data is not available
-      const tplStr = JSON.stringify(tpl.options ?? []) + (tpl.textVi ?? '') + (tpl.textEn ?? '');
-      const usesPlayerVars = /\{(home_striker|away_striker|home_midfielder|away_midfielder|home_keeper|away_keeper|risky_player_home|risky_player_away|home_sub_striker|away_sub_striker|sub_midfielder)\}/.test(tplStr);
-      if (usesPlayerVars && context._hasLineup !== 'true') {
-        this.logger.debug(`[${fixtureId}] Template ${tpl.code} requires lineup data — skipping (no lineup cached)`);
-        return null;
-      }
+      // Player-specific templates use fallback names (e.g. "Spokane Velocity ST")
+      // when lineup data is not available — no longer skipped
 
       // Resolve text (default to Vietnamese)
       const text = this.variableResolver.resolveText(tpl.textVi, context);
