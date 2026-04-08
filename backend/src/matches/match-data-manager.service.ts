@@ -81,10 +81,15 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
    */
   private async recoverMatchStates() {
     try {
-      // Find all fixtures that have active questions (OPEN, PENDING, LOCKED)
+      // Find fixtures with active questions created in the last 4 hours
+      // (older ones are from finished matches that never got resolved — ignore them)
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60_000);
       const activeFixtures = await this.prisma.question.groupBy({
         by: ['fixtureId'],
-        where: { status: { in: ['OPEN', 'PENDING', 'LOCKED'] } },
+        where: {
+          status: { in: ['OPEN', 'PENDING', 'LOCKED'] },
+          createdAt: { gte: fourHoursAgo },
+        },
       });
 
       if (activeFixtures.length === 0) {
@@ -213,16 +218,16 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       (f) => TRACKED_LEAGUE_IDS.has(f?.league?.id),
     );
 
-    // Accept all tracked matches — no hard cap.
-    // Priority leagues sort first for event polling budget allocation.
-    const fixtures = allTracked.sort((a, b) => {
+    // Sort by priority, cap at 20 to protect API budget
+    const sorted = allTracked.sort((a, b) => {
       const aPriority = PRIORITY_LEAGUE_IDS.has(a?.league?.id) ? 0 : 1;
       const bPriority = PRIORITY_LEAGUE_IDS.has(b?.league?.id) ? 0 : 1;
       if (aPriority !== bPriority) return aPriority - bPriority;
       return (b?.fixture?.status?.elapsed ?? 0) - (a?.fixture?.status?.elapsed ?? 0);
     });
-    if (fixtures.length > 15) {
-      this.logger.log(`${fixtures.length} live matches tracked — budget-aware polling active`);
+    const fixtures = sorted.slice(0, 20);
+    if (allTracked.length > 20) {
+      this.logger.log(`${allTracked.length} live matches, capped to 20 (priority leagues first)`);
     }
 
     // Only cache the capped list — frontend only sees matches we actively process
