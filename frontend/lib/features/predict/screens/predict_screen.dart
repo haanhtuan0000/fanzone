@@ -322,7 +322,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
               Text(q.category, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
               const SizedBox(width: 8),
               Text(
-                "${q.matchMinute ?? '?'}'${q.matchPhase != null ? ' ${q.matchPhase}' : ''}",
+                "${q.matchMinute ?? '?'}'${q.matchPhase != null ? ' ${q.matchPhase}' : ''} · ${q.opensAt.toLocal().hour.toString().padLeft(2,'0')}:${q.opensAt.toLocal().minute.toString().padLeft(2,'0')}:${q.opensAt.toLocal().second.toString().padLeft(2,'0')}",
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontFamily: 'monospace'),
               ),
               const Spacer(),

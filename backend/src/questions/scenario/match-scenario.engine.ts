@@ -438,12 +438,16 @@ export class MatchScenarioEngine {
         ? new Date(opensAt.getTime() + timeoutWindowMin * 60_000).toISOString()
         : undefined;
 
+      // Calculate the match minute when question will open (not creation time)
+      const kickoff = new Date(Date.now() - (elapsed ?? 0) * 60_000);
+      const targetMinute = Math.round((opensAt.getTime() - kickoff.getTime()) / 60_000);
+
       const question = await this.questionsService.createQuestion({
         fixtureId,
         category: tpl.category,
         difficulty: tpl.difficulty,
         matchPhase: phase,
-        matchMinute: elapsed,
+        matchMinute: targetMinute,
         templateId: tpl.id,
         triggeredByEvent,
         text,
