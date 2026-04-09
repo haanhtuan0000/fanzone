@@ -18,8 +18,9 @@ export class MatchesService {
     const cached = await this.redis.getJson<unknown[]>('cache:fixtures:live');
     if (cached) return cached;
 
-    // Cold start fallback — TODO: restore TRACKED_LEAGUE_IDS filter after testing
-    const data = await this.apiFootball.getLiveFixtures();
+    // Cold start fallback
+    const all = await this.apiFootball.getLiveFixtures();
+    const data = (all as any[]).filter((f) => TRACKED_LEAGUE_IDS.has(f?.league?.id));
     await this.redis.setJson('cache:fixtures:live', data, 20);
     return data;
   }
