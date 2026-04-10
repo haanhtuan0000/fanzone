@@ -76,9 +76,18 @@ export class ApiFootballService {
     return false;
   }
 
+  private lastRequestTime = 0;
+
   async request<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
     const url = new URL(endpoint, this.baseUrl);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+
+    // Minimum 500ms between requests to avoid per-minute rate limits
+    const timeSinceLast = Date.now() - this.lastRequestTime;
+    if (timeSinceLast < 500) {
+      await new Promise((r) => setTimeout(r, 500 - timeSinceLast));
+    }
+    this.lastRequestTime = Date.now();
 
     let retries = 0;
     const maxRetries = 3;
