@@ -156,6 +156,9 @@ export class MatchScenarioEngine {
       );
     }
 
+    // Safety: enforce count limit in case template service returns more
+    templates = templates.slice(0, count);
+
     // If all templates are used for this fixture, don't generate duplicates — skip
     if (templates.length === 0 && excludeIds.length > 0) {
       this.logger.log(`[${fixtureId}] All templates used for ${newPhase} — no new questions`);
