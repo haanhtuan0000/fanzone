@@ -23,6 +23,7 @@ export interface MatchTeams {
 /** Per-fixture scenario state kept in memory */
 interface FixtureState {
   currentPhase: MatchPhase;
+  lastGeneratedPhase: MatchPhase | null; // prevent double-generation for same phase
   questionsGenerated: number;
   lastQuestionTime: number;
 }
@@ -112,10 +113,17 @@ export class MatchScenarioEngine {
     elapsed?: number,
     score?: { home: number; away: number },
   ) {
-    this.logger.log(`[${fixtureId}] Phase change → ${newPhase}`);
-
     const state = this.getOrCreateState(fixtureId, newPhase);
+
+    // Prevent generating for the same phase twice (double-generation guard)
+    if (state.lastGeneratedPhase === newPhase) {
+      this.logger.debug(`[${fixtureId}] Already generated for ${newPhase} — skipping`);
+      return [];
+    }
+
+    this.logger.log(`[${fixtureId}] Phase change → ${newPhase}`);
     state.currentPhase = newPhase;
+    state.lastGeneratedPhase = newPhase;
 
     // Enforce max questions per match
     if (state.questionsGenerated >= MAX_QUESTIONS_PER_MATCH) {
@@ -165,7 +173,9 @@ export class MatchScenarioEngine {
     // Calculate spaced opensAt timestamps within the phase
     const currentElapsed = elapsed ?? 0;
     const kickoffTime = new Date(Date.now() - currentElapsed * 60_000);
-    const scheduledTimes = this.calculateSpacedTimes(newPhase, templates.length, kickoffTime, currentElapsed);
+    // If this is the first batch for this fixture, open first question immediately
+    const isFirstBatch = state.questionsGenerated === 0;
+    const scheduledTimes = this.calculateSpacedTimes(newPhase, templates.length, kickoffTime, currentElapsed, isFirstBatch);
 
     const created = [];
     for (let i = 0; i < templates.length; i++) {
@@ -314,6 +324,7 @@ export class MatchScenarioEngine {
     count: number,
     kickoffTime: Date,
     currentElapsed: number,
+    firstQuestionNow: boolean = false,
   ): Date[] {
     if (count === 0) return [];
 
@@ -344,9 +355,9 @@ export class MatchScenarioEngine {
       const clampedMinute = Math.max(timing.start + 0.5, Math.min(timing.end - 0.5, targetMinute));
       const targetTime = new Date(kickoffTime.getTime() + clampedMinute * 60_000);
 
-      // If target is in the past, use now (+ small offset to avoid race)
-      if (targetTime.getTime() <= Date.now()) {
-        times.push(new Date(Date.now() + i * 1000)); // stagger by 1s
+      // If target is in the past, or first question of first batch → open now
+      if (targetTime.getTime() <= Date.now() || (firstQuestionNow && i === 0)) {
+        times.push(new Date(Date.now() + (i === 0 ? 0 : 30_000))); // first now, second 30s later
       } else {
         times.push(targetTime);
       }
@@ -367,6 +378,7 @@ export class MatchScenarioEngine {
     if (!state) {
       state = {
         currentPhase: phase ?? 'PRE_MATCH',
+        lastGeneratedPhase: null,
         questionsGenerated: 0,
         lastQuestionTime: 0,
       };
