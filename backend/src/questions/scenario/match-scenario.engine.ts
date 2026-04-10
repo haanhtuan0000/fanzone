@@ -23,7 +23,6 @@ export interface MatchTeams {
 /** Per-fixture scenario state kept in memory */
 interface FixtureState {
   currentPhase: MatchPhase;
-  lastGeneratedPhase: MatchPhase | null; // prevent double-generation for same phase
   questionsGenerated: number;
   lastQuestionTime: number;
 }
@@ -115,15 +114,17 @@ export class MatchScenarioEngine {
   ) {
     const state = this.getOrCreateState(fixtureId, newPhase);
 
-    // Prevent generating for the same phase twice (double-generation guard)
-    if (state.lastGeneratedPhase === newPhase) {
-      this.logger.debug(`[${fixtureId}] Already generated for ${newPhase} — skipping`);
+    // Prevent generating for the same phase twice — persisted in Redis to survive restarts
+    const phaseKey = `phase:${fixtureId}:last-generated`;
+    const cachedPhase = await this.redis.get(phaseKey);
+    if (cachedPhase === newPhase) {
+      this.logger.debug(`[${fixtureId}] Already generated for ${newPhase} (Redis) — skipping`);
       return [];
     }
 
     this.logger.log(`[${fixtureId}] Phase change → ${newPhase}`);
     state.currentPhase = newPhase;
-    state.lastGeneratedPhase = newPhase;
+    await this.redis.set(phaseKey, newPhase, 14400); // 4 hour TTL (covers full match + ET)
 
     // Enforce max questions per match
     if (state.questionsGenerated >= MAX_QUESTIONS_PER_MATCH) {
@@ -301,6 +302,7 @@ export class MatchScenarioEngine {
   async cleanup(fixtureId: number) {
     this.fixtureStates.delete(fixtureId);
     await this.redis.del(this.windowKey(fixtureId));
+    await this.redis.del(`phase:${fixtureId}:last-generated`);
     this.logger.log(`[${fixtureId}] Scenario state cleaned up`);
   }
 
@@ -378,7 +380,6 @@ export class MatchScenarioEngine {
     if (!state) {
       state = {
         currentPhase: phase ?? 'PRE_MATCH',
-        lastGeneratedPhase: null,
         questionsGenerated: 0,
         lastQuestionTime: 0,
       };
