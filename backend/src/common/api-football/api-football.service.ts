@@ -113,20 +113,19 @@ export class ApiFootballService {
 
         const data = (await response.json()) as ApiFootballResponse<T>;
 
-        // Check for quota/rate limit errors — rotate key
+        // Check for errors in response body
         if (Object.keys(data.errors).length > 0) {
           const errorMsg = JSON.stringify(data.errors);
+          this.logger.warn(`API-Football response errors for ${endpoint}: ${errorMsg}`);
 
           if (errorMsg.includes('request limit') || errorMsg.includes('requests')) {
-            this.logger.warn(`Key #${this.currentKeyIndex + 1} hit request limit`);
+            this.logger.warn(`Key #${this.currentKeyIndex + 1} hit request limit — rotating`);
             const rotated = this.rotateToNextKey();
             if (rotated) {
               retries++;
               continue; // Retry with new key
             }
           }
-
-          this.logger.error(`API-Football errors: ${errorMsg}`);
         }
 
         return data.response;
