@@ -26,10 +26,17 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
     final predictState = ref.watch(predictStateProvider);
     final activeMatch = ref.watch(liveStateProvider).activeMatch;
 
-    // If predict state is for a different match, show loading
-    // (provider listener will trigger loadQuestions for the correct match)
-    final stateMatchesCurrent = predictState.fixtureId == null ||
-        activeMatch == null ||
+    // Load questions if state doesn't match current match
+    if (activeMatch != null && activeMatch.isLive && predictState.fixtureId != activeMatch.fixtureId) {
+      Future.microtask(() {
+        if (mounted) {
+          ref.read(predictStateProvider.notifier).loadQuestions(activeMatch.fixtureId);
+        }
+      });
+    }
+
+    final stateMatchesCurrent = predictState.fixtureId != null &&
+        activeMatch != null &&
         predictState.fixtureId == activeMatch.fixtureId;
 
     // Show error as snackbar
