@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart' as r;
 import '../../../shared/widgets/coin_display.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../predict/providers/predict_provider.dart';
@@ -54,7 +55,7 @@ class LiveScreen extends ConsumerWidget {
         title: const Text('FANZONE'),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 16),
+            padding: EdgeInsets.only(right: r.s(context, 16)),
             child: CoinDisplay(coins: coins),
           ),
         ],
@@ -79,7 +80,7 @@ class LiveScreen extends ConsumerWidget {
             if (liveState.activeMatch != null) ...[
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  padding: r.sLTRB(context, 16, 8, 16, 0),
                   child: Scoreboard(match: liveState.activeMatch!),
                 ),
               ),
@@ -89,9 +90,9 @@ class LiveScreen extends ConsumerWidget {
                 if (predictState.isLoading)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      padding: r.sLTRB(context, 16, 12, 16, 0),
                       child: Container(
-                        padding: const EdgeInsets.all(20),
+                        padding: r.sa(context, 20),
                         decoration: BoxDecoration(
                           color: AppColors.cardSurface,
                           borderRadius: BorderRadius.circular(12),
@@ -109,6 +110,7 @@ class LiveScreen extends ConsumerWidget {
                 else ...[
                   SliverToBoxAdapter(
                     child: _sectionHeader(
+                      context: context,
                       icon: Icons.sports_soccer,
                       title: s.predictThisMatch,
                       trailing: s.goPredict,
@@ -117,7 +119,7 @@ class LiveScreen extends ConsumerWidget {
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      padding: r.sLTRB(context, 16, 0, 16, 0),
                       child: PredictBanner(
                         activeQuestion: predictState.activeQuestion,
                         nextOpensAt: predictState.upcomingQuestions.isNotEmpty
@@ -138,16 +140,16 @@ class LiveScreen extends ConsumerWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.sports_soccer, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
-                      const SizedBox(height: 16),
+                      Icon(Icons.sports_soccer, size: r.s(context, 64), color: AppColors.textSecondary.withOpacity(0.5)),
+                      SizedBox(height: r.s(context, 16)),
                       Text(
                         s.noLiveMatches,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: r.sf(context, 16)),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         s.comeBackLater,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: r.sf(context, 14)),
                       ),
                     ],
                   ),
@@ -158,7 +160,7 @@ class LiveScreen extends ConsumerWidget {
             if (liveState.liveMatches.isNotEmpty || liveState.upcomingMatches.isNotEmpty)
               SliverToBoxAdapter(
                 child: Container(
-                  margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  margin: r.sLTRB(context, 12, 12, 12, 0),
                   decoration: BoxDecoration(
                     color: AppColors.cardSurface,
                     borderRadius: BorderRadius.circular(16),
@@ -169,6 +171,7 @@ class LiveScreen extends ConsumerWidget {
                       // ── SECTION 1: ĐANG DIỄN RA ──
                       if (liveState.liveMatches.isNotEmpty) ...[
                         _matchSectionHeader(
+                          context: context,
                           dotColor: AppColors.red,
                           dotAnimated: true,
                           label: s.liveMatches,
@@ -180,7 +183,7 @@ class LiveScreen extends ConsumerWidget {
                           s: s,
                         ),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          padding: r.sLTRB(context, 12, 0, 12, 12),
                           child: Column(
                             children: liveState.displayedLiveMatches.map((match) {
                               return Padding(
@@ -199,7 +202,7 @@ class LiveScreen extends ConsumerWidget {
                       // Divider between sections
                       if (liveState.liveMatches.isNotEmpty && liveState.upcomingMatches.isNotEmpty)
                         Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 12),
+                          margin: r.sp(context, h: 12),
                           height: 1,
                           color: AppColors.divider.withOpacity(0.3),
                         ),
@@ -207,6 +210,7 @@ class LiveScreen extends ConsumerWidget {
                       // ── SECTION 2: HÔM NAY ──
                       if (liveState.upcomingMatches.isNotEmpty) ...[
                         _matchSectionHeader(
+                          context: context,
                           dotColor: AppColors.blue,
                           dotAnimated: false,
                           label: s.todayMatches,
@@ -218,7 +222,7 @@ class LiveScreen extends ConsumerWidget {
                           s: s,
                         ),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          padding: r.sLTRB(context, 12, 0, 12, 12),
                           child: Column(
                             children: liveState.displayedTodayMatches.map((match) {
                               final isFt = match.status == 'FT' || match.status == 'AET' || match.status == 'PEN';
@@ -248,7 +252,7 @@ class LiveScreen extends ConsumerWidget {
                 ),
               ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: SizedBox(height: r.s(context, 24))),
           ],
         ),
       ),
@@ -266,6 +270,7 @@ class LiveScreen extends ConsumerWidget {
   }
 
   Widget _matchSectionHeader({
+    required BuildContext context,
     required Color dotColor,
     required bool dotAnimated,
     required String label,
@@ -277,7 +282,7 @@ class LiveScreen extends ConsumerWidget {
     required dynamic s,
   }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(15, 14, 15, 7),
+      padding: r.sLTRB(context, 15, 14, 15, 7),
       child: Row(
         children: [
           // Dot
@@ -290,7 +295,7 @@ class LiveScreen extends ConsumerWidget {
           Text(label,
             style: TextStyle(
               fontFamily: AppFonts.barlowCondensed,
-              fontSize: 10,
+              fontSize: r.sf(context, 10),
               fontWeight: FontWeight.w700,
               letterSpacing: 2,
               color: AppColors.textSecondary.withOpacity(0.7),
@@ -301,7 +306,7 @@ class LiveScreen extends ConsumerWidget {
             GestureDetector(
               onTap: onToggle,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: r.sp(context, h: 8, v: 3),
                 decoration: BoxDecoration(
                   color: buttonColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(7),
@@ -311,7 +316,7 @@ class LiveScreen extends ConsumerWidget {
                   isExpanded ? s.collapse : s.seeAllCount(count),
                   style: TextStyle(
                     fontFamily: AppFonts.barlowCondensed,
-                    fontSize: 10,
+                    fontSize: r.sf(context, 10),
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.5,
                     color: buttonColor,
@@ -325,13 +330,14 @@ class LiveScreen extends ConsumerWidget {
   }
 
   Widget _sectionHeader({
+    required BuildContext context,
     required IconData icon,
     required String title,
     String? trailing,
     required Color color,
   }) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: r.sLTRB(context, 16, 16, 16, 8),
       child: Row(
         children: [
           Icon(icon, size: 16, color: color),
@@ -340,7 +346,7 @@ class LiveScreen extends ConsumerWidget {
             title,
             style: TextStyle(
               fontFamily: AppFonts.bebasNeue,
-              fontSize: 14,
+              fontSize: r.sf(context, 14),
               color: color,
               letterSpacing: 1.5,
             ),
@@ -350,7 +356,7 @@ class LiveScreen extends ConsumerWidget {
             Text(
               trailing,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: r.sf(context, 12),
                 color: color,
                 fontWeight: FontWeight.w500,
               ),

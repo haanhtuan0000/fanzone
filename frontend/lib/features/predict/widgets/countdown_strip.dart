@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
 
 class CountdownStrip extends StatefulWidget {
@@ -96,7 +97,7 @@ class _CountdownStripState extends State<CountdownStrip> {
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               AppStrings.current.questionClosesIn,
-              style: TextStyle(fontSize: 11, color: AppColors.textSecondary, letterSpacing: 0.5),
+              style: TextStyle(fontSize: sf(context, 11), color: AppColors.textSecondary, letterSpacing: 0.5),
             ),
           ),
         Row(
@@ -105,14 +106,14 @@ class _CountdownStripState extends State<CountdownStrip> {
             Icon(
               isExpired ? Icons.timer_off : Icons.timer,
               color: timerColor,
-              size: 24,
+              size: s(context, 24),
             ),
             const SizedBox(width: 8),
             Text(
               isExpired ? 'TIME UP' : '${remainingSeconds.toInt()}s',
               style: TextStyle(
                 fontFamily: AppFonts.bebasNeue,
-                fontSize: 32,
+                fontSize: sf(context, 32),
                 color: timerColor,
                 letterSpacing: 2,
               ),

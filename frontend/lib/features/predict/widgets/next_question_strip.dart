@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
 
 /// Phase boundaries in match minutes — when next questions are generated.
@@ -78,7 +79,7 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
 
   @override
   Widget build(BuildContext context) {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     final hasCountdown = widget.nextOpensAt != null && _remaining.inSeconds > 0;
 
     // Estimate next question time from phase schedule
@@ -96,22 +97,22 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
       text = 'Loading question...';
       icon = Icons.hourglass_top;
     } else if (hasCountdown) {
-      text = '${s.nextQuestionIn} ${_remaining.inSeconds}s';
+      text = '${str.nextQuestionIn} ${_remaining.inSeconds}s';
       icon = Icons.hourglass_bottom;
     } else if (isHalfTime && widget.nextOpensAt == null) {
       text = 'Questions resume in the 2nd half';
       icon = Icons.coffee;
     } else if (hasEstimate && estimateMin > 0) {
-      text = '${s.nextQuestionIn} ~${estimateMin} min';
+      text = '${str.nextQuestionIn} ~${estimateMin} min';
       icon = Icons.schedule;
     } else {
-      text = s.waitingForNewQuestion;
+      text = str.waitingForNewQuestion;
       icon = Icons.access_time;
     }
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: sLTRB(context, 16, 8, 16, 0),
+      padding: sp(context, h: 16, v: 12),
       decoration: BoxDecoration(
         color: AppColors.amber.withOpacity(0.08),
         borderRadius: BorderRadius.circular(12),
@@ -120,13 +121,13 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: AppColors.amber, size: 18),
+          Icon(icon, color: AppColors.amber, size: s(context, 18)),
           const SizedBox(width: 8),
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
-              fontSize: 13,
+              fontSize: sf(context, 13),
               fontWeight: FontWeight.w500,
             ),
           ),

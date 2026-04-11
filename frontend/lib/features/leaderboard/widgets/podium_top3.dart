@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/models/leaderboard_entry.dart';
 
 class PodiumTop3 extends StatelessWidget {
@@ -11,7 +12,7 @@ class PodiumTop3 extends StatelessWidget {
     if (entries.length < 3) return const SizedBox();
 
     return SizedBox(
-      height: 300,
+      height: s(context, 300),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -49,14 +50,14 @@ class _PodiumSlot extends StatelessWidget {
       children: [
         // Crown for #1
         if (rank == 1)
-          const Text('👑', style: TextStyle(fontSize: 20))
+          Text('👑', style: TextStyle(fontSize: sf(context, 20)))
         else
-          const SizedBox(height: 20),
+          SizedBox(height: s(context, 20)),
         const SizedBox(height: 4),
         // Country code circle
         Container(
-          width: rank == 1 ? 56 : 48,
-          height: rank == 1 ? 56 : 48,
+          width: rank == 1 ? s(context, 56) : s(context, 48),
+          height: rank == 1 ? s(context, 56) : s(context, 48),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: AppColors.cardSurfaceLight,
@@ -67,7 +68,7 @@ class _PodiumSlot extends StatelessWidget {
               entry.countryCode ?? '??',
               style: TextStyle(
                 fontFamily: AppFonts.bebasNeue,
-                fontSize: rank == 1 ? 18 : 16,
+                fontSize: rank == 1 ? sf(context, 18) : sf(context, 16),
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
@@ -78,9 +79,9 @@ class _PodiumSlot extends StatelessWidget {
         // Name
         Text(
           entry.displayName,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.textPrimary,
-            fontSize: 13,
+            fontSize: sf(context, 13),
             fontWeight: FontWeight.w600,
           ),
           maxLines: 1,
@@ -93,19 +94,19 @@ class _PodiumSlot extends StatelessWidget {
           children: [
             Text(
               '${entry.coins}',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 12,
+                fontSize: sf(context, 12),
               ),
             ),
             const SizedBox(width: 2),
-            const Text('🪙', style: TextStyle(fontSize: 10)),
+            Text('🪙', style: TextStyle(fontSize: sf(context, 10))),
           ],
         ),
         const SizedBox(height: 6),
         // Podium bar
         Container(
-          height: height,
+          height: s(context, height),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -119,7 +120,7 @@ class _PodiumSlot extends StatelessWidget {
               '$rank',
               style: TextStyle(
                 fontFamily: AppFonts.bebasNeue,
-                fontSize: 28,
+                fontSize: sf(context, 28),
                 color: AppColors.background,
               ),
             ),

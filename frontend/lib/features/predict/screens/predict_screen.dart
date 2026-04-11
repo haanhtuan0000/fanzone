@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../live/providers/live_provider.dart';
 import '../providers/predict_provider.dart';
 import '../widgets/countdown_strip.dart';
@@ -22,7 +23,7 @@ class PredictScreen extends ConsumerStatefulWidget {
 class _PredictScreenState extends ConsumerState<PredictScreen> {
   @override
   Widget build(BuildContext context) {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     final predictState = ref.watch(predictStateProvider);
     final activeMatch = ref.watch(liveStateProvider).activeMatch;
 
@@ -52,8 +53,8 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Text('🎉 ', style: TextStyle(fontSize: 20)),
-                Expanded(child: Text(s.firstPredictionBonus)),
+                Text('🎉 ', style: TextStyle(fontSize: sf(context, 20))),
+                Expanded(child: Text(str.firstPredictionBonus)),
               ],
             ),
             backgroundColor: AppColors.neonGreen.withOpacity(0.9),
@@ -68,7 +69,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
     if (!stateMatchesCurrent || (predictState.isLoading && predictState.activeQuestion == null && predictState.answeredQuestions.isEmpty)) {
       return Scaffold(
         appBar: AppBar(
-          actions: [_coinBadge(coins)],
+          actions: [_coinBadge(context, coins)],
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -83,16 +84,16 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
         title: activeMatch != null
             ? Text(
                 '${activeMatch.homeTeam} vs ${activeMatch.awayTeam}${activeMatch.elapsed != null ? ' · ${activeMatch.status == "HT" ? "HT" : "${activeMatch.elapsed}\'"}' : ''}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: AppFonts.barlowCondensed,
-                  fontSize: 12,
+                  fontSize: sf(context, 12),
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.5,
                   color: AppColors.textSecondary,
                 ),
               )
             : null,
-        actions: [_coinBadge(coins)],
+        actions: [_coinBadge(context, coins)],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -135,13 +136,13 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
             if (question != null && !predictState.isExpired) ...[
               // Section divider
               SliverToBoxAdapter(
-                child: _sectionDivider(s.activeQuestion),
+                child: _sectionDivider(context, str.activeQuestion),
               ),
 
               // Countdown (below divider, directly above question card)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  padding: sLTRB(context, 16, 0, 16, 8),
                   child: CountdownStrip(
                     closesAt: question.closesAt,
                     opensAt: question.opensAt,
@@ -155,7 +156,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
               // Question card
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: sp(context, h: 16),
                   child: PredictCard(question: question),
                 ),
               ),
@@ -166,7 +167,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                   (context, index) {
                     final option = question.options[index];
                     return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      padding: sLTRB(context, 16, 0, 16, 8),
                       child: OptionButton(
                         option: option,
                         isSelected: predictState.selectedOptionId == option.id,
@@ -187,11 +188,11 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
               if (predictState.selectedOptionId != null && !predictState.isExpired)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: sp(context, h: 16, v: 4),
                     child: Text(
-                      s.confirmed,
+                      str.confirmed,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.neonGreen, fontSize: 12),
+                      style: TextStyle(color: AppColors.neonGreen, fontSize: sf(context, 12)),
                     ),
                   ),
                 ),
@@ -202,7 +203,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
             if (answered.isNotEmpty) ...[
               // Split into resolved and pending
               if (answered.any((a) => a.status == 'correct' || a.status == 'wrong' || a.status == 'voided'))
-                SliverToBoxAdapter(child: _sectionDivider(s.hasResults)),
+                SliverToBoxAdapter(child: _sectionDivider(context, str.hasResults)),
 
               SliverList(
                 delegate: SliverChildBuilderDelegate(
@@ -217,7 +218,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
 
               if (answered.any((a) => a.status == 'pending'))
                 SliverToBoxAdapter(
-                  child: _sectionDivider(s.waitingResultsCount(pendingCount)),
+                  child: _sectionDivider(context, str.waitingResultsCount(pendingCount)),
                 ),
 
               SliverList(
@@ -235,12 +236,12 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
             ],
 
             // ── DEBUG: All questions for this match ──
-            SliverToBoxAdapter(child: _sectionDivider('DEBUG — ALL QUESTIONS')),
+            SliverToBoxAdapter(child: _sectionDivider(context, 'DEBUG — ALL QUESTIONS')),
             if (question != null)
-              SliverToBoxAdapter(child: _debugQuestionTile(question, 'OPEN')),
+              SliverToBoxAdapter(child: _debugQuestionTile(context, question, 'OPEN')),
             SliverList(
               delegate: SliverChildBuilderDelegate(
-                (context, index) => _debugQuestionTile(predictState.upcomingQuestions[index], 'PENDING'),
+                (context, index) => _debugQuestionTile(context, predictState.upcomingQuestions[index], 'PENDING'),
                 childCount: predictState.upcomingQuestions.length,
               ),
             ),
@@ -248,37 +249,37 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final a = answered[index];
-                  return _debugQuestionTile(a.question, a.status.toUpperCase(), pick: a.myPickOptionId);
+                  return _debugQuestionTile(context, a.question, a.status.toUpperCase(), pick: a.myPickOptionId);
                 },
                 childCount: answered.length,
               ),
             ),
-            SliverToBoxAdapter(child: _sectionDivider('END DEBUG')),
+            SliverToBoxAdapter(child: _sectionDivider(context, 'END DEBUG')),
             // ── END DEBUG ──
 
             // Bottom padding
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(child: SizedBox(height: s(context, 24))),
           ],
         ),
       ),
     );
   }
 
-  Widget _coinBadge(int coins) {
+  Widget _coinBadge(BuildContext context, int coins) {
     return Padding(
-      padding: const EdgeInsets.only(right: 16),
+      padding: EdgeInsets.only(right: s(context, 16)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.monetization_on, color: AppColors.amber, size: 20),
+          Icon(Icons.monetization_on, color: AppColors.amber, size: s(context, 20)),
           const SizedBox(width: 4),
-          Text('$coins', style: const TextStyle(fontFamily: AppFonts.bebasNeue, color: AppColors.amber, fontSize: 18)),
+          Text('$coins', style: TextStyle(fontFamily: AppFonts.bebasNeue, color: AppColors.amber, fontSize: sf(context, 18))),
         ],
       ),
     );
   }
 
-  Widget _debugQuestionTile(Question q, String status, {String? pick}) {
+  Widget _debugQuestionTile(BuildContext context, Question q, String status, {String? pick}) {
     final statusColor = {
       'OPEN': AppColors.neonGreen,
       'PENDING': AppColors.amber,
@@ -291,8 +292,8 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
     }[status] ?? AppColors.textSecondary;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      padding: const EdgeInsets.all(12),
+      margin: sLTRB(context, 16, 0, 16, 8),
+      padding: sa(context, 12),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(8),
@@ -304,27 +305,27 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: sp(context, h: 6, v: 2),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(status,
-                  style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  style: TextStyle(color: statusColor, fontSize: sf(context, 10), fontWeight: FontWeight.bold, letterSpacing: 1)),
               ),
               const SizedBox(width: 8),
-              Text(q.category, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+              Text(q.category, style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 10))),
               const SizedBox(width: 8),
               Text(
                 "${q.matchMinute ?? '?'}'${q.matchPhase != null ? ' ${q.matchPhase}' : ''} · ${q.opensAt.toLocal().hour.toString().padLeft(2,'0')}:${q.opensAt.toLocal().minute.toString().padLeft(2,'0')}:${q.opensAt.toLocal().second.toString().padLeft(2,'0')}",
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontFamily: 'monospace'),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 10), fontFamily: 'monospace'),
               ),
               const Spacer(),
-              Text('${q.rewardCoins}c', style: const TextStyle(color: AppColors.amber, fontSize: 10)),
+              Text('${q.rewardCoins}c', style: TextStyle(color: AppColors.amber, fontSize: sf(context, 10))),
             ],
           ),
           const SizedBox(height: 6),
-          Text(q.text, style: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600)),
+          Text(q.text, style: TextStyle(color: AppColors.textPrimary, fontSize: sf(context, 13), fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           ...q.options.map((o) {
             final isPicked = o.id == pick;
@@ -341,7 +342,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                     child: Text('${o.emoji ?? ''} ${o.name} (x${o.multiplier.toStringAsFixed(1)})',
                       style: TextStyle(
                         color: isPicked ? AppColors.neonGreen : AppColors.textSecondary,
-                        fontSize: 11,
+                        fontSize: sf(context, 11),
                       )),
                   ),
                 ],
@@ -353,16 +354,16 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
     );
   }
 
-  Widget _sectionDivider(String label) {
+  Widget _sectionDivider(BuildContext context, String label) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: sp(context, h: 16, v: 10),
       child: Row(
         children: [
           Expanded(child: Container(height: 1, color: AppColors.divider)),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: sp(context, h: 8),
             child: Text(label,
-              style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 10,
+              style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 10),
                 color: AppColors.textSecondary, letterSpacing: 2)),
           ),
           Expanded(child: Container(height: 1, color: AppColors.divider)),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/question.dart';
 
@@ -42,7 +43,7 @@ class PredictCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: sa(context, 20),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(16),
@@ -54,7 +55,7 @@ class PredictCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: sp(context, h: 10, v: 4),
                 decoration: BoxDecoration(
                   color: _categoryColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(6),
@@ -68,7 +69,7 @@ class PredictCard extends StatelessWidget {
                       question.category,
                       style: TextStyle(
                         color: _categoryColor,
-                        fontSize: 12,
+                        fontSize: sf(context, 12),
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1,
                       ),
@@ -78,27 +79,27 @@ class PredictCard extends StatelessWidget {
               ),
               Row(
                 children: [
-                  const Icon(Icons.monetization_on, color: AppColors.amber, size: 18),
+                  Icon(Icons.monetization_on, color: AppColors.amber, size: s(context, 18)),
                   const SizedBox(width: 4),
                   Text(
                     '${question.rewardCoins}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: AppFonts.bebasNeue,
                       color: AppColors.amber,
-                      fontSize: 18,
+                      fontSize: sf(context, 18),
                     ),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: s(context, 16)),
           // Question text
           Text(
             _localized(question.text),
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: AppFonts.barlowCondensed,
-              fontSize: 22,
+              fontSize: sf(context, 22),
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
               height: 1.3,

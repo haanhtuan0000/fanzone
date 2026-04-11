@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/models/match.dart';
 import '../../../core/l10n/app_strings.dart';
 
@@ -17,11 +18,11 @@ class MatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = AppStrings.current;
+    final loc = AppStrings.current;
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: sa(context, 14),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.neonGreen.withOpacity(0.06) : AppColors.cardSurface,
           borderRadius: BorderRadius.circular(14),
@@ -41,14 +42,14 @@ class MatchCard extends StatelessWidget {
                     child: Image.network(
                       match.leagueLogoUrl!,
                       width: 16, height: 16,
-                      errorBuilder: (_, __, ___) => const SizedBox(width: 16),
+                      errorBuilder: (_, __, ___) => SizedBox(width: s(context, 16)),
                     ),
                   ),
                 Expanded(
                   child: Text(
                     match.league ?? '',
-                    style: const TextStyle(
-                      fontSize: 11,
+                    style: TextStyle(
+                      fontSize: sf(context, 11),
                       color: AppColors.textSecondary,
                       letterSpacing: 0.5,
                     ),
@@ -57,14 +58,14 @@ class MatchCard extends StatelessWidget {
                   ),
                 ),
                 if (match.isLive)
-                  _liveBadge()
+                  _liveBadge(context)
                 else if (match.status == 'FT')
-                  _statusBadge('FT', AppColors.textSecondary)
+                  _statusBadge(context, 'FT', AppColors.textSecondary)
                 else if (match.kickoffTime != null)
-                  _timeBadge(),
+                  _timeBadge(context),
               ],
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: s(context, 10)),
             // Main row: home ● — score/vs — ● away
             Row(
               children: [
@@ -75,10 +76,10 @@ class MatchCard extends StatelessWidget {
                       Flexible(
                         child: Text(
                           match.homeTeam,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                            fontSize: sf(context, 14),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -97,21 +98,21 @@ class MatchCard extends StatelessWidget {
                 ),
                 // Score or VS
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: sp(context, h: 12),
                   child: match.isLive || match.status == 'FT' || match.status == 'HT'
                       ? Text(
                           '${match.homeScore}–${match.awayScore}',
                           style: TextStyle(
                             fontFamily: AppFonts.bebasNeue,
-                            fontSize: 22,
+                            fontSize: sf(context, 22),
                             color: match.isLive ? AppColors.textPrimary : AppColors.textSecondary,
                           ),
                         )
-                      : const Text(
+                      : Text(
                           'VS',
                           style: TextStyle(
                             fontFamily: AppFonts.bebasNeue,
-                            fontSize: 16,
+                            fontSize: sf(context, 16),
                             color: AppColors.textSecondary,
                           ),
                         ),
@@ -132,10 +133,10 @@ class MatchCard extends StatelessWidget {
                       Flexible(
                         child: Text(
                           match.awayTeam,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                            fontSize: sf(context, 14),
                           ),
                           textAlign: TextAlign.right,
                           maxLines: 1,
@@ -149,10 +150,10 @@ class MatchCard extends StatelessWidget {
             ),
             // Engagement strip for selected live match
             if (isSelected && match.isLive) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: s(context, 10)),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: sp(context, v: 8),
                 decoration: BoxDecoration(
                   color: AppColors.neonGreen.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -164,11 +165,11 @@ class MatchCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       match.fanOnlineCount != null
-                          ? s.fanOnline(match.fanOnlineCount!)
-                          : s.predicting,
-                      style: const TextStyle(
+                          ? loc.fanOnline(match.fanOnlineCount!)
+                          : loc.predicting,
+                      style: TextStyle(
                         color: AppColors.neonGreen,
-                        fontSize: 12,
+                        fontSize: sf(context, 12),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -182,9 +183,9 @@ class MatchCard extends StatelessWidget {
     );
   }
 
-  Widget _liveBadge() {
+  Widget _liveBadge(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: sp(context, h: 8, v: 3),
       decoration: BoxDecoration(
         color: AppColors.red.withOpacity(0.15),
         borderRadius: BorderRadius.circular(10),
@@ -202,9 +203,9 @@ class MatchCard extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             match.status == 'HT' ? 'HT' : 'LIVE ${match.elapsed ?? ""}\'',
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: AppFonts.bebasNeue,
-              fontSize: 11,
+              fontSize: sf(context, 11),
               color: AppColors.red,
               letterSpacing: 0.5,
             ),
@@ -214,29 +215,29 @@ class MatchCard extends StatelessWidget {
     );
   }
 
-  Widget _timeBadge() {
+  Widget _timeBadge(BuildContext context) {
     final hour = match.kickoffTime!.toLocal().hour.toString().padLeft(2, '0');
     final minute = match.kickoffTime!.toLocal().minute.toString().padLeft(2, '0');
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: sp(context, h: 8, v: 3),
       decoration: BoxDecoration(
         color: AppColors.amber.withOpacity(0.15),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         '$hour:$minute',
-        style: const TextStyle(
+        style: TextStyle(
           fontFamily: AppFonts.bebasNeue,
-          fontSize: 11,
+          fontSize: sf(context, 11),
           color: AppColors.amber,
         ),
       ),
     );
   }
 
-  Widget _statusBadge(String text, Color color) {
+  Widget _statusBadge(BuildContext context, String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: sp(context, h: 8, v: 3),
       decoration: BoxDecoration(
         color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(10),
@@ -245,7 +246,7 @@ class MatchCard extends StatelessWidget {
         text,
         style: TextStyle(
           fontFamily: AppFonts.bebasNeue,
-          fontSize: 11,
+          fontSize: sf(context, 11),
           color: color,
         ),
       ),

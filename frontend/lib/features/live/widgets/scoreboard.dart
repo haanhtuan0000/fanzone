@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/models/match.dart';
 import '../../../core/l10n/app_strings.dart';
 
@@ -20,11 +21,11 @@ class _ScoreboardState extends State<Scoreboard> {
 
   @override
   Widget build(BuildContext context) {
-    final s = AppStrings.current;
+    final loc = AppStrings.current;
     return GestureDetector(
       onTap: () => setState(() => _isExpanded = !_isExpanded),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        padding: sLTRB(context, 16, 14, 16, 12),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment(-1, -0.5),
@@ -40,9 +41,9 @@ class _ScoreboardState extends State<Scoreboard> {
           children: [
             // Hint
             Text(
-              _isExpanded ? '' : s.tapToExpand,
+              _isExpanded ? '' : loc.tapToExpand,
               style: TextStyle(
-                fontSize: 9,
+                fontSize: sf(context, 9),
                 color: AppColors.textSecondary.withOpacity(0.4),
                 letterSpacing: 1,
                 fontFamily: AppFonts.barlowCondensed,
@@ -53,7 +54,7 @@ class _ScoreboardState extends State<Scoreboard> {
 
             // League name + round
             _leagueHeader(),
-            const SizedBox(height: 14),
+            SizedBox(height: s(context, 14)),
 
             // Teams + Score
             Row(
@@ -63,16 +64,16 @@ class _ScoreboardState extends State<Scoreboard> {
                 Expanded(child: _teamColumn(match.awayLogoUrl, match.awayTeam, match.awayForm)),
               ],
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: s(context, 14)),
 
             // Fan support bar
-            _fanBar(s),
+            _fanBar(loc),
 
             // Expandable stats panel
             AnimatedSize(
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
-              child: _isExpanded ? _expandPanel(s) : const SizedBox.shrink(),
+              child: _isExpanded ? _expandPanel(loc) : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -80,7 +81,7 @@ class _ScoreboardState extends State<Scoreboard> {
     );
   }
 
-  Widget _expandPanel(dynamic s) {
+  Widget _expandPanel(dynamic loc) {
     final stats = match.statistics;
     final possession = stats?['possession'];
     final shots = stats?['shots'];
@@ -92,43 +93,43 @@ class _ScoreboardState extends State<Scoreboard> {
 
     return Column(
       children: [
-        const SizedBox(height: 12),
+        SizedBox(height: s(context, 12)),
         Container(height: 1, color: AppColors.divider),
         if (!hasAnyStats)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Text(s.noStatsAvailable,
-              style: TextStyle(color: AppColors.textSecondary.withOpacity(0.5), fontSize: 12)),
+            padding: sp(context, v: 16),
+            child: Text(loc.noStatsAvailable,
+              style: TextStyle(color: AppColors.textSecondary.withOpacity(0.5), fontSize: sf(context, 12))),
           ),
         if (hasAnyStats) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: s(context, 12)),
           _statRow(
             _possVal(possession, 'home'),
-            s.statPossession,
+            loc.statPossession,
             _possVal(possession, 'away'),
             _possPercent(possession, 'home'),
           ),
           _statRow(
             _intVal(shots, 'home'),
-            s.statShots,
+            loc.statShots,
             _intVal(shots, 'away'),
             _intPercent(shots),
           ),
           _statRow(
             _intVal(shotsOnTarget, 'home'),
-            s.statOnTarget,
+            loc.statOnTarget,
             _intVal(shotsOnTarget, 'away'),
             _intPercent(shotsOnTarget),
           ),
           _statRow(
             _intVal(corners, 'home'),
-            s.statCorners,
+            loc.statCorners,
             _intVal(corners, 'away'),
             _intPercent(corners),
           ),
           _statRow(
             _intVal(yellowCards, 'home'),
-            s.statCards,
+            loc.statCards,
             _intVal(yellowCards, 'away'),
             _intPercent(yellowCards),
           ),
@@ -171,19 +172,19 @@ class _ScoreboardState extends State<Scoreboard> {
               Expanded(
                 child: Text(homeVal,
                   textAlign: TextAlign.right,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: AppFonts.barlowCondensed,
-                    fontSize: 13,
+                    fontSize: sf(context, 13),
                     fontWeight: FontWeight.w700,
                     color: AppColors.blue,
                   )),
               ),
               SizedBox(
-                width: 100,
+                width: s(context, 100),
                 child: Text(label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 9,
+                    fontSize: sf(context, 9),
                     color: AppColors.textSecondary.withOpacity(0.4),
                     letterSpacing: 0.5,
                     fontFamily: AppFonts.barlowCondensed,
@@ -193,9 +194,9 @@ class _ScoreboardState extends State<Scoreboard> {
               Expanded(
                 child: Text(awayVal,
                   textAlign: TextAlign.left,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: AppFonts.barlowCondensed,
-                    fontSize: 13,
+                    fontSize: sf(context, 13),
                     fontWeight: FontWeight.w700,
                     color: AppColors.amber,
                   )),
@@ -244,21 +245,21 @@ class _ScoreboardState extends State<Scoreboard> {
             child: CachedNetworkImage(
               imageUrl: match.leagueLogoUrl!,
               width: 18, height: 18,
-              errorWidget: (_, __, ___) => const Text('🏆', style: TextStyle(fontSize: 14)),
+              errorWidget: (_, __, ___) => Text('🏆', style: TextStyle(fontSize: sf(context, 14))),
             ),
           )
         else
-          const Padding(
-            padding: EdgeInsets.only(right: 6),
-            child: Text('🏆', style: TextStyle(fontSize: 14)),
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Text('🏆', style: TextStyle(fontSize: sf(context, 14))),
           ),
         Flexible(
           child: Text(
             leagueText.toString(),
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: AppFonts.bebasNeue,
               color: AppColors.textSecondary,
-              fontSize: 11,
+              fontSize: sf(context, 11),
               letterSpacing: 1.5,
             ),
             maxLines: 1,
@@ -276,8 +277,8 @@ class _ScoreboardState extends State<Scoreboard> {
         const SizedBox(height: 6),
         Text(
           name,
-          style: const TextStyle(
-            fontSize: 13,
+          style: TextStyle(
+            fontSize: sf(context, 13),
             fontWeight: FontWeight.w600,
             color: AppColors.textPrimary,
           ),
@@ -289,8 +290,8 @@ class _ScoreboardState extends State<Scoreboard> {
           const SizedBox(height: 2),
           Text(
             form,
-            style: const TextStyle(
-              fontSize: 10,
+            style: TextStyle(
+              fontSize: sf(context, 10),
               color: AppColors.textSecondary,
               letterSpacing: 0.5,
             ),
@@ -302,14 +303,14 @@ class _ScoreboardState extends State<Scoreboard> {
 
   Widget _scoreColumn() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: sp(context, h: 8),
       child: Column(
         children: [
           Text(
             '${match.homeScore}–${match.awayScore}',
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: AppFonts.bebasNeue,
-              fontSize: AppSizes.scoreFontSize,
+              fontSize: sf(context, AppSizes.scoreFontSize),
               color: AppColors.textPrimary,
               letterSpacing: 2,
             ),
@@ -328,7 +329,7 @@ class _ScoreboardState extends State<Scoreboard> {
                   match.status == 'HT' ? 'HT' : '${match.elapsed}',
                   style: TextStyle(
                     fontFamily: AppFonts.bebasNeue,
-                    fontSize: AppSizes.clockFontSize,
+                    fontSize: sf(context, AppSizes.clockFontSize),
                     color: match.isLive ? AppColors.neonGreen : AppColors.textSecondary,
                   ),
                 ),
@@ -337,14 +338,14 @@ class _ScoreboardState extends State<Scoreboard> {
           if (match.homeHtScore != null && match.awayHtScore != null)
             Text(
               'HT: ${match.homeHtScore}–${match.awayHtScore}',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 11)),
             ),
         ],
       ),
     );
   }
 
-  Widget _fanBar(dynamic s) {
+  Widget _fanBar(dynamic loc) {
     final possession = match.statistics?['possession'];
     int homePercent = 50;
     if (possession != null) {
@@ -363,13 +364,13 @@ class _ScoreboardState extends State<Scoreboard> {
             ),
             const SizedBox(width: 4),
             Text(
-              '$homePercent% ${s.fanLabel}',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+              '$homePercent% ${loc.fanLabel}',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 11)),
             ),
             const Spacer(),
             Text(
               '$awayPercent%',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 11)),
             ),
             const SizedBox(width: 4),
             Container(
@@ -404,8 +405,8 @@ class _ScoreboardState extends State<Scoreboard> {
   Widget _teamLogo(String? url) {
     if (url == null) {
       return Container(
-        width: 52,
-        height: 52,
+        width: s(context, 52),
+        height: s(context, 52),
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           color: AppColors.cardSurfaceLight,
@@ -415,14 +416,14 @@ class _ScoreboardState extends State<Scoreboard> {
     }
     return CachedNetworkImage(
       imageUrl: url,
-      width: 52,
-      height: 52,
-      placeholder: (context, url) => const SizedBox(
-        width: 52, height: 52,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      width: s(context, 52),
+      height: s(context, 52),
+      placeholder: (ctx, url) => SizedBox(
+        width: s(context, 52), height: s(context, 52),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       ),
-      errorWidget: (context, url, error) => Container(
-        width: 52, height: 52,
+      errorWidget: (ctx, url, error) => Container(
+        width: s(context, 52), height: s(context, 52),
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           color: AppColors.cardSurfaceLight,
