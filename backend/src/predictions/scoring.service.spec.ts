@@ -23,11 +23,15 @@ describe('ScoringService', () => {
     question: {
       findUnique: jest.fn(),
     },
+    feedEvent: {
+      create: jest.fn(),
+    },
   };
 
   const mockRedis = {
     zadd: jest.fn(),
     del: jest.fn(),
+    zrevrank: jest.fn(),
   };
 
   const mockUsersService = {
@@ -43,12 +47,13 @@ describe('ScoringService', () => {
   const correctOptionId = 'option-correct';
   const wrongOptionId = 'option-wrong';
 
+  const mockQuestion = { id: questionId, fixtureId: 100, rewardCoins: 100, text: 'Test question' };
+
   const makePrediction = (overrides: Record<string, any> = {}) => ({
     id: 'pred-1',
     userId: 'user-1',
     questionId,
     optionId: correctOptionId,
-    coinsBet: 50,
     option: { id: correctOptionId, multiplier: 2.5 },
     ...overrides,
   });
@@ -61,6 +66,18 @@ describe('ScoringService', () => {
     countryCode: 'VN',
     ...overrides,
   });
+
+  /** Set up mocks common to most scoring tests */
+  function setupCommonMocks() {
+    mockPrisma.prediction.update.mockResolvedValue({});
+    mockPrisma.coinTransaction.create.mockResolvedValue({});
+    mockPrisma.feedEvent.create.mockResolvedValue({});
+    mockPrisma.question.findUnique.mockResolvedValue(mockQuestion);
+    mockUsersService.addXp.mockResolvedValue({});
+    mockUsersService.updateStreak.mockResolvedValue({});
+    mockAchievementService.checkAndUnlock.mockResolvedValue([]);
+    mockRedis.zrevrank.mockResolvedValue(null);
+  }
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -79,18 +96,15 @@ describe('ScoringService', () => {
   });
 
   describe('scoreQuestion', () => {
-    it('should score a correct prediction: coins_result = bet * multiplier, xp = 10, isCorrect = true', async () => {
+    it('should score a correct prediction: coins_result = rewardCoins, xp = 10', async () => {
       const prediction = makePrediction();
       const user = makeUser();
-      mockPrisma.prediction.findMany.mockResolvedValue([prediction]);
-      mockPrisma.prediction.update.mockResolvedValue({});
+      setupCommonMocks();
+      mockPrisma.prediction.findMany
+        .mockResolvedValueOnce([prediction])   // main query
+        .mockResolvedValue([prediction]);       // match earnings query
       mockPrisma.user.update.mockResolvedValue(user);
       mockPrisma.user.findUnique.mockResolvedValue(user);
-      mockPrisma.question.findUnique.mockResolvedValue({ id: questionId, fixtureId: 100 });
-      mockPrisma.coinTransaction.create.mockResolvedValue({});
-      mockUsersService.addXp.mockResolvedValue({});
-      mockUsersService.updateStreak.mockResolvedValue({});
-      mockAchievementService.checkAndUnlock.mockResolvedValue([]);
 
       const results = await service.scoreQuestion(questionId, correctOptionId);
 
@@ -98,7 +112,7 @@ describe('ScoringService', () => {
       expect(results[0]).toEqual({
         userId: 'user-1',
         isCorrect: true,
-        coinsResult: Math.round(50 * 2.5), // 125
+        coinsResult: 100, // rewardCoins
         xpEarned: 10,
       });
 
@@ -106,54 +120,63 @@ describe('ScoringService', () => {
         where: { id: 'pred-1' },
         data: expect.objectContaining({
           isCorrect: true,
-          coinsResult: 125,
+          coinsResult: 100,
           xpEarned: 10,
         }),
       });
     });
 
-    it('should score a wrong prediction: coins_result = -bet, xp = 2, isCorrect = false', async () => {
+    it('should score a wrong prediction: coins_result = -rewardCoins, xp = 2', async () => {
       const prediction = makePrediction({ optionId: wrongOptionId, option: { id: wrongOptionId, multiplier: 3.0 } });
       const user = makeUser({ coins: 950 });
-      mockPrisma.prediction.findMany.mockResolvedValue([prediction]);
-      mockPrisma.prediction.update.mockResolvedValue({});
+      setupCommonMocks();
+      mockPrisma.prediction.findMany
+        .mockResolvedValueOnce([prediction])
+        .mockResolvedValue([]);
       mockPrisma.user.update.mockResolvedValue(user);
       mockPrisma.user.findUnique.mockResolvedValue(user);
-      mockPrisma.question.findUnique.mockResolvedValue({ id: questionId, fixtureId: 100 });
-      mockPrisma.coinTransaction.create.mockResolvedValue({});
-      mockUsersService.addXp.mockResolvedValue({});
-      mockUsersService.updateStreak.mockResolvedValue({});
-      mockAchievementService.checkAndUnlock.mockResolvedValue([]);
 
       const results = await service.scoreQuestion(questionId, correctOptionId);
 
       expect(results[0]).toEqual({
         userId: 'user-1',
         isCorrect: false,
-        coinsResult: -50,
+        coinsResult: -100,
         xpEarned: 2,
       });
+    });
+
+    it('should clamp loss to current balance to prevent negative coins', async () => {
+      const prediction = makePrediction({ optionId: wrongOptionId, option: { id: wrongOptionId, multiplier: 3.0 } });
+      const user = makeUser({ coins: 30 }); // Only 30 coins — loss clamped to -30
+      setupCommonMocks();
+      mockPrisma.prediction.findMany
+        .mockResolvedValueOnce([prediction])
+        .mockResolvedValue([]);
+      mockPrisma.user.update.mockResolvedValue(user);
+      mockPrisma.user.findUnique.mockResolvedValue(user);
+
+      const results = await service.scoreQuestion(questionId, correctOptionId);
+
+      expect(results[0].coinsResult).toBe(-30); // Clamped to -balance
     });
 
     it('should update user coins, totalPredictions, and correctPredictions', async () => {
       const prediction = makePrediction();
       const user = makeUser();
-      mockPrisma.prediction.findMany.mockResolvedValue([prediction]);
-      mockPrisma.prediction.update.mockResolvedValue({});
+      setupCommonMocks();
+      mockPrisma.prediction.findMany
+        .mockResolvedValueOnce([prediction])
+        .mockResolvedValue([prediction]);
       mockPrisma.user.update.mockResolvedValue(user);
       mockPrisma.user.findUnique.mockResolvedValue(user);
-      mockPrisma.question.findUnique.mockResolvedValue({ id: questionId, fixtureId: 100 });
-      mockPrisma.coinTransaction.create.mockResolvedValue({});
-      mockUsersService.addXp.mockResolvedValue({});
-      mockUsersService.updateStreak.mockResolvedValue({});
-      mockAchievementService.checkAndUnlock.mockResolvedValue([]);
 
       await service.scoreQuestion(questionId, correctOptionId);
 
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
         data: {
-          coins: { increment: 125 },
+          coins: { increment: 100 },
           totalPredictions: { increment: 1 },
           correctPredictions: { increment: 1 },
         },
@@ -163,15 +186,12 @@ describe('ScoringService', () => {
     it('should create CoinTransaction records', async () => {
       const prediction = makePrediction();
       const user = makeUser();
-      mockPrisma.prediction.findMany.mockResolvedValue([prediction]);
-      mockPrisma.prediction.update.mockResolvedValue({});
+      setupCommonMocks();
+      mockPrisma.prediction.findMany
+        .mockResolvedValueOnce([prediction])
+        .mockResolvedValue([prediction]);
       mockPrisma.user.update.mockResolvedValue(user);
       mockPrisma.user.findUnique.mockResolvedValue(user);
-      mockPrisma.question.findUnique.mockResolvedValue({ id: questionId, fixtureId: 100 });
-      mockPrisma.coinTransaction.create.mockResolvedValue({});
-      mockUsersService.addXp.mockResolvedValue({});
-      mockUsersService.updateStreak.mockResolvedValue({});
-      mockAchievementService.checkAndUnlock.mockResolvedValue([]);
 
       await service.scoreQuestion(questionId, correctOptionId);
 
@@ -179,7 +199,7 @@ describe('ScoringService', () => {
         data: {
           userId: 'user-1',
           type: 'PREDICTION_WIN',
-          amount: 125,
+          amount: 100,
           balanceAfter: user.coins,
           referenceId: 'pred-1',
         },
@@ -189,15 +209,12 @@ describe('ScoringService', () => {
     it('should call usersService.addXp and usersService.updateStreak', async () => {
       const prediction = makePrediction();
       const user = makeUser();
-      mockPrisma.prediction.findMany.mockResolvedValue([prediction]);
-      mockPrisma.prediction.update.mockResolvedValue({});
+      setupCommonMocks();
+      mockPrisma.prediction.findMany
+        .mockResolvedValueOnce([prediction])
+        .mockResolvedValue([prediction]);
       mockPrisma.user.update.mockResolvedValue(user);
       mockPrisma.user.findUnique.mockResolvedValue(user);
-      mockPrisma.question.findUnique.mockResolvedValue({ id: questionId, fixtureId: 100 });
-      mockPrisma.coinTransaction.create.mockResolvedValue({});
-      mockUsersService.addXp.mockResolvedValue({});
-      mockUsersService.updateStreak.mockResolvedValue({});
-      mockAchievementService.checkAndUnlock.mockResolvedValue([]);
 
       await service.scoreQuestion(questionId, correctOptionId);
 
@@ -207,26 +224,28 @@ describe('ScoringService', () => {
 
     it('should update leaderboard Redis sorted sets', async () => {
       const prediction = makePrediction();
-      const user = makeUser({ coins: 1125 });
-      mockPrisma.prediction.findMany.mockResolvedValue([prediction]);
-      mockPrisma.prediction.update.mockResolvedValue({});
+      const user = makeUser({ coins: 1200, countryCode: 'VN' });
+      setupCommonMocks();
+      // Main query returns the prediction; match earnings query returns the same prediction with coinsResult
+      mockPrisma.prediction.findMany
+        .mockResolvedValueOnce([prediction])
+        .mockResolvedValue([{ coinsResult: 100 }]);
       mockPrisma.user.update.mockResolvedValue(user);
       mockPrisma.user.findUnique.mockResolvedValue(user);
-      mockPrisma.question.findUnique.mockResolvedValue({ id: questionId, fixtureId: 100 });
-      mockPrisma.coinTransaction.create.mockResolvedValue({});
-      mockUsersService.addXp.mockResolvedValue({});
-      mockUsersService.updateStreak.mockResolvedValue({});
-      mockAchievementService.checkAndUnlock.mockResolvedValue([]);
 
       await service.scoreQuestion(questionId, correctOptionId);
 
-      expect(mockRedis.zadd).toHaveBeenCalledWith('lb:match:100', user.coins, 'user-1');
+      // Match leaderboard uses sum of match earnings
+      expect(mockRedis.zadd).toHaveBeenCalledWith('lb:match:100', 100, 'user-1');
+      // Global leaderboard uses user.coins
       expect(mockRedis.zadd).toHaveBeenCalledWith('lb:global', user.coins, 'user-1');
+      // Country leaderboard
       expect(mockRedis.zadd).toHaveBeenCalledWith('lb:country:VN', user.coins, 'user-1');
     });
 
     it('should clean up Redis fan data after resolution', async () => {
       mockPrisma.prediction.findMany.mockResolvedValue([]);
+      mockPrisma.question.findUnique.mockResolvedValue(mockQuestion);
 
       await service.scoreQuestion(questionId, correctOptionId);
 
@@ -241,22 +260,19 @@ describe('ScoringService', () => {
         optionId: wrongOptionId,
         option: { id: wrongOptionId, multiplier: 3.0 },
       });
-      const userA = makeUser({ id: 'user-1', coins: 1125, countryCode: 'VN' });
-      const userB = makeUser({ id: 'user-2', coins: 950, countryCode: 'US' });
+      const userA = makeUser({ id: 'user-1', coins: 1200, countryCode: 'VN' });
+      const userB = makeUser({ id: 'user-2', coins: 900, countryCode: 'US' });
 
-      mockPrisma.prediction.findMany.mockResolvedValue([correctPrediction, wrongPrediction]);
-      mockPrisma.prediction.update.mockResolvedValue({});
+      setupCommonMocks();
+      mockPrisma.prediction.findMany
+        .mockResolvedValueOnce([correctPrediction, wrongPrediction]) // main query
+        .mockResolvedValue([]);  // match earnings queries
       mockPrisma.user.update
         .mockResolvedValueOnce(userA)
         .mockResolvedValueOnce(userB);
       mockPrisma.user.findUnique
-        .mockResolvedValueOnce(userA)
+        .mockResolvedValueOnce(userA)   // clamp check for user-2 (wrong prediction)
         .mockResolvedValueOnce(userB);
-      mockPrisma.question.findUnique.mockResolvedValue({ id: questionId, fixtureId: 100 });
-      mockPrisma.coinTransaction.create.mockResolvedValue({});
-      mockUsersService.addXp.mockResolvedValue({});
-      mockUsersService.updateStreak.mockResolvedValue({});
-      mockAchievementService.checkAndUnlock.mockResolvedValue([]);
 
       const results = await service.scoreQuestion(questionId, correctOptionId);
 
@@ -264,13 +280,13 @@ describe('ScoringService', () => {
       expect(results[0]).toEqual({
         userId: 'user-1',
         isCorrect: true,
-        coinsResult: 125,
+        coinsResult: 100,
         xpEarned: 10,
       });
       expect(results[1]).toEqual({
         userId: 'user-2',
         isCorrect: false,
-        coinsResult: -50,
+        coinsResult: -100,
         xpEarned: 2,
       });
     });

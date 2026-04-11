@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { PredictionsService } from './predictions.service';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
+import { UsersService } from '../users/users.service';
 
 describe('PredictionsService', () => {
   let service: PredictionsService;
@@ -14,12 +15,26 @@ describe('PredictionsService', () => {
     prediction: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      count: jest.fn(),
+    },
+    questionOption: {
+      update: jest.fn(),
+    },
+    user: {
+      update: jest.fn(),
+    },
+    coinTransaction: {
+      create: jest.fn(),
     },
   };
 
   const mockRedis = {
     hincrby: jest.fn(),
     hgetall: jest.fn(),
+  };
+
+  const mockUsersService = {
+    addXp: jest.fn(),
   };
 
   const userId = 'user-1';
@@ -43,7 +58,6 @@ describe('PredictionsService', () => {
     userId,
     questionId,
     optionId,
-    coinsBet: 50,
     predictedAt: new Date(),
   };
 
@@ -55,6 +69,7 @@ describe('PredictionsService', () => {
         PredictionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RedisService, useValue: mockRedis },
+        { provide: UsersService, useValue: mockUsersService },
       ],
     }).compile();
 
@@ -66,6 +81,8 @@ describe('PredictionsService', () => {
       mockPrisma.question.findUnique.mockResolvedValue(mockQuestion);
       mockPrisma.prediction.findUnique.mockResolvedValue(null); // No existing prediction
       mockPrisma.prediction.create.mockResolvedValue(mockPrediction);
+      mockPrisma.prediction.count.mockResolvedValue(2); // Not first prediction
+      mockPrisma.questionOption.update.mockResolvedValue({});
       mockRedis.hincrby.mockResolvedValue(1);
       mockRedis.hgetall.mockResolvedValue({
         'option-1': '1',
@@ -83,7 +100,6 @@ describe('PredictionsService', () => {
           userId,
           questionId,
           optionId,
-          coinsBet: 50,
         },
       });
     });
@@ -139,6 +155,8 @@ describe('PredictionsService', () => {
       mockPrisma.question.findUnique.mockResolvedValue(mockQuestion);
       mockPrisma.prediction.findUnique.mockResolvedValue(null);
       mockPrisma.prediction.create.mockResolvedValue(mockPrediction);
+      mockPrisma.prediction.count.mockResolvedValue(2);
+      mockPrisma.questionOption.update.mockResolvedValue({});
       mockRedis.hincrby.mockResolvedValue(1);
       mockRedis.hgetall.mockResolvedValue({
         'option-1': '1',
@@ -157,6 +175,8 @@ describe('PredictionsService', () => {
       mockPrisma.question.findUnique.mockResolvedValue(mockQuestion);
       mockPrisma.prediction.findUnique.mockResolvedValue(null);
       mockPrisma.prediction.create.mockResolvedValue(mockPrediction);
+      mockPrisma.prediction.count.mockResolvedValue(2);
+      mockPrisma.questionOption.update.mockResolvedValue({});
       mockRedis.hincrby.mockResolvedValue(3);
       mockRedis.hgetall.mockResolvedValue({
         'option-1': '3',
@@ -199,21 +219,19 @@ describe('PredictionsService', () => {
       }
     });
 
-    it('should set coinsBet equal to question rewardCoins', async () => {
-      const highRewardQuestion = { ...mockQuestion, rewardCoins: 100 };
-      mockPrisma.question.findUnique.mockResolvedValue(highRewardQuestion);
+    it('should not store coinsBet (predictions are free)', async () => {
+      mockPrisma.question.findUnique.mockResolvedValue(mockQuestion);
       mockPrisma.prediction.findUnique.mockResolvedValue(null);
-      mockPrisma.prediction.create.mockResolvedValue({ ...mockPrediction, coinsBet: 100 });
+      mockPrisma.prediction.create.mockResolvedValue(mockPrediction);
+      mockPrisma.prediction.count.mockResolvedValue(2);
+      mockPrisma.questionOption.update.mockResolvedValue({});
       mockRedis.hincrby.mockResolvedValue(1);
       mockRedis.hgetall.mockResolvedValue({ 'option-1': '1' });
 
       await service.submitPrediction(userId, questionId, optionId);
 
-      expect(mockPrisma.prediction.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          coinsBet: 100,
-        }),
-      });
+      const createCall = mockPrisma.prediction.create.mock.calls[0][0];
+      expect(createCall.data).not.toHaveProperty('coinsBet');
     });
   });
 });

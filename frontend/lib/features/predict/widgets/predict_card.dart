@@ -99,7 +99,7 @@ class PredictCard extends StatelessWidget {
             _localized(question.text),
             style: TextStyle(
               fontFamily: AppFonts.barlowCondensed,
-              fontSize: sf(context, 22),
+              fontSize: sf(context, 16),
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
               height: 1.3,

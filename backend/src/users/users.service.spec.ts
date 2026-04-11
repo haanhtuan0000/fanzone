@@ -46,7 +46,9 @@ describe('UsersService', () => {
 
   describe('getProfile', () => {
     it('should return formatted profile with accuracy calculation', async () => {
+      // getProfile calls: findUnique (1st), updateStreak→findUnique (2nd), re-read findUnique (3rd)
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.user.update.mockResolvedValue({}); // updateStreak may call update
 
       const result = await service.getProfile('user-1');
 
@@ -55,7 +57,8 @@ describe('UsersService', () => {
       expect(result.displayName).toBe('TestUser');
       expect(result.coins).toBe(1000);
       expect(result.accuracy).toBe(60); // Math.round(12/20 * 100)
-      expect(result.title).toBeDefined();
+      expect(result.titleVi).toBeDefined();
+      expect(result.titleEn).toBeDefined();
       expect(result.xpToNextLevel).toBeDefined();
       expect(result.streakDays).toBe(5);
     });
@@ -66,6 +69,7 @@ describe('UsersService', () => {
         totalPredictions: 0,
         correctPredictions: 0,
       });
+      mockPrisma.user.update.mockResolvedValue({});
 
       const result = await service.getProfile('user-1');
       expect(result.accuracy).toBe(0);

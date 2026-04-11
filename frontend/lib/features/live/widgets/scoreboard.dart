@@ -405,8 +405,8 @@ class _ScoreboardState extends State<Scoreboard> {
   Widget _teamLogo(String? url) {
     if (url == null) {
       return Container(
-        width: s(context, 52),
-        height: s(context, 52),
+        width: s(context, 40),
+        height: s(context, 40),
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           color: AppColors.cardSurfaceLight,
@@ -416,14 +416,14 @@ class _ScoreboardState extends State<Scoreboard> {
     }
     return CachedNetworkImage(
       imageUrl: url,
-      width: s(context, 52),
-      height: s(context, 52),
+      width: s(context, 40),
+      height: s(context, 40),
       placeholder: (ctx, url) => SizedBox(
-        width: s(context, 52), height: s(context, 52),
+        width: s(context, 40), height: s(context, 40),
         child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
       ),
       errorWidget: (ctx, url, error) => Container(
-        width: s(context, 52), height: s(context, 52),
+        width: s(context, 40), height: s(context, 40),
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
           color: AppColors.cardSurfaceLight,

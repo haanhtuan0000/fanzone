@@ -106,14 +106,14 @@ class _CountdownStripState extends State<CountdownStrip> {
             Icon(
               isExpired ? Icons.timer_off : Icons.timer,
               color: timerColor,
-              size: s(context, 24),
+              size: s(context, 18),
             ),
             const SizedBox(width: 8),
             Text(
               isExpired ? 'TIME UP' : '${remainingSeconds.toInt()}s',
               style: TextStyle(
                 fontFamily: AppFonts.bebasNeue,
-                fontSize: sf(context, 32),
+                fontSize: sf(context, 22),
                 color: timerColor,
                 letterSpacing: 2,
               ),

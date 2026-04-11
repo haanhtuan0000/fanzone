@@ -33,6 +33,6 @@ class AppSizes {
   static const double cardRadius = 12.0;
   static const double buttonRadius = 8.0;
   static const double bottomNavHeight = 72.0;
-  static const double scoreFontSize = 48.0;
-  static const double clockFontSize = 24.0;
+  static const double scoreFontSize = 36.0;
+  static const double clockFontSize = 18.0;
 }

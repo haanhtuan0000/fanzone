@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../common/prisma.service';
@@ -85,7 +86,7 @@ describe('AuthService', () => {
 
       const result = await service.register(registerDto);
 
-      expect(bcrypt.hash).toHaveBeenCalledWith(registerDto.password, 12);
+      expect(bcrypt.hash).toHaveBeenCalledWith(registerDto.password, 10);
       expect(mockPrisma.user.create).toHaveBeenCalledWith({
         data: {
           email: registerDto.email,
@@ -146,10 +147,12 @@ describe('AuthService', () => {
     const refreshToken = 'valid-refresh-token';
 
     it('should return new tokens for a valid refresh token', async () => {
+      // Code uses SHA-256 hash comparison for refresh tokens
+      const hashedRefresh = createHash('sha256').update(refreshToken).digest('hex');
+      const userWithHash = { ...mockUser, refreshToken: hashedRefresh };
+
       mockJwtService.verify.mockReturnValue({ sub: 'user-1', email: 'test@example.com' });
-      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      (bcrypt.hash as jest.Mock).mockResolvedValue('$2b$12$newhashedrefresh');
+      mockPrisma.user.findUnique.mockResolvedValue(userWithHash);
       mockJwtService.signAsync
         .mockResolvedValueOnce('new-access-token')
         .mockResolvedValueOnce('new-refresh-token');

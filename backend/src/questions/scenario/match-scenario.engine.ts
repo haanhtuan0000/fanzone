@@ -185,12 +185,14 @@ export class MatchScenarioEngine {
     for (let i = 0; i < templates.length; i++) {
       const tpl = templates[i];
       const scheduledOpensAt = scheduledTimes[i];
+      // 85' cutoff may remove slots — skip templates without a scheduled time
+      if (!scheduledOpensAt) break;
       // Only auto-open if: no existing OPEN question, this is the first in batch, AND it's due now
       const isDueNow = scheduledOpensAt.getTime() <= Date.now();
       const shouldOpen = !existingOpen && created.length === 0 && isDueNow;
 
       const question = await this.createFromTemplate(
-        fixtureId, tpl, context, newPhase, elapsed, undefined, shouldOpen, scheduledOpensAt,
+        fixtureId, tpl, context, newPhase, elapsed, undefined, shouldOpen, scheduledOpensAt, kickoffTime,
       );
       if (question) {
         created.push(question);
@@ -396,6 +398,7 @@ export class MatchScenarioEngine {
   /**
    * Create a question from a resolved template.
    * @param scheduledOpensAt - When the question should open. Defaults to now.
+   * @param kickoffTime - Estimated kickoff time, used to derive matchMinute from opensAt.
    */
   private async createFromTemplate(
     fixtureId: number,
@@ -406,6 +409,7 @@ export class MatchScenarioEngine {
     triggeredByEvent?: string,
     autoOpen: boolean = true,
     scheduledOpensAt?: Date,
+    kickoffTime?: Date,
   ) {
     try {
       // Player-specific templates use fallback names (e.g. "Spokane Velocity ST")
@@ -461,8 +465,11 @@ export class MatchScenarioEngine {
         ? new Date(opensAt.getTime() + timeoutWindowMin * 60_000).toISOString()
         : undefined;
 
-      // Use the current match elapsed as the question's minute (what the user sees)
-      const targetMinute = elapsed ?? 0;
+      // Derive matchMinute from opensAt relative to kickoff so each question
+      // shows the minute it will actually open (not the batch-generation minute)
+      const targetMinute = kickoffTime && scheduledOpensAt
+        ? Math.round((opensAt.getTime() - kickoffTime.getTime()) / 60_000)
+        : (elapsed ?? 0);
 
       const question = await this.questionsService.createQuestion({
         fixtureId,

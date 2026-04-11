@@ -235,13 +235,35 @@ describe('MatchScenarioEngine', () => {
       }
     });
 
-    it('uses elapsed as matchMinute (not opensAt-derived)', async () => {
+    it('derives matchMinute from scheduledOpensAt relative to kickoff', async () => {
       templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
 
       await engine.onPhaseChange(fixtureId, 'MID_H1', teams, 25, score);
 
       const createCall = questionsService.createQuestion.mock.calls[0][0];
-      expect(createCall.matchMinute).toBe(25);
+      // matchMinute should be derived from opensAt, not just the batch elapsed
+      // For the first question of a first batch, opensAt = now, so minute ≈ elapsed
+      expect(createCall.matchMinute).toBeGreaterThanOrEqual(20);
+      expect(createCall.matchMinute).toBeLessThanOrEqual(35);
+    });
+
+    it('assigns different matchMinutes to questions in a batch', async () => {
+      const tpl1 = createMockTemplate({ id: 'tpl-1', code: 'Q001' });
+      const tpl2 = createMockTemplate({ id: 'tpl-2', code: 'Q002' });
+      templateService.selectForPhaseWithCategories.mockResolvedValue([tpl1, tpl2]);
+
+      await engine.onPhaseChange(fixtureId, 'EARLY_H1', teams, 5, score);
+
+      const calls = questionsService.createQuestion.mock.calls;
+      expect(calls.length).toBe(2);
+      const minute1 = calls[0][0].matchMinute;
+      const minute2 = calls[1][0].matchMinute;
+      // Second question should open later → higher or equal minute
+      expect(minute2).toBeGreaterThanOrEqual(minute1);
+      // opensAt timestamps must also be in order
+      const opensAt1 = new Date(calls[0][0].opensAt).getTime();
+      const opensAt2 = new Date(calls[1][0].opensAt).getTime();
+      expect(opensAt2).toBeGreaterThanOrEqual(opensAt1);
     });
 
     it('returns empty when no templates available', async () => {

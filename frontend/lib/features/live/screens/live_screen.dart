@@ -345,10 +345,11 @@ class LiveScreen extends ConsumerWidget {
           Text(
             title,
             style: TextStyle(
-              fontFamily: AppFonts.bebasNeue,
-              fontSize: r.sf(context, 14),
+              fontFamily: AppFonts.barlowCondensed,
+              fontSize: r.sf(context, 10),
+              fontWeight: FontWeight.w700,
               color: color,
-              letterSpacing: 1.5,
+              letterSpacing: 2,
             ),
           ),
           const Spacer(),
