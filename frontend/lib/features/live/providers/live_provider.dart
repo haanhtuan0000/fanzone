@@ -11,6 +11,7 @@ class LiveState {
   final String? error;
   final bool liveExpanded;
   final bool todayExpanded;
+  final bool isRefreshing;
 
   const LiveState({
     this.matches = const [],
@@ -19,6 +20,7 @@ class LiveState {
     this.error,
     this.liveExpanded = false,
     this.todayExpanded = false,
+    this.isRefreshing = false,
   });
 
   List<MatchData> get liveMatches => matches.where((m) => m.isLive).toList();
@@ -41,6 +43,7 @@ class LiveState {
     String? error,
     bool? liveExpanded,
     bool? todayExpanded,
+    bool? isRefreshing,
   }) {
     return LiveState(
       matches: matches ?? this.matches,
@@ -49,6 +52,7 @@ class LiveState {
       error: error,
       liveExpanded: liveExpanded ?? this.liveExpanded,
       todayExpanded: todayExpanded ?? this.todayExpanded,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
     );
   }
 }
@@ -87,6 +91,7 @@ class LiveNotifier extends StateNotifier<LiveState> {
         matches: uniqueMatches,
         activeMatch: activeMatch,
         isLoading: false,
+        isRefreshing: false,
       );
 
       // Fetch stats for the active match
@@ -94,7 +99,7 @@ class LiveNotifier extends StateNotifier<LiveState> {
         _fetchStatsForMatch(activeMatch.fixtureId);
       }
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(isLoading: false, isRefreshing: false, error: e.toString());
     }
   }
 
@@ -111,6 +116,13 @@ class LiveNotifier extends StateNotifier<LiveState> {
     } catch (_) {
       // Stats not available yet — WebSocket will deliver them later
     }
+  }
+
+  /// Refresh matches without clearing existing state (no flash).
+  /// Shows isRefreshing indicator while loading.
+  Future<void> refresh() async {
+    state = state.copyWith(isRefreshing: true);
+    await _loadMatches();
   }
 
   void selectMatch(MatchData match) {

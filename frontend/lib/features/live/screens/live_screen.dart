@@ -69,6 +69,12 @@ class LiveScreen extends ConsumerWidget {
         },
         child: CustomScrollView(
           slivers: [
+            // Refresh indicator (thin bar at top)
+            if (liveState.isRefreshing)
+              const SliverToBoxAdapter(
+                child: LinearProgressIndicator(minHeight: 2, color: AppColors.neonGreen),
+              ),
+
             // Hero: scoreboard for any active match
             if (liveState.activeMatch != null) ...[
               SliverToBoxAdapter(

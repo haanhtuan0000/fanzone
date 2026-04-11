@@ -115,6 +115,21 @@ class PredictNotifier extends StateNotifier<PredictState> {
 
   PredictNotifier(this._apiClient, this._onCoinsChanged) : super(const PredictState());
 
+  /// Fetch API data with one retry on failure (handles token refresh, network hiccups)
+  Future<dynamic> _fetchWithRetry(Future<Response> Function() call) async {
+    try {
+      return (await call()).data;
+    } catch (e) {
+      // Wait 2s and retry once (token might have refreshed in background)
+      await Future.delayed(const Duration(seconds: 2));
+      try {
+        return (await call()).data;
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
   @override
   void dispose() {
     _pollTimer?.cancel();
@@ -122,8 +137,8 @@ class PredictNotifier extends StateNotifier<PredictState> {
   }
 
   Future<void> loadQuestions(int fixtureId) async {
-    // Debounce: skip if already loading
-    if (_loading) return;
+    // Debounce: only skip if already loading the SAME fixture
+    if (_loading && _currentFixtureId == fixtureId) return;
     _loading = true;
 
     // Show loading spinner when switching matches or on first load
@@ -140,9 +155,16 @@ class PredictNotifier extends StateNotifier<PredictState> {
     try {
       // Fetch active questions + predictions in parallel (independent error handling)
       final results = await Future.wait([
-        _apiClient.get(ApiEndpoints.activeQuestions(fixtureId)).then((r) => r.data).catchError((_) => null),
-        _apiClient.get(ApiEndpoints.matchPredictions(fixtureId)).then((r) => r.data).catchError((_) => null),
+        _fetchWithRetry(() => _apiClient.get(ApiEndpoints.activeQuestions(fixtureId))),
+        _fetchWithRetry(() => _apiClient.get(ApiEndpoints.matchPredictions(fixtureId))),
       ]);
+
+      // If both API calls failed, set error state so UI shows "pull to refresh"
+      if (results[0] == null && results[1] == null) {
+        state = state.copyWith(isLoading: false, error: 'Failed to load questions. Pull to refresh.');
+        _loading = false;
+        return;
+      }
 
       final questionsData = (results[0] as Map<String, dynamic>?) ?? {'active': null, 'upcoming': [], 'pendingResults': [], 'resolved': []};
       final predictionsData = (results[1] as List<dynamic>?) ?? [];

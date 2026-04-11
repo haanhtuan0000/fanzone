@@ -76,12 +76,10 @@ class MatchSocketService with WidgetsBindingObserver {
       _ws.joinMatch(_currentFixtureId!);
     }
 
-    // Refresh live matches + current questions from REST (source of truth)
-    _ref.invalidate(liveStateProvider);
-    final fixtureId = _currentFixtureId;
-    if (fixtureId != null) {
-      _ref.read(predictStateProvider.notifier).loadQuestions(fixtureId);
-    }
+    // Refresh live matches (keeps existing data, shows refresh indicator)
+    // Don't invalidate — that clears state and causes scoreboard flash
+    _ref.read(liveStateProvider.notifier).refresh();
+    // Don't call loadQuestions directly — the liveState listener handles it
   }
 
   // ─── Internal ───
