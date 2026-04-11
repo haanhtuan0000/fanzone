@@ -354,7 +354,7 @@ export class MatchScenarioEngine {
     const times: Date[] = [];
 
     for (let i = 0; i < count; i++) {
-      const jitter = (Math.random() * 2 - 1) * jitterRange; // random between -jitterRange and +jitterRange
+      const jitter = (Math.random() * 2 - 1) * jitterRange;
       const targetMinute = timing.start + intervalMin * (i + 1) + jitter;
       // Clamp within phase boundaries (with 30s padding from edges)
       const clampedMinute = Math.max(timing.start + 0.5, Math.min(timing.end - 0.5, targetMinute));
@@ -362,7 +362,7 @@ export class MatchScenarioEngine {
 
       // If target is in the past, or first question of first batch → open now
       if (targetTime.getTime() <= Date.now() || (firstQuestionNow && i === 0)) {
-        times.push(new Date(Date.now() + (i === 0 ? 0 : 30_000))); // first now, second 30s later
+        times.push(new Date(Date.now() + (i === 0 ? 0 : 30_000)));
       } else {
         times.push(targetTime);
       }

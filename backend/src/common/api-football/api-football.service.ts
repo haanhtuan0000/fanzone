@@ -76,16 +76,21 @@ export class ApiFootballService {
     return false;
   }
 
-  /** Serial queue: ensures only one API request runs at a time with 2s gap */
-  private requestQueue: Promise<any> = Promise.resolve();
+  /** Serial queue: ensures only one API request runs at a time with 250ms gap */
+  private requestQueue: Promise<void> = Promise.resolve();
 
   async request<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
-    // Chain onto the queue — serializes ALL requests through a single pipeline
+    // Chain onto the queue — each request waits for the previous to finish
+    // The queue chain NEVER rejects (errors are caught per-request) so it keeps flowing
     return new Promise<T>((resolve, reject) => {
-      this.requestQueue = this.requestQueue
-        .then(() => this.doRequest<T>(endpoint, params))
-        .then(resolve)
-        .catch(reject);
+      this.requestQueue = this.requestQueue.then(async () => {
+        try {
+          const result = await this.doRequest<T>(endpoint, params);
+          resolve(result);
+        } catch (e) {
+          reject(e);
+        }
+      });
     });
   }
 
