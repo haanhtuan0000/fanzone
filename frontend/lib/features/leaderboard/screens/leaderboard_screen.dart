@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../live/providers/live_provider.dart';
@@ -37,7 +38,7 @@ class LeaderboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     final lbState = ref.watch(leaderboardStateProvider);
     final activeMatch = ref.watch(liveStateProvider).activeMatch;
 
@@ -52,11 +53,11 @@ class LeaderboardScreen extends ConsumerWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(s.leaderboard),
+            Text(str.leaderboard),
             if (subtitle != null)
               Text(
                 subtitle,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 12)),
               ),
           ],
         ),
@@ -78,16 +79,16 @@ class LeaderboardScreen extends ConsumerWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.emoji_events, size: 64, color: AppColors.textSecondary.withOpacity(0.5)),
-                            const SizedBox(height: 16),
+                            Icon(Icons.emoji_events, size: s(context, 64), color: AppColors.textSecondary.withOpacity(0.5)),
+                            SizedBox(height: s(context, 16)),
                             Text(
-                              s.noData,
+                              str.noData,
                               style: const TextStyle(color: AppColors.textSecondary),
                             ),
-                            const SizedBox(height: 8),
+                            SizedBox(height: s(context, 8)),
                             Text(
-                              s.predictToRank,
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                              str.predictToRank,
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 14)),
                             ),
                           ],
                         ),
@@ -97,11 +98,11 @@ class LeaderboardScreen extends ConsumerWidget {
                           await ref.read(leaderboardStateProvider.notifier).loadLeaderboard();
                         },
                         child: ListView(
-                          padding: const EdgeInsets.all(16),
+                          padding: sa(context, 16),
                           children: [
                             if (lbState.entries.length >= 3)
                               PodiumTop3(entries: lbState.entries.take(3).toList()),
-                            const SizedBox(height: 16),
+                            SizedBox(height: s(context, 16)),
                             if (lbState.myRank != null)
                               MyPositionCard(
                                 rank: lbState.myRank!,
@@ -109,7 +110,7 @@ class LeaderboardScreen extends ConsumerWidget {
                                 delta: lbState.myDelta ?? 0,
                                 scopeLabel: lbState.scope == 'country' ? lbState.userCountryCode : null,
                               ),
-                            const SizedBox(height: 16),
+                            SizedBox(height: s(context, 16)),
                             // Show ALL entries in list (including top 3)
                             ...lbState.entries.map((entry) {
                               final isMe = entry.userId == lbState.myUserId;

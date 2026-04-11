@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/match.dart';
 
@@ -12,18 +13,18 @@ class MatchInfoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     final m = match;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(s.matchInfo),
+        title: Text(str.matchInfo),
         actions: [
           if (m?.kickoffTime != null)
             Padding(
               padding: const EdgeInsets.only(right: 16),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: sp(context, h: 10, v: 4),
                 decoration: BoxDecoration(
                   color: AppColors.amber.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(6),
@@ -31,9 +32,9 @@ class MatchInfoScreen extends StatelessWidget {
                 ),
                 child: Text(
                   _formatTime(m!.kickoffTime!),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: AppFonts.barlowCondensed,
-                    fontSize: 10,
+                    fontSize: sf(context, 10),
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
                     color: AppColors.amber,
@@ -46,12 +47,12 @@ class MatchInfoScreen extends StatelessWidget {
       body: m == null
           ? const Center(child: Text('No match data', style: TextStyle(color: AppColors.textSecondary)))
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(14),
+              padding: sa(context, 14),
               child: Column(
                 children: [
                   // Teams card
-                  _teamsCard(m, s),
-                  const SizedBox(height: 12),
+                  _teamsCard(context, m, str),
+                  SizedBox(height: s(context, 12)),
 
                   // Reminder button
                   SizedBox(
@@ -60,7 +61,7 @@ class MatchInfoScreen extends StatelessWidget {
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('🔔 ${s.reminderSet}'),
+                            content: Text('🔔 ${str.reminderSet}'),
                             backgroundColor: AppColors.amber.withOpacity(0.9),
                             duration: const Duration(seconds: 2),
                           ),
@@ -69,31 +70,31 @@ class MatchInfoScreen extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.amber,
                         foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: sp(context, v: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
-                        textStyle: const TextStyle(
+                        textStyle: TextStyle(
                           fontFamily: AppFonts.barlowCondensed,
-                          fontSize: 14,
+                          fontSize: sf(context, 14),
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1,
                         ),
                       ),
-                      child: Text('🔔 ${s.setReminder}'),
+                      child: Text('🔔 ${str.setReminder}'),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: s(context, 12)),
 
                   // H2H row
-                  _h2hRow(m, s),
+                  _h2hRow(context, m, str),
                 ],
               ),
             ),
     );
   }
 
-  Widget _teamsCard(MatchData m, dynamic s) {
+  Widget _teamsCard(BuildContext context, MatchData m, dynamic str) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: sa(context, 18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment(-1, -0.5),
@@ -108,20 +109,20 @@ class MatchInfoScreen extends StatelessWidget {
           // Teams
           Row(
             children: [
-              Expanded(child: _teamCol(m.homeLogoUrl, m.homeTeam)),
-              const Text('VS',
-                style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 36,
+              Expanded(child: _teamCol(context, m.homeLogoUrl, m.homeTeam)),
+              Text('VS',
+                style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 36),
                   letterSpacing: 3, color: AppColors.textSecondary)),
-              Expanded(child: _teamCol(m.awayLogoUrl, m.awayTeam)),
+              Expanded(child: _teamCol(context, m.awayLogoUrl, m.awayTeam)),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: s(context, 14)),
 
           // Kickoff
           if (m.kickoffTime != null)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(9),
+              padding: sa(context, 9),
               decoration: BoxDecoration(
                 color: AppColors.amber.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(10),
@@ -129,23 +130,23 @@ class MatchInfoScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Text(s.kickoffLabel,
-                    style: const TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: 9,
+                  Text(str.kickoffLabel,
+                    style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 9),
                       fontWeight: FontWeight.w700, letterSpacing: 2, color: AppColors.amber)),
                   const SizedBox(height: 3),
                   Text(_formatTime(m.kickoffTime!),
-                    style: const TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 36,
+                    style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 36),
                       letterSpacing: 3, color: AppColors.amber)),
                 ],
               ),
             ),
 
-          const SizedBox(height: 10),
+          SizedBox(height: s(context, 10)),
           // League info
           Text(
             [m.league, m.leagueRound].where((e) => e != null).join(' · '),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, letterSpacing: 0.5,
+            style: TextStyle(fontSize: sf(context, 10), letterSpacing: 0.5,
               color: AppColors.textSecondary.withOpacity(0.4),
               fontFamily: AppFonts.barlowCondensed),
           ),
@@ -154,41 +155,41 @@ class MatchInfoScreen extends StatelessWidget {
     );
   }
 
-  Widget _teamCol(String? logoUrl, String name) {
+  Widget _teamCol(BuildContext context, String? logoUrl, String name) {
     return Column(
       children: [
         if (logoUrl != null)
-          CachedNetworkImage(imageUrl: logoUrl, width: 48, height: 48,
-            errorWidget: (_, __, ___) => const Text('⚽', style: TextStyle(fontSize: 32)))
+          CachedNetworkImage(imageUrl: logoUrl, width: s(context, 48), height: s(context, 48),
+            errorWidget: (_, __, ___) => Text('⚽', style: TextStyle(fontSize: sf(context, 32))))
         else
-          const Text('⚽', style: TextStyle(fontSize: 32)),
+          Text('⚽', style: TextStyle(fontSize: sf(context, 32))),
         const SizedBox(height: 5),
         Text(name,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: 14,
+          style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 14),
             fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
       ],
     );
   }
 
-  Widget _h2hRow(MatchData m, dynamic s) {
+  Widget _h2hRow(BuildContext context, MatchData m, dynamic str) {
     return Row(
       children: [
-        _h2hItem(s.wins(m.homeTeam.length > 8 ? m.homeTeam.substring(0, 8) : m.homeTeam),
+        _h2hItem(context, str.wins(m.homeTeam.length > 8 ? m.homeTeam.substring(0, 8) : m.homeTeam),
             '-', AppColors.neonGreen),
-        const SizedBox(width: 7),
-        _h2hItem(s.draws, '-', AppColors.textSecondary),
-        const SizedBox(width: 7),
-        _h2hItem(s.wins(m.awayTeam.length > 8 ? m.awayTeam.substring(0, 8) : m.awayTeam),
+        SizedBox(width: s(context, 7)),
+        _h2hItem(context, str.draws, '-', AppColors.textSecondary),
+        SizedBox(width: s(context, 7)),
+        _h2hItem(context, str.wins(m.awayTeam.length > 8 ? m.awayTeam.substring(0, 8) : m.awayTeam),
             '-', AppColors.amber),
       ],
     );
   }
 
-  Widget _h2hItem(String label, String value, Color color) {
+  Widget _h2hItem(BuildContext context, String label, String value, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        padding: sp(context, v: 10, h: 8),
         decoration: BoxDecoration(
           color: AppColors.cardSurfaceLight.withOpacity(0.3),
           borderRadius: BorderRadius.circular(9),
@@ -197,10 +198,10 @@ class MatchInfoScreen extends StatelessWidget {
         child: Column(
           children: [
             Text(value,
-              style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 20, color: color)),
+              style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 20), color: color)),
             Text(label,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 9, letterSpacing: 0.4,
+              style: TextStyle(fontSize: sf(context, 9), letterSpacing: 0.4,
                 color: AppColors.textSecondary.withOpacity(0.4))),
           ],
         ),

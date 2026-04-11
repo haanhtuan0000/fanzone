@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../providers/auth_provider.dart';
 
@@ -10,21 +11,21 @@ class WelcomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     final authState = ref.watch(authStateProvider);
 
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: sp(context, h: 32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Spacer(flex: 2),
               // Logo
               Container(
-                width: 120,
-                height: 120,
+                width: s(context, 120),
+                height: s(context, 120),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: AppColors.neonGreen, width: 3),
@@ -36,35 +37,35 @@ class WelcomeScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
                     'FZ',
                     style: TextStyle(
                       fontFamily: AppFonts.bebasNeue,
-                      fontSize: 48,
+                      fontSize: sf(context, 48),
                       color: AppColors.neonGreen,
                       letterSpacing: 4,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: s(context, 32)),
               // Title
-              const Text(
+              Text(
                 'FANZONE',
                 style: TextStyle(
                   fontFamily: AppFonts.bebasNeue,
-                  fontSize: 48,
+                  fontSize: sf(context, 48),
                   color: AppColors.textPrimary,
                   letterSpacing: 6,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                s.tagline,
-                style: const TextStyle(
+                str.tagline,
+                style: TextStyle(
                   fontFamily: AppFonts.barlowCondensed,
-                  fontSize: 18,
+                  fontSize: sf(context, 18),
                   color: AppColors.textSecondary,
                   letterSpacing: 1,
                 ),
@@ -73,26 +74,26 @@ class WelcomeScreen extends ConsumerWidget {
               // Google Sign-In button
               SizedBox(
                 width: double.infinity,
-                height: 52,
+                height: s(context, 52),
                 child: OutlinedButton.icon(
                   onPressed: authState.isLoading
                       ? null
                       : () => ref.read(authStateProvider.notifier).loginWithGoogle(),
                   icon: authState.isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textSecondary),
+                      ? SizedBox(
+                          width: s(context, 20),
+                          height: s(context, 20),
+                          child: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.textSecondary),
                         )
                       : Image.network(
                           'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                          width: 20,
-                          height: 20,
-                          errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, size: 24),
+                          width: s(context, 20),
+                          height: s(context, 20),
+                          errorBuilder: (_, __, ___) => Icon(Icons.g_mobiledata, size: s(context, 24)),
                         ),
                   label: Text(
-                    authState.isLoading ? 'LOADING...' : s.loginWithGoogle,
-                    style: const TextStyle(letterSpacing: 1, fontSize: 14),
+                    authState.isLoading ? 'LOADING...' : str.loginWithGoogle,
+                    style: TextStyle(letterSpacing: 1, fontSize: sf(context, 14)),
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary,
@@ -103,29 +104,29 @@ class WelcomeScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: s(context, 12)),
               // Email register button
               SizedBox(
                 width: double.infinity,
-                height: 52,
+                height: s(context, 52),
                 child: ElevatedButton(
                   onPressed: authState.isLoading
                       ? null
                       : () { ref.read(authStateProvider.notifier).clearError(); context.go('/register'); },
                   child: Text(
-                    s.registerWithEmail,
-                    style: const TextStyle(fontSize: 14, letterSpacing: 2),
+                    str.registerWithEmail,
+                    style: TextStyle(fontSize: sf(context, 14), letterSpacing: 2),
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: s(context, 16)),
               // Error message
               if (authState.error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
                     authState.error!,
-                    style: const TextStyle(color: AppColors.red, fontSize: 13),
+                    style: TextStyle(color: AppColors.red, fontSize: sf(context, 13)),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -134,18 +135,18 @@ class WelcomeScreen extends ConsumerWidget {
                 onPressed: () { ref.read(authStateProvider.notifier).clearError(); context.go('/login'); },
                 child: RichText(
                   text: TextSpan(
-                    text: s.alreadyHaveAccount,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                    text: str.alreadyHaveAccount,
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 16)),
                     children: [
                       TextSpan(
-                        text: s.loginLink,
+                        text: str.loginLink,
                         style: const TextStyle(color: AppColors.neonGreen, fontWeight: FontWeight.w700),
                       ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 48),
+              SizedBox(height: s(context, 48)),
             ],
           ),
         ),

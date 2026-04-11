@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
@@ -74,11 +75,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: sa(context, 24),
           child: Column(
             children: [
               // Progress indicator
@@ -96,7 +97,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   );
                 }),
               ),
-              const SizedBox(height: 48),
+              SizedBox(height: s(context, 48)),
               Expanded(
                 child: AnimatedSwitcher(
                   duration: AppDurations.normal,
@@ -105,22 +106,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               SizedBox(
                 width: double.infinity,
-                height: 52,
+                height: s(context, 52),
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _nextStep,
                   child: _isSaving
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.background),
+                      ? SizedBox(
+                          height: s(context, 20),
+                          width: s(context, 20),
+                          child: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.background),
                         )
                       : Text(
-                          _step < _totalSteps - 1 ? s.continueBtn : s.letsGo,
+                          _step < _totalSteps - 1 ? str.continueBtn : str.letsGo,
                           style: const TextStyle(letterSpacing: 2),
                         ),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: s(context, 16)),
             ],
           ),
         ),
@@ -145,31 +146,31 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   // Step 0: Choose favorite team
   Widget _buildTeamStep() {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     return Column(
       key: const ValueKey('team'),
       children: [
         Text(
-          s.chooseTeam,
-          style: const TextStyle(
+          str.chooseTeam,
+          style: TextStyle(
             fontFamily: AppFonts.bebasNeue,
-            fontSize: 36,
+            fontSize: sf(context, 36),
             color: AppColors.textPrimary,
             letterSpacing: 2,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          s.chooseTeamDesc,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+          str.chooseTeamDesc,
+          style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 16)),
         ),
-        const SizedBox(height: 32),
+        SizedBox(height: s(context, 32)),
         Expanded(
           child: GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 3,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
+              mainAxisSpacing: s(context, 12),
+              crossAxisSpacing: s(context, 12),
               childAspectRatio: 1,
             ),
             itemCount: _popularTeams.length,
@@ -193,14 +194,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     children: [
                       Text(
                         team['emoji'] as String,
-                        style: const TextStyle(fontSize: 28),
+                        style: TextStyle(fontSize: sf(context, 28)),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         team['name'] as String,
                         style: TextStyle(
                           color: isSelected ? AppColors.neonGreen : AppColors.textPrimary,
-                          fontSize: 12,
+                          fontSize: sf(context, 12),
                           fontWeight: FontWeight.w600,
                         ),
                         textAlign: TextAlign.center,
@@ -220,29 +221,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   // Step 1: Choose avatar
   Widget _buildAvatarStep() {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     return Column(
       key: const ValueKey('avatar'),
       children: [
         Text(
-          s.chooseAvatar,
-          style: const TextStyle(
+          str.chooseAvatar,
+          style: TextStyle(
             fontFamily: AppFonts.bebasNeue,
-            fontSize: 36,
+            fontSize: sf(context, 36),
             color: AppColors.textPrimary,
             letterSpacing: 2,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          s.chooseAvatarDesc,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+          str.chooseAvatarDesc,
+          style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 16)),
         ),
-        const SizedBox(height: 32),
+        SizedBox(height: s(context, 32)),
         // Selected avatar large
         Container(
-          width: 100,
-          height: 100,
+          width: s(context, 100),
+          height: s(context, 100),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(color: AppColors.neonGreen, width: 3),
@@ -255,21 +256,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             color: AppColors.cardSurface,
           ),
           child: Center(
-            child: Text(_selectedEmoji, style: const TextStyle(fontSize: 48)),
+            child: Text(_selectedEmoji, style: TextStyle(fontSize: sf(context, 48))),
           ),
         ),
-        const SizedBox(height: 32),
+        SizedBox(height: s(context, 32)),
         Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: s(context, 12),
+          runSpacing: s(context, 12),
           alignment: WrapAlignment.center,
           children: _avatarEmojis.map((emoji) {
             final isSelected = emoji == _selectedEmoji;
             return GestureDetector(
               onTap: () => setState(() => _selectedEmoji = emoji),
               child: Container(
-                width: 56,
-                height: 56,
+                width: s(context, 56),
+                height: s(context, 56),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isSelected ? AppColors.neonGreen.withOpacity(0.2) : AppColors.cardSurface,
@@ -279,7 +280,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                 ),
                 child: Center(
-                  child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                  child: Text(emoji, style: TextStyle(fontSize: sf(context, 28))),
                 ),
               ),
             );
@@ -291,32 +292,32 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   // Step 2: Set display name
   Widget _buildNameStep() {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     return Column(
       key: const ValueKey('name'),
       children: [
         Text(
-          s.yourName,
-          style: const TextStyle(
+          str.yourName,
+          style: TextStyle(
             fontFamily: AppFonts.bebasNeue,
-            fontSize: 36,
+            fontSize: sf(context, 36),
             color: AppColors.textPrimary,
             letterSpacing: 2,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          s.nameOnLeaderboard,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+          str.nameOnLeaderboard,
+          style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 16)),
         ),
-        const SizedBox(height: 32),
+        SizedBox(height: s(context, 32)),
         TextFormField(
           controller: _nameController,
           decoration: InputDecoration(
-            hintText: s.enterDisplayName,
+            hintText: str.enterDisplayName,
             prefixIcon: const Icon(Icons.edit, color: AppColors.textSecondary),
           ),
-          style: const TextStyle(color: AppColors.textPrimary, fontSize: 18),
+          style: TextStyle(color: AppColors.textPrimary, fontSize: sf(context, 18)),
           textAlign: TextAlign.center,
         ),
       ],
@@ -325,39 +326,39 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   // Step 3: Tutorial preview
   Widget _buildTutorialStep() {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     return Column(
       key: const ValueKey('tutorial'),
       children: [
         Text(
-          s.howToPlay,
-          style: const TextStyle(
+          str.howToPlay,
+          style: TextStyle(
             fontFamily: AppFonts.bebasNeue,
-            fontSize: 36,
+            fontSize: sf(context, 36),
             color: AppColors.textPrimary,
             letterSpacing: 2,
           ),
         ),
-        const SizedBox(height: 32),
+        SizedBox(height: s(context, 32)),
         _buildTutorialItem(
           Icons.sports_soccer,
           AppColors.neonGreen,
-          s.tutStep1,
-          s.tutStep1Desc,
+          str.tutStep1,
+          str.tutStep1Desc,
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: s(context, 24)),
         _buildTutorialItem(
           Icons.touch_app,
           AppColors.amber,
-          s.tutStep2,
-          s.tutStep2Desc,
+          str.tutStep2,
+          str.tutStep2Desc,
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: s(context, 24)),
         _buildTutorialItem(
           Icons.emoji_events,
           AppColors.blue,
-          s.tutStep3,
-          s.tutStep3Desc,
+          str.tutStep3,
+          str.tutStep3Desc,
         ),
       ],
     );
@@ -367,23 +368,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return Row(
       children: [
         Container(
-          width: 56,
-          height: 56,
+          width: s(context, 56),
+          height: s(context, 56),
           decoration: BoxDecoration(
             color: color.withOpacity(0.15),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: color, size: 28),
+          child: Icon(icon, color: color, size: s(context, 28)),
         ),
-        const SizedBox(width: 16),
+        SizedBox(width: s(context, 16)),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 18,
+                style: TextStyle(
+                  fontSize: sf(context, 18),
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
                 ),
@@ -391,7 +392,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const SizedBox(height: 4),
               Text(
                 desc,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 14)),
               ),
             ],
           ),

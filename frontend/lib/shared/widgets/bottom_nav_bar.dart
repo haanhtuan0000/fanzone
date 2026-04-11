@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/constants.dart';
+import '../../app/responsive.dart';
 import '../../core/l10n/app_strings.dart';
 
 class ScaffoldWithNav extends StatelessWidget {
@@ -31,7 +32,7 @@ class ScaffoldWithNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     final currentIndex = _getCurrentIndex(context);
 
     return Scaffold(
@@ -49,31 +50,31 @@ class ScaffoldWithNav extends StatelessWidget {
               children: [
                 _NavItem(
                   icon: Icons.live_tv,
-                  label: s.navLive,
+                  label: str.navLive,
                   isActive: currentIndex == 0,
                   onTap: () => _onTap(context, 0),
                 ),
                 _NavItem(
                   icon: Icons.bolt,
-                  label: s.navPredict,
+                  label: str.navPredict,
                   isActive: currentIndex == 1,
                   onTap: () => _onTap(context, 1),
                 ),
                 _NavItem(
                   icon: Icons.emoji_events,
-                  label: s.navLeaderboard,
+                  label: str.navLeaderboard,
                   isActive: currentIndex == 2,
                   onTap: () => _onTap(context, 2),
                 ),
                 _NavItem(
                   icon: Icons.local_fire_department,
-                  label: s.navFeed,
+                  label: str.navFeed,
                   isActive: currentIndex == 3,
                   onTap: () => _onTap(context, 3),
                 ),
                 _NavItem(
                   icon: Icons.person,
-                  label: s.navProfile,
+                  label: str.navProfile,
                   isActive: currentIndex == 4,
                   onTap: () => _onTap(context, 4),
                 ),
@@ -105,20 +106,20 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 64,
+        width: s(context, 64),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
               color: isActive ? AppColors.neonGreen : AppColors.textSecondary,
-              size: 26,
+              size: s(context, 26),
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: sf(context, 11),
                 color: isActive ? AppColors.neonGreen : AppColors.textSecondary,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
               ),

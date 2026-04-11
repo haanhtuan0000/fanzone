@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../predict/providers/predict_provider.dart';
 import '../../live/providers/live_provider.dart';
@@ -19,19 +20,19 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     final profileState = ref.watch(profileStateProvider);
 
     if (profileState.isLoading && profileState.user == null) {
       return Scaffold(
-        appBar: AppBar(title: Text(s.profile)),
+        appBar: AppBar(title: Text(str.profile)),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(s.profile),
+        title: Text(str.profile),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: AppColors.red),
@@ -40,12 +41,12 @@ class ProfileScreen extends ConsumerWidget {
                 context: context,
                 builder: (ctx) => AlertDialog(
                   backgroundColor: AppColors.cardSurface,
-                  title: Text(s.logout, style: const TextStyle(color: AppColors.textPrimary)),
-                  content: Text(s.logoutConfirm, style: const TextStyle(color: AppColors.textSecondary)),
+                  title: Text(str.logout, style: const TextStyle(color: AppColors.textPrimary)),
+                  content: Text(str.logoutConfirm, style: const TextStyle(color: AppColors.textSecondary)),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: Text(s.cancel, style: const TextStyle(color: AppColors.textSecondary)),
+                      child: Text(str.cancel, style: const TextStyle(color: AppColors.textSecondary)),
                     ),
                     TextButton(
                       onPressed: () {
@@ -57,7 +58,7 @@ class ProfileScreen extends ConsumerWidget {
                         ref.read(userCoinsProvider.notifier).state = 0;
                         context.go('/welcome');
                       },
-                      child: Text(s.logout, style: const TextStyle(color: AppColors.red)),
+                      child: Text(str.logout, style: const TextStyle(color: AppColors.red)),
                     ),
                   ],
                 ),
@@ -72,7 +73,7 @@ class ProfileScreen extends ConsumerWidget {
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: sa(context, 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -84,18 +85,18 @@ class ProfileScreen extends ConsumerWidget {
                 joinDate: profileState.user?.createdAt,
                 onTap: () => context.push('/profile/edit'),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: s(context, 16)),
               XpBar(
                 currentXp: profileState.user?.currentXp ?? 0,
                 xpToNextLevel: profileState.user?.xpToNextLevel ?? 100,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: s(context, 16)),
               // Stats grid
               Row(
                 children: [
                   Expanded(
                     child: StatTile(
-                      label: s.accuracy,
+                      label: str.accuracy,
                       value: '${profileState.user?.accuracy ?? 0}%',
                       color: AppColors.neonGreen,
                       icon: Icons.gps_fixed,
@@ -104,7 +105,7 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: StatTile(
-                      label: s.predictions,
+                      label: str.predictions,
                       value: '${profileState.user?.totalPredictions ?? 0}',
                       color: AppColors.amber,
                       icon: Icons.bolt,
@@ -117,7 +118,7 @@ class ProfileScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: StatTile(
-                      label: s.rank,
+                      label: str.rank,
                       value: '#${profileState.user?.globalRank ?? "-"}',
                       color: AppColors.blue,
                       icon: Icons.emoji_events,
@@ -127,7 +128,7 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: StatTile(
-                      label: s.streak,
+                      label: str.streak,
                       value: '${profileState.user?.streakDays ?? 0}',
                       color: AppColors.purple,
                       icon: Icons.local_fire_department,
@@ -135,26 +136,26 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: s(context, 16)),
               StreakCalendar(streakDays: profileState.user?.streakDays ?? 0),
-              const SizedBox(height: 16),
+              SizedBox(height: s(context, 16)),
               Text(
-                s.achievements,
-                style: const TextStyle(
+                str.achievements,
+                style: TextStyle(
                   fontFamily: AppFonts.bebasNeue,
-                  fontSize: 20,
+                  fontSize: sf(context, 20),
                   color: AppColors.textSecondary,
                   letterSpacing: 2,
                 ),
               ),
               const SizedBox(height: 8),
               BadgeGrid(achievements: profileState.achievements),
-              const SizedBox(height: 16),
+              SizedBox(height: s(context, 16)),
               Text(
-                s.recentActivity,
-                style: const TextStyle(
+                str.recentActivity,
+                style: TextStyle(
                   fontFamily: AppFonts.bebasNeue,
-                  fontSize: 20,
+                  fontSize: sf(context, 20),
                   color: AppColors.textSecondary,
                   letterSpacing: 2,
                 ),
@@ -166,7 +167,7 @@ class ProfileScreen extends ConsumerWidget {
                 isLoadingMore: profileState.isLoadingMore,
                 onLoadMore: () => ref.read(profileStateProvider.notifier).loadMoreActivity(),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: s(context, 32)),
             ],
           ),
         ),

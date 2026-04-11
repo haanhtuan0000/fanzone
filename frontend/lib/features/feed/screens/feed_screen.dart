@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../live/providers/live_provider.dart';
 import '../providers/feed_provider.dart';
 import '../widgets/online_counter.dart';
@@ -58,7 +59,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     final feedState = ref.watch(feedStateProvider);
     final liveState = ref.watch(liveStateProvider);
 
@@ -78,7 +79,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(s.activity)),
+      appBar: AppBar(title: Text(str.activity)),
       body: Stack(
         children: [
           Column(
@@ -93,12 +94,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.local_fire_department, size: 64,
+                                Icon(Icons.local_fire_department, size: s(context, 64),
                                     color: AppColors.textSecondary.withOpacity(0.5)),
-                                const SizedBox(height: 16),
+                                SizedBox(height: s(context, 16)),
                                 Text(
-                                  s.noActivity,
-                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                                  str.noActivity,
+                                  style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 16)),
                                 ),
                               ],
                             ),
@@ -112,7 +113,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             },
                             child: ListView.builder(
                               controller: _scrollController,
-                              padding: const EdgeInsets.all(16),
+                              padding: sa(context, 16),
                               itemCount: feedState.events.length,
                               itemBuilder: (context, index) {
                                 final event = feedState.events[index];
@@ -153,8 +154,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               child: GestureDetector(
                 onTap: _scrollToTop,
                 child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 48),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin: sp(context, h: 48),
+                  padding: sp(context, h: 16, v: 8),
                   decoration: BoxDecoration(
                     color: AppColors.neonGreen,
                     borderRadius: BorderRadius.circular(20),
@@ -168,7 +169,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       const SizedBox(width: 6),
                       Text(
                         '$_newEventCount new events',
-                        style: const TextStyle(color: AppColors.background, fontWeight: FontWeight.w600, fontSize: 13),
+                        style: TextStyle(color: AppColors.background, fontWeight: FontWeight.w600, fontSize: sf(context, 13)),
                       ),
                     ],
                   ),

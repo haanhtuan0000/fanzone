@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/match.dart';
 import '../providers/match_detail_provider.dart';
@@ -14,17 +15,17 @@ class MatchDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final s = AppStrings.current;
+    final str = AppStrings.current;
     final detailAsync = ref.watch(matchDetailProvider(fixtureId));
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(s.matchResult),
+        title: Text(str.matchResult),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: sp(context, h: 10, v: 4),
               decoration: BoxDecoration(
                 color: AppColors.cardSurfaceLight,
                 borderRadius: BorderRadius.circular(6),
@@ -33,7 +34,7 @@ class MatchDetailScreen extends ConsumerWidget {
               child: Text('FT',
                 style: TextStyle(
                   fontFamily: AppFonts.barlowCondensed,
-                  fontSize: 10,
+                  fontSize: sf(context, 10),
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1,
                   color: AppColors.textSecondary.withOpacity(0.5),
@@ -46,7 +47,7 @@ class MatchDetailScreen extends ConsumerWidget {
         slivers: [
           // Static scoreboard
           if (match != null)
-            SliverToBoxAdapter(child: _staticScoreboard(s)),
+            SliverToBoxAdapter(child: _staticScoreboard(context, str)),
 
           // Content from API
           ...detailAsync.when(
@@ -63,28 +64,28 @@ class MatchDetailScreen extends ConsumerWidget {
             data: (detail) => [
               // Stats card
               if (detail.stats.isNotEmpty)
-                SliverToBoxAdapter(child: _statsCard(s, detail.stats)),
+                SliverToBoxAdapter(child: _statsCard(context, str, detail.stats)),
 
               // Timeline card
               if (detail.events.isNotEmpty)
-                SliverToBoxAdapter(child: _timelineCard(s, detail.events)),
+                SliverToBoxAdapter(child: _timelineCard(context, str, detail.events)),
 
               // My predictions card
               if (detail.predictions.isNotEmpty)
-                SliverToBoxAdapter(child: _predictionsCard(s, detail.predictions)),
+                SliverToBoxAdapter(child: _predictionsCard(context, str, detail.predictions)),
 
               // Empty predictions
               if (detail.predictions.isEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    child: Text(s.noPredictions,
+                    padding: sp(context, h: 14, v: 8),
+                    child: Text(str.noPredictions,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 13))),
                   ),
                 ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              SliverToBoxAdapter(child: SizedBox(height: s(context, 24))),
             ],
           ),
         ],
@@ -92,11 +93,11 @@ class MatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _staticScoreboard(dynamic s) {
+  Widget _staticScoreboard(BuildContext context, dynamic str) {
     final m = match!;
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-      padding: const EdgeInsets.all(16),
+      margin: sLTRB(context, 14, 8, 14, 12),
+      padding: sa(context, 16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment(-1, -0.5),
@@ -111,40 +112,40 @@ class MatchDetailScreen extends ConsumerWidget {
           // Teams + score
           Row(
             children: [
-              Expanded(child: _ftTeamColumn(m.homeLogoUrl, m.homeTeam)),
+              Expanded(child: _ftTeamColumn(context, m.homeLogoUrl, m.homeTeam)),
               Column(
                 children: [
                   Text(
                     '${m.homeScore}–${m.awayScore}',
                     style: TextStyle(
                       fontFamily: AppFonts.bebasNeue,
-                      fontSize: 52,
+                      fontSize: sf(context, 52),
                       letterSpacing: 4,
                       color: AppColors.textPrimary.withOpacity(0.48),
                     ),
                   ),
-                  Text(s.fullTimeLabel,
+                  Text(str.fullTimeLabel,
                     style: TextStyle(
                       fontFamily: AppFonts.barlowCondensed,
-                      fontSize: 10,
+                      fontSize: sf(context, 10),
                       fontWeight: FontWeight.w700,
                       letterSpacing: 2,
                       color: AppColors.textSecondary.withOpacity(0.4),
                     )),
                 ],
               ),
-              Expanded(child: _ftTeamColumn(m.awayLogoUrl, m.awayTeam)),
+              Expanded(child: _ftTeamColumn(context, m.awayLogoUrl, m.awayTeam)),
             ],
           ),
           // Meta chips
-          const SizedBox(height: 9),
+          SizedBox(height: s(context, 9)),
           Wrap(
             spacing: 5,
             runSpacing: 5,
             alignment: WrapAlignment.center,
             children: [
-              if (m.league != null) _chip(m.league!),
-              if (m.leagueRound != null) _chip(m.leagueRound!),
+              if (m.league != null) _chip(context, m.league!),
+              if (m.leagueRound != null) _chip(context, m.leagueRound!),
             ],
           ),
         ],
@@ -152,14 +153,14 @@ class MatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _ftTeamColumn(String? logoUrl, String name) {
+  Widget _ftTeamColumn(BuildContext context, String? logoUrl, String name) {
     return Column(
       children: [
         if (logoUrl != null)
-          CachedNetworkImage(imageUrl: logoUrl, width: 40, height: 40,
-            errorWidget: (_, __, ___) => const Text('⚽', style: TextStyle(fontSize: 28)))
+          CachedNetworkImage(imageUrl: logoUrl, width: s(context, 40), height: s(context, 40),
+            errorWidget: (_, __, ___) => Text('⚽', style: TextStyle(fontSize: sf(context, 28))))
         else
-          const Text('⚽', style: TextStyle(fontSize: 28)),
+          Text('⚽', style: TextStyle(fontSize: sf(context, 28))),
         const SizedBox(height: 5),
         Text(name,
           textAlign: TextAlign.center,
@@ -167,7 +168,7 @@ class MatchDetailScreen extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontFamily: AppFonts.barlowCondensed,
-            fontSize: 12,
+            fontSize: sf(context, 12),
             fontWeight: FontWeight.w700,
             color: AppColors.textSecondary.withOpacity(0.7),
           )),
@@ -175,9 +176,9 @@ class MatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _chip(String text) {
+  Widget _chip(BuildContext context, String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      padding: sp(context, h: 9, v: 3),
       decoration: BoxDecoration(
         color: AppColors.cardSurfaceLight.withOpacity(0.3),
         borderRadius: BorderRadius.circular(6),
@@ -186,7 +187,7 @@ class MatchDetailScreen extends ConsumerWidget {
       child: Text(text,
         style: TextStyle(
           fontFamily: AppFonts.barlowCondensed,
-          fontSize: 10,
+          fontSize: sf(context, 10),
           fontWeight: FontWeight.w700,
           letterSpacing: 1,
           color: AppColors.textSecondary.withOpacity(0.5),
@@ -194,9 +195,9 @@ class MatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _statsCard(dynamic s, Map<String, dynamic> stats) {
+  Widget _statsCard(BuildContext context, dynamic str, Map<String, dynamic> stats) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      margin: sLTRB(context, 14, 0, 14, 12),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(16),
@@ -206,31 +207,31 @@ class MatchDetailScreen extends ConsumerWidget {
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+            padding: sp(context, h: 15, v: 11),
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: AppColors.divider)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('📊 ${s.matchStats}',
-                  style: const TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: 11,
+                Text('📊 ${str.matchStats}',
+                  style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 11),
                     fontWeight: FontWeight.w700, letterSpacing: 2, color: AppColors.textSecondary)),
-                _chip(s.fullTimeLabel),
+                _chip(context, str.fullTimeLabel),
               ],
             ),
           ),
           // Stat rows
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: sa(context, 14),
             child: Column(
               children: [
-                _fstRow(stats['possession'], s.statPossession, true, 0),
-                _fstRow(stats['shots'], s.statShots, false, 1),
-                _fstRow(stats['shotsOnTarget'], s.statOnTarget, false, 2),
-                _fstRow(stats['corners'], s.statCorners, false, 3),
-                _fstRow(stats['yellowCards'], s.statCards, false, 4),
-                _fstRow(stats['offsides'], s.statOffsides, false, 5),
+                _fstRow(context, stats['possession'], str.statPossession, true, 0),
+                _fstRow(context, stats['shots'], str.statShots, false, 1),
+                _fstRow(context, stats['shotsOnTarget'], str.statOnTarget, false, 2),
+                _fstRow(context, stats['corners'], str.statCorners, false, 3),
+                _fstRow(context, stats['yellowCards'], str.statCards, false, 4),
+                _fstRow(context, stats['offsides'], str.statOffsides, false, 5),
               ],
             ),
           ),
@@ -239,7 +240,7 @@ class MatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _fstRow(Map<String, dynamic>? stat, String label, bool isPossession, int index) {
+  Widget _fstRow(BuildContext context, Map<String, dynamic>? stat, String label, bool isPossession, int index) {
     String homeVal = '-';
     String awayVal = '-';
     if (stat != null) {
@@ -253,7 +254,7 @@ class MatchDetailScreen extends ConsumerWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: sp(context, h: 9, v: 6),
       margin: const EdgeInsets.only(bottom: 3),
       decoration: BoxDecoration(
         color: index.isOdd ? Colors.transparent : AppColors.cardSurfaceLight.withOpacity(0.3),
@@ -264,21 +265,21 @@ class MatchDetailScreen extends ConsumerWidget {
           Expanded(
             child: Text(homeVal,
               textAlign: TextAlign.right,
-              style: const TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: 13,
+              style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 13),
                 fontWeight: FontWeight.w700, color: AppColors.blue)),
           ),
           SizedBox(
-            width: 100,
+            width: s(context, 100),
             child: Text(label,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 9, letterSpacing: 0.5,
+              style: TextStyle(fontSize: sf(context, 9), letterSpacing: 0.5,
                 fontFamily: AppFonts.barlowCondensed,
                 color: AppColors.textSecondary.withOpacity(0.4))),
           ),
           Expanded(
             child: Text(awayVal,
               textAlign: TextAlign.left,
-              style: const TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: 13,
+              style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 13),
                 fontWeight: FontWeight.w700, color: AppColors.amber)),
           ),
         ],
@@ -286,9 +287,9 @@ class MatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _timelineCard(dynamic s, List<MatchEvent> events) {
+  Widget _timelineCard(BuildContext context, dynamic str, List<MatchEvent> events) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      margin: sLTRB(context, 14, 0, 14, 12),
       decoration: BoxDecoration(
         color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(16),
@@ -297,24 +298,24 @@ class MatchDetailScreen extends ConsumerWidget {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+            padding: sp(context, h: 15, v: 11),
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: AppColors.divider)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('📋 ${s.matchTimeline}',
-                  style: const TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: 11,
+                Text('📋 ${str.matchTimeline}',
+                  style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 11),
                     fontWeight: FontWeight.w700, letterSpacing: 2, color: AppColors.textSecondary)),
-                _chip('90\''),
+                _chip(context, '90\''),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(14),
+            padding: sa(context, 14),
             child: Column(
-              children: events.map((e) => _timelineItem(e)).toList(),
+              children: events.map((e) => _timelineItem(context, e)).toList(),
             ),
           ),
         ],
@@ -322,7 +323,7 @@ class MatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _timelineItem(MatchEvent event) {
+  Widget _timelineItem(BuildContext context, MatchEvent event) {
     Color bgColor;
     Color borderColor;
     switch (event.colorType) {
@@ -353,7 +354,7 @@ class MatchDetailScreen extends ConsumerWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 5),
-      padding: const EdgeInsets.all(10),
+      padding: sa(context, 10),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(9),
@@ -363,26 +364,26 @@ class MatchDetailScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 32,
+            width: s(context, 32),
             child: Text(minuteStr,
               textAlign: TextAlign.right,
-              style: const TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 15, color: AppColors.textSecondary)),
+              style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 15), color: AppColors.textSecondary)),
           ),
-          const SizedBox(width: 9),
-          Text(event.icon, style: const TextStyle(fontSize: 15)),
-          const SizedBox(width: 9),
+          SizedBox(width: s(context, 9)),
+          Text(event.icon, style: TextStyle(fontSize: sf(context, 15))),
+          SizedBox(width: s(context, 9)),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '${event.playerName ?? ''} ${event.teamName != null ? '(${event.teamName})' : ''}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                  style: TextStyle(fontSize: sf(context, 13), fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                 ),
                 if (event.detail != null || event.assistName != null)
                   Text(
                     event.assistName != null ? 'Assist: ${event.assistName}' : event.detail ?? '',
-                    style: TextStyle(fontSize: 10, color: AppColors.textSecondary.withOpacity(0.4)),
+                    style: TextStyle(fontSize: sf(context, 10), color: AppColors.textSecondary.withOpacity(0.4)),
                   ),
               ],
             ),
@@ -392,14 +393,14 @@ class MatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _predictionsCard(dynamic s, List<MatchPrediction> predictions) {
+  Widget _predictionsCard(BuildContext context, dynamic str, List<MatchPrediction> predictions) {
     final correct = predictions.where((p) => p.status == 'correct').length;
     final wrong = predictions.where((p) => p.status == 'wrong').length;
     final totalCoins = predictions.fold<int>(0, (sum, p) => sum + (p.coinsResult ?? 0));
     final accuracy = predictions.isNotEmpty ? (correct / predictions.length * 100).round() : 0;
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      margin: sLTRB(context, 14, 0, 14, 12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(13),
         border: Border.all(color: AppColors.neonGreen.withOpacity(0.18)),
@@ -409,25 +410,25 @@ class MatchDetailScreen extends ConsumerWidget {
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+            padding: sp(context, h: 13, v: 9),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: AppColors.neonGreen.withOpacity(0.1))),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('🎯 ${s.myPredictionsTitle}',
-                  style: const TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: 10,
+                Text('🎯 ${str.myPredictionsTitle}',
+                  style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 10),
                     fontWeight: FontWeight.w700, letterSpacing: 2, color: AppColors.neonGreen)),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                  padding: sp(context, h: 9, v: 3),
                   decoration: BoxDecoration(
                     color: AppColors.neonGreen.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.neonGreen.withOpacity(0.22)),
                   ),
                   child: Text('${totalCoins >= 0 ? '+' : ''}$totalCoins🪙',
-                    style: const TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: 9,
+                    style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 9),
                       fontWeight: FontWeight.w700, color: AppColors.neonGreen)),
                 ),
               ],
@@ -437,18 +438,18 @@ class MatchDetailScreen extends ConsumerWidget {
           // Summary row
           Row(
             children: [
-              _summaryItem('$correct', s.correctStatus, AppColors.neonGreen),
-              _summaryItem('$wrong', s.wrongStatus, AppColors.red),
-              _summaryItem('${totalCoins >= 0 ? '+' : ''}$totalCoins', '🪙', AppColors.amber),
-              _summaryItem('$accuracy%', s.accuracy, AppColors.purple),
+              _summaryItem(context, '$correct', str.correctStatus, AppColors.neonGreen),
+              _summaryItem(context, '$wrong', str.wrongStatus, AppColors.red),
+              _summaryItem(context, '${totalCoins >= 0 ? '+' : ''}$totalCoins', '🪙', AppColors.amber),
+              _summaryItem(context, '$accuracy%', str.accuracy, AppColors.purple),
             ],
           ),
 
           // Prediction list
           Padding(
-            padding: const EdgeInsets.fromLTRB(9, 7, 9, 9),
+            padding: sLTRB(context, 9, 7, 9, 9),
             child: Column(
-              children: predictions.map((p) => _predictionRow(p)).toList(),
+              children: predictions.map((p) => _predictionRow(context, p)).toList(),
             ),
           ),
         ],
@@ -456,19 +457,19 @@ class MatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _summaryItem(String value, String label, Color color) {
+  Widget _summaryItem(BuildContext context, String value, String label, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 7),
+        padding: sp(context, v: 10, h: 7),
         decoration: const BoxDecoration(
           border: Border(right: BorderSide(color: AppColors.divider)),
         ),
         child: Column(
           children: [
             Text(value,
-              style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: 23, color: color)),
+              style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 23), color: color)),
             Text(label,
-              style: TextStyle(fontSize: 9, letterSpacing: 0.5,
+              style: TextStyle(fontSize: sf(context, 9), letterSpacing: 0.5,
                 color: AppColors.textSecondary.withOpacity(0.4))),
           ],
         ),
@@ -476,7 +477,7 @@ class MatchDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _predictionRow(MatchPrediction pred) {
+  Widget _predictionRow(BuildContext context, MatchPrediction pred) {
     final isCorrect = pred.status == 'correct';
     final bgColor = isCorrect
         ? AppColors.neonGreen.withOpacity(0.06)
@@ -495,22 +496,22 @@ class MatchDetailScreen extends ConsumerWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: sp(context, h: 9, v: 6),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Text(icon, style: const TextStyle(fontSize: 13)),
-          const SizedBox(width: 7),
+          Text(icon, style: TextStyle(fontSize: sf(context, 13))),
+          SizedBox(width: s(context, 7)),
           Expanded(
             child: Text(qText,
-              style: TextStyle(fontSize: 11, color: AppColors.textSecondary.withOpacity(0.7)),
+              style: TextStyle(fontSize: sf(context, 11), color: AppColors.textSecondary.withOpacity(0.7)),
               maxLines: 2, overflow: TextOverflow.ellipsis),
           ),
           Text(coinsStr,
-            style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: 12,
+            style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 12),
               fontWeight: FontWeight.w700, color: coinsColor)),
         ],
       ),

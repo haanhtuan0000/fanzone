@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../app/constants.dart';
+import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
 
 class ProfileHero extends StatelessWidget {
@@ -40,8 +41,8 @@ class ProfileHero extends StatelessWidget {
             alignment: Alignment.bottomRight,
             children: [
               Container(
-                width: 100,
-                height: 100,
+                width: s(context, 100),
+                height: s(context, 100),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
@@ -64,22 +65,22 @@ class ProfileHero extends StatelessWidget {
                     color: AppColors.cardSurface,
                   ),
                   child: Center(
-                    child: Text(avatarEmoji, style: const TextStyle(fontSize: 44)),
+                    child: Text(avatarEmoji, style: TextStyle(fontSize: sf(context, 44))),
                   ),
                 ),
               ),
               // Level badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: sp(context, h: 8, v: 2),
                 decoration: BoxDecoration(
                   color: AppColors.neonGreen,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   'Lv.$level',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: AppFonts.bebasNeue,
-                    fontSize: 14,
+                    fontSize: sf(context, 14),
                     color: AppColors.background,
                   ),
                 ),
@@ -101,11 +102,11 @@ class ProfileHero extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: s(context, 12)),
         Text(
           displayName,
-          style: const TextStyle(
-            fontSize: 22,
+          style: TextStyle(
+            fontSize: sf(context, 22),
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
           ),
@@ -113,9 +114,9 @@ class ProfileHero extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.amber,
-            fontSize: 14,
+            fontSize: sf(context, 14),
             fontWeight: FontWeight.w600,
             letterSpacing: 1,
           ),
@@ -125,9 +126,9 @@ class ProfileHero extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             AppStrings.current.memberSince(joinDate!.month, joinDate!.year),
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
-              fontSize: 12,
+              fontSize: sf(context, 12),
             ),
           ),
         ],
