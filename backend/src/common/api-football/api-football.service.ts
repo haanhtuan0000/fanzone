@@ -76,20 +76,25 @@ export class ApiFootballService {
     return false;
   }
 
-  private lastRequestTime = 0;
+  /** Serial queue: ensures only one API request runs at a time with 2s gap */
+  private requestQueue: Promise<any> = Promise.resolve();
 
   async request<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
+    // Chain onto the queue — serializes ALL requests through a single pipeline
+    return new Promise<T>((resolve, reject) => {
+      this.requestQueue = this.requestQueue
+        .then(() => this.doRequest<T>(endpoint, params))
+        .then(resolve)
+        .catch(reject);
+    });
+  }
+
+  private async doRequest<T>(endpoint: string, params: Record<string, string>): Promise<T> {
     const url = new URL(endpoint, this.baseUrl);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
-    // Minimum 2s between requests — API-Football has per-minute rate limits
-    // (e.g., 30/min = 1 every 2s). This prevents "Too many requests" errors.
-    const minGapMs = 2000;
-    const timeSinceLast = Date.now() - this.lastRequestTime;
-    if (timeSinceLast < minGapMs) {
-      await new Promise((r) => setTimeout(r, minGapMs - timeSinceLast));
-    }
-    this.lastRequestTime = Date.now();
+    // 2s gap between requests to respect per-minute rate limit
+    await new Promise((r) => setTimeout(r, 2000));
 
     let retries = 0;
     const maxRetries = 3;
