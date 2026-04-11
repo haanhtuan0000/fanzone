@@ -67,6 +67,9 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       return;
     }
     this.logger.log('MatchDataManager starting (30s heartbeat)');
+    // Clear stale fixture caches so league filter changes take effect immediately
+    await this.redis.del('cache:fixtures:live');
+    await this.redis.del('cache:fixtures:today');
     await this.scheduleTracker.refresh();
     await this.recoverMatchStates();
     this.heartbeat = setInterval(() => this.tick(), 30_000);
