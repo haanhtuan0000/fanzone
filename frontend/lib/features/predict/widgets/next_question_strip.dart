@@ -4,26 +4,12 @@ import '../../../app/constants.dart';
 import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
 
-/// Phase boundaries in match minutes — when next questions are generated.
-const _phaseBoundaries = [0, 15, 35, 45, 46, 60, 75, 90];
-
-/// Estimate next question minute based on current elapsed time.
-/// Returns null if match is past 90 min.
-int? _estimateNextQuestionMinute(int? elapsed) {
-  if (elapsed == null) return null;
-  for (final boundary in _phaseBoundaries) {
-    if (boundary > elapsed) return boundary;
-  }
-  return null; // Past 90 min
-}
-
 /// Compact inline countdown to the next question.
 /// Shows between answered cards area, not as a standalone screen.
 class NextQuestionStrip extends StatefulWidget {
   final DateTime? nextOpensAt;
-  final int? matchElapsed;
   final VoidCallback? onReady;
-  const NextQuestionStrip({super.key, this.nextOpensAt, this.matchElapsed, this.onReady});
+  const NextQuestionStrip({super.key, this.nextOpensAt, this.onReady});
 
   @override
   State<NextQuestionStrip> createState() => _NextQuestionStripState();
@@ -82,29 +68,18 @@ class _NextQuestionStripState extends State<NextQuestionStrip> {
     final str = AppStrings.current;
     final hasCountdown = widget.nextOpensAt != null && _remaining.inSeconds > 0;
 
-    // Estimate next question time from phase schedule
-    final nextMin = _estimateNextQuestionMinute(widget.matchElapsed);
-    final hasEstimate = !hasCountdown && nextMin != null && widget.matchElapsed != null;
-    final estimateMin = hasEstimate ? (nextMin! - widget.matchElapsed!) : 0;
-
     String text;
     IconData icon;
-
-    // HT awareness: during half-time (elapsed 45-47), show specific message
-    final isHalfTime = widget.matchElapsed != null && widget.matchElapsed! >= 45 && widget.matchElapsed! <= 47;
 
     if (_loading) {
       text = 'Loading question...';
       icon = Icons.hourglass_top;
     } else if (hasCountdown) {
-      text = '${str.nextQuestionIn} ${_remaining.inSeconds}s';
+      final remaining = _remaining.inMinutes > 0
+          ? '~${_remaining.inMinutes} min'
+          : '${_remaining.inSeconds}s';
+      text = '${str.nextQuestionIn} $remaining';
       icon = Icons.hourglass_bottom;
-    } else if (isHalfTime && widget.nextOpensAt == null) {
-      text = 'Questions resume in the 2nd half';
-      icon = Icons.coffee;
-    } else if (hasEstimate && estimateMin > 0) {
-      text = '${str.nextQuestionIn} ~${estimateMin} min';
-      icon = Icons.schedule;
     } else {
       text = str.waitingForNewQuestion;
       icon = Icons.access_time;

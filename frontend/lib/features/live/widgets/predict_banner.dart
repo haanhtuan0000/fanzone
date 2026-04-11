@@ -7,22 +7,10 @@ import '../../../core/models/question.dart';
 
 /// Shows a preview of the current prediction question with countdown and reward.
 /// When no active question, shows countdown to next question.
-/// Phase boundaries in match minutes.
-const _phaseBoundaries = [0, 15, 35, 45, 46, 60, 75, 90];
-
-int? _estimateNextQuestionMinute(int? elapsed) {
-  if (elapsed == null) return null;
-  for (final b in _phaseBoundaries) {
-    if (b > elapsed) return b;
-  }
-  return null;
-}
-
 class PredictBanner extends StatefulWidget {
   final Question? activeQuestion;
   final DateTime? nextOpensAt;
-  final int? matchElapsed;
-  const PredictBanner({super.key, this.activeQuestion, this.nextOpensAt, this.matchElapsed});
+  const PredictBanner({super.key, this.activeQuestion, this.nextOpensAt});
 
   @override
   State<PredictBanner> createState() => _PredictBannerState();
@@ -157,28 +145,10 @@ class _PredictBannerState extends State<PredictBanner> {
                         style: const TextStyle(color: AppColors.amber, fontSize: 13),
                       ),
                     ] else ...[
-                      () {
-                        final nextMin = _estimateNextQuestionMinute(widget.matchElapsed);
-                        final hasEstimate = nextMin != null && widget.matchElapsed != null;
-                        final estMin = hasEstimate ? (nextMin! - widget.matchElapsed!) : 0;
-                        if (hasEstimate && estMin > 0) {
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.schedule, color: AppColors.amber, size: 14),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${s.nextQuestionIn} ~$estMin min',
-                                style: const TextStyle(color: AppColors.amber, fontSize: 13),
-                              ),
-                            ],
-                          );
-                        }
-                        return Text(
-                          s.waitingForNewQuestion,
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                        );
-                      }(),
+                      Text(
+                        s.waitingForNewQuestion,
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      ),
                     ],
                     const Spacer(),
                     Text(

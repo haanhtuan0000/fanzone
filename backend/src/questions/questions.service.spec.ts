@@ -186,6 +186,122 @@ describe('QuestionsService', () => {
     });
   });
 
+  // ─── nextEstimatedAt ───
+
+  describe('nextEstimatedAt', () => {
+    it('returns nextEstimatedAt when no upcoming questions exist', async () => {
+      // Question at minute 12, opened 1 min ago => match is ~minute 13 now
+      // Next boundary: 15, which is kickoff + 15 min = ~2 min from now (future)
+      const latestOpensAt = new Date(Date.now() - 1 * 60_000);
+      prisma.question.findFirst
+        .mockResolvedValueOnce(null)   // no OPEN
+        .mockResolvedValueOnce(null)   // no PENDING ready to open
+        .mockResolvedValueOnce({       // latest question for estimation
+          matchMinute: 12,
+          opensAt: latestOpensAt,
+        });
+      prisma.question.findMany.mockResolvedValue([]); // empty upcoming, pendingResults, resolved
+
+      const result = await service.getActiveQuestions(12345);
+
+      expect(result.nextEstimatedAt).toBeTruthy();
+      // Next future boundary after minute 12 is minute 15
+      const estimated = new Date(result.nextEstimatedAt!);
+      const estimatedKickoff = latestOpensAt.getTime() - 12 * 60_000;
+      const expectedTime = new Date(estimatedKickoff + 15 * 60_000);
+      expect(Math.abs(estimated.getTime() - expectedTime.getTime())).toBeLessThan(1000);
+    });
+
+    it('returns null nextEstimatedAt when upcoming questions exist', async () => {
+      const pending = createMockPendingQuestion();
+      prisma.question.findFirst.mockResolvedValue(null);
+      prisma.question.findMany
+        .mockResolvedValueOnce([pending]) // upcoming
+        .mockResolvedValueOnce([])        // pendingResults
+        .mockResolvedValueOnce([]);       // resolved
+
+      const result = await service.getActiveQuestions(12345);
+
+      expect(result.nextEstimatedAt).toBeNull();
+    });
+
+    it('returns null nextEstimatedAt when match is past 90 min', async () => {
+      prisma.question.findFirst
+        .mockResolvedValueOnce(null)   // no OPEN
+        .mockResolvedValueOnce(null)   // no PENDING ready
+        .mockResolvedValueOnce({       // latest at minute 92
+          matchMinute: 92,
+          opensAt: new Date(Date.now() - 5 * 60_000),
+        });
+      prisma.question.findMany.mockResolvedValue([]);
+
+      const result = await service.getActiveQuestions(12345);
+
+      expect(result.nextEstimatedAt).toBeNull();
+    });
+
+    it('returns null nextEstimatedAt when open question exists', async () => {
+      const openQ = createMockQuestion({ status: 'OPEN', closesAt: new Date(Date.now() + 30_000) });
+      prisma.question.findFirst.mockResolvedValue(openQ);
+      prisma.question.findMany.mockResolvedValue([]);
+      redis.hgetall.mockResolvedValue({});
+
+      const result = await service.getActiveQuestions(12345);
+
+      expect(result.nextEstimatedAt).toBeNull();
+    });
+
+    it('returns null nextEstimatedAt when no questions ever generated', async () => {
+      prisma.question.findFirst
+        .mockResolvedValueOnce(null)   // no OPEN
+        .mockResolvedValueOnce(null)   // no PENDING ready
+        .mockResolvedValueOnce(null);  // no latest question at all
+      prisma.question.findMany.mockResolvedValue([]);
+
+      const result = await service.getActiveQuestions(12345);
+
+      expect(result.nextEstimatedAt).toBeNull();
+    });
+
+    it('nextEstimatedAt is always in the future', async () => {
+      // Latest question at minute 10, opened 2 real minutes ago
+      // => kickoff was 12 min ago, next boundary (15) is in 3 real min = future
+      const latestOpensAt = new Date(Date.now() - 2 * 60_000);
+      prisma.question.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ matchMinute: 10, opensAt: latestOpensAt });
+      prisma.question.findMany.mockResolvedValue([]);
+
+      const result = await service.getActiveQuestions(12345);
+
+      expect(result.nextEstimatedAt).toBeTruthy();
+      const estimated = new Date(result.nextEstimatedAt!);
+      expect(estimated.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it('skips past boundaries and returns next future one', async () => {
+      // Latest at minute 10, but opened 10 min ago => match is ~minute 20 now
+      // Boundary 15 is in the past, boundary 35 should be returned
+      const latestOpensAt = new Date(Date.now() - 10 * 60_000);
+      prisma.question.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ matchMinute: 10, opensAt: latestOpensAt });
+      prisma.question.findMany.mockResolvedValue([]);
+
+      const result = await service.getActiveQuestions(12345);
+
+      expect(result.nextEstimatedAt).toBeTruthy();
+      const estimated = new Date(result.nextEstimatedAt!);
+      expect(estimated.getTime()).toBeGreaterThan(Date.now());
+      // Should be boundary 35, which is ~15 real min from now
+      const estimatedKickoff = latestOpensAt.getTime() - 10 * 60_000;
+      const boundary35Time = estimatedKickoff + 35 * 60_000;
+      expect(Math.abs(estimated.getTime() - boundary35Time)).toBeLessThan(1000);
+    });
+  });
+
   // ─── getTemplateIdsForFixture ───
 
   describe('getTemplateIdsForFixture', () => {

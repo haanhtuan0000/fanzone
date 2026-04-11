@@ -121,8 +121,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                 child: NextQuestionStrip(
                   nextOpensAt: predictState.upcomingQuestions.isNotEmpty
                       ? predictState.upcomingQuestions.first.opensAt
-                      : null,
-                  matchElapsed: activeMatch?.elapsed,
+                      : predictState.nextEstimatedAt,
                   onReady: () {
                     final match = ref.read(liveStateProvider).activeMatch;
                     if (match != null) {
@@ -235,27 +234,8 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
               // Skipped/missed questions intentionally hidden
             ],
 
-            // ── DEBUG: All questions for this match ──
-            SliverToBoxAdapter(child: _sectionDivider(context, 'DEBUG — ALL QUESTIONS')),
-            if (question != null)
-              SliverToBoxAdapter(child: _debugQuestionTile(context, question, 'OPEN')),
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => _debugQuestionTile(context, predictState.upcomingQuestions[index], 'PENDING'),
-                childCount: predictState.upcomingQuestions.length,
-              ),
-            ),
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final a = answered[index];
-                  return _debugQuestionTile(context, a.question, a.status.toUpperCase(), pick: a.myPickOptionId);
-                },
-                childCount: answered.length,
-              ),
-            ),
-            SliverToBoxAdapter(child: _sectionDivider(context, 'END DEBUG')),
-            // ── END DEBUG ──
+            // ── DEBUG: All questions for this match (sorted by matchMinute desc) ──
+            ..._buildDebugSection(context, question, predictState, answered),
 
             // Bottom padding
             SliverToBoxAdapter(child: SizedBox(height: s(context, 24))),
@@ -277,6 +257,33 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
         ],
       ),
     );
+  }
+
+  List<Widget> _buildDebugSection(BuildContext context, Question? question, PredictState predictState, List<AnsweredQuestion> answered) {
+    final debugEntries = <({Question q, String status, String? pick})>[];
+    if (question != null) {
+      debugEntries.add((q: question, status: 'OPEN', pick: null));
+    }
+    for (final u in predictState.upcomingQuestions) {
+      debugEntries.add((q: u, status: 'PENDING', pick: null));
+    }
+    for (final a in answered) {
+      debugEntries.add((q: a.question, status: a.status.toUpperCase(), pick: a.myPickOptionId));
+    }
+    debugEntries.sort((a, b) => (b.q.matchMinute ?? 0).compareTo(a.q.matchMinute ?? 0));
+    return [
+      SliverToBoxAdapter(child: _sectionDivider(context, 'DEBUG — ALL QUESTIONS')),
+      SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final e = debugEntries[index];
+            return _debugQuestionTile(context, e.q, e.status, pick: e.pick);
+          },
+          childCount: debugEntries.length,
+        ),
+      ),
+      SliverToBoxAdapter(child: _sectionDivider(context, 'END DEBUG')),
+    ];
   }
 
   Widget _debugQuestionTile(BuildContext context, Question q, String status, {String? pick}) {

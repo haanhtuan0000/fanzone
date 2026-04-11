@@ -266,6 +266,155 @@ describe('MatchScenarioEngine', () => {
       expect(opensAt2).toBeGreaterThanOrEqual(opensAt1);
     });
 
+    it('maintains consistent matchMinutes across phases (kickoffTime stable)', async () => {
+      templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
+
+      // Phase 1: EARLY_H1 at elapsed=5
+      await engine.onPhaseChange(fixtureId, 'EARLY_H1', teams, 5, score);
+      const call1 = questionsService.createQuestion.mock.calls[0][0];
+
+      // Phase 2: MID_H1 at elapsed=20
+      redis.get.mockImplementation((key: string) => {
+        if (key.includes('last-generated')) return Promise.resolve('EARLY_H1');
+        return Promise.resolve(null);
+      });
+      await engine.onPhaseChange(fixtureId, 'MID_H1', teams, 20, score);
+
+      const call2Idx = questionsService.createQuestion.mock.calls.length - 1;
+      const call2 = questionsService.createQuestion.mock.calls[call2Idx][0];
+
+      // MID_H1 question matchMinute must be > EARLY_H1 question matchMinute
+      expect(call2.matchMinute).toBeGreaterThan(call1.matchMinute);
+      // And within MID_H1 phase range (15-35)
+      expect(call2.matchMinute).toBeGreaterThanOrEqual(15);
+      expect(call2.matchMinute).toBeLessThanOrEqual(35);
+    });
+
+    it('does not recalculate kickoffTime across phases', async () => {
+      templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
+
+      await engine.onPhaseChange(fixtureId, 'EARLY_H1', teams, 5, score);
+
+      const states = (engine as any).fixtureStates as Map<number, any>;
+      const kickoffAfterPhase1 = states.get(fixtureId).kickoffTime;
+      expect(kickoffAfterPhase1).toBeDefined();
+      expect(kickoffAfterPhase1).not.toBeNull();
+
+      // Phase 2
+      redis.get.mockImplementation((key: string) => {
+        if (key.includes('last-generated')) return Promise.resolve('EARLY_H1');
+        return Promise.resolve(null);
+      });
+      await engine.onPhaseChange(fixtureId, 'MID_H1', teams, 20, score);
+
+      const kickoffAfterPhase2 = states.get(fixtureId).kickoffTime;
+      // kickoffTime must be identical — set once, never recalculated
+      expect(kickoffAfterPhase2).toBe(kickoffAfterPhase1);
+    });
+
+    it('kickoffTime survives half-time and produces correct 2H matchMinutes', async () => {
+      templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
+
+      let lastPhase: string | null = null;
+      redis.get.mockImplementation((key: string) => {
+        if (key.includes('last-generated')) return Promise.resolve(lastPhase);
+        return Promise.resolve(null);
+      });
+      redis.set.mockImplementation((key: string, value: string) => {
+        if (key.includes('last-generated')) lastPhase = value;
+        return Promise.resolve(undefined);
+      });
+
+      // 1H
+      await engine.onPhaseChange(fixtureId, 'EARLY_H1', teams, 5, score);
+      const h1Call = questionsService.createQuestion.mock.calls[0][0];
+
+      // HT
+      await engine.onPhaseChange(fixtureId, 'HALF_TIME', teams, 45, score);
+
+      // 2H
+      await engine.onPhaseChange(fixtureId, 'EARLY_H2', teams, 50, score);
+      const h2Idx = questionsService.createQuestion.mock.calls.length - 1;
+      const h2Call = questionsService.createQuestion.mock.calls[h2Idx][0];
+
+      // 2H matchMinute must be > 1H matchMinute
+      expect(h2Call.matchMinute).toBeGreaterThan(h1Call.matchMinute);
+      // And should be in EARLY_H2 range (46-60)
+      expect(h2Call.matchMinute).toBeGreaterThanOrEqual(46);
+      expect(h2Call.matchMinute).toBeLessThanOrEqual(60);
+
+      // kickoffTime must still be the same
+      const states = (engine as any).fixtureStates as Map<number, any>;
+      expect(states.get(fixtureId).kickoffTime).toBeDefined();
+    });
+
+    it('full match lifecycle produces monotonically increasing matchMinutes (non-HT phases)', async () => {
+      templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
+
+      let lastPhase: string | null = null;
+      redis.get.mockImplementation((key: string) => {
+        if (key.includes('last-generated')) return Promise.resolve(lastPhase);
+        return Promise.resolve(null);
+      });
+      redis.set.mockImplementation((key: string, value: string) => {
+        if (key.includes('last-generated')) lastPhase = value;
+        return Promise.resolve(undefined);
+      });
+
+      // Skip HALF_TIME — its short-phase logic uses Date.now() for opensAt,
+      // which in a synchronous test produces matchMinute ≈ elapsed at fixture creation
+      const phases: [string, number][] = [
+        ['EARLY_H1', 5],
+        ['MID_H1', 20],
+        ['LATE_H1', 38],
+        ['EARLY_H2', 50],
+        ['MID_H2', 65],
+        ['LATE_H2', 80],
+      ];
+
+      const matchMinutes: number[] = [];
+      for (const [phase, elapsed] of phases) {
+        await engine.onPhaseChange(fixtureId, phase as any, teams, elapsed, score);
+        const lastCall = questionsService.createQuestion.mock.calls;
+        if (lastCall.length > matchMinutes.length) {
+          matchMinutes.push(lastCall[lastCall.length - 1][0].matchMinute);
+        }
+      }
+
+      // All matchMinutes must be strictly increasing
+      for (let i = 1; i < matchMinutes.length; i++) {
+        expect(matchMinutes[i]).toBeGreaterThan(matchMinutes[i - 1]);
+      }
+    });
+
+    it('server restart mid-game: kickoffTime set from current elapsed, subsequent phases consistent', async () => {
+      templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
+
+      // Server starts tracking match at minute 60 (mid-game join)
+      await engine.onPhaseChange(fixtureId, 'MID_H2', teams, 60, score);
+      const call1 = questionsService.createQuestion.mock.calls[0][0];
+
+      const states = (engine as any).fixtureStates as Map<number, any>;
+      const kickoff = states.get(fixtureId).kickoffTime;
+      expect(kickoff).toBeDefined();
+
+      // Next phase at minute 76
+      redis.get.mockImplementation((key: string) => {
+        if (key.includes('last-generated')) return Promise.resolve('MID_H2');
+        return Promise.resolve(null);
+      });
+      await engine.onPhaseChange(fixtureId, 'LATE_H2', teams, 76, score);
+      const call2Idx = questionsService.createQuestion.mock.calls.length - 1;
+      const call2 = questionsService.createQuestion.mock.calls[call2Idx][0];
+
+      // kickoffTime unchanged
+      expect(states.get(fixtureId).kickoffTime).toBe(kickoff);
+      // matchMinutes increasing and in correct ranges
+      expect(call1.matchMinute).toBeGreaterThanOrEqual(60);
+      expect(call2.matchMinute).toBeGreaterThan(call1.matchMinute);
+      expect(call2.matchMinute).toBeGreaterThanOrEqual(75);
+    });
+
     it('returns empty when no templates available', async () => {
       templateService.selectForPhaseWithCategories.mockResolvedValue([]);
       templateService.selectForPhase.mockResolvedValue([]);
@@ -387,6 +536,44 @@ describe('MatchScenarioEngine', () => {
       const result = await engine.onMatchEvent(fixtureId, event as any, teams, score);
 
       expect(result).toBeNull();
+    });
+
+    it('event-triggered question uses same kickoffTime as phase-scheduled questions', async () => {
+      // Verify kickoffTime was set during beforeEach phase setup
+      const states = (engine as any).fixtureStates as Map<number, any>;
+      const kickoffFromPhase = states.get(fixtureId).kickoffTime;
+      expect(kickoffFromPhase).toBeDefined();
+
+      // Fire a goal event at minute 30
+      const event = { type: 'Goal', time: { elapsed: 30 } };
+      await engine.onMatchEvent(fixtureId, event as any, teams, score);
+
+      // kickoffTime must not have changed
+      expect(states.get(fixtureId).kickoffTime).toBe(kickoffFromPhase);
+    });
+
+    it('sets kickoffTime from event elapsed when no prior phase exists', async () => {
+      // Create a fresh engine (no prior onPhaseChange)
+      const freshModule = await Test.createTestingModule({
+        providers: [
+          MatchScenarioEngine,
+          { provide: RedisService, useValue: redis },
+          { provide: QuestionsService, useValue: questionsService },
+          { provide: TemplateService, useValue: templateService },
+          { provide: VariableResolverService, useValue: variableResolver },
+        ],
+      }).compile();
+      const freshEngine = freshModule.get<MatchScenarioEngine>(MatchScenarioEngine);
+
+      const event = { type: 'Goal', time: { elapsed: 25 } };
+      await freshEngine.onMatchEvent(fixtureId, event as any, teams, score);
+
+      const states = (freshEngine as any).fixtureStates as Map<number, any>;
+      const state = states.get(fixtureId);
+      expect(state).toBeDefined();
+      expect(state.kickoffTime).toBeDefined();
+      // kickoffTime should be ~25 min before now
+      expect(Math.abs(state.kickoffTime - (Date.now() - 25 * 60_000))).toBeLessThan(2000);
     });
   });
 

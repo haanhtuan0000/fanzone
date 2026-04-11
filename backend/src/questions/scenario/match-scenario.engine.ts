@@ -25,6 +25,7 @@ interface FixtureState {
   currentPhase: MatchPhase;
   questionsGenerated: number;
   lastQuestionTime: number;
+  kickoffTime: number | null; // epoch ms, set once on first phase — never recalculated
 }
 
 /**
@@ -112,7 +113,7 @@ export class MatchScenarioEngine {
     elapsed?: number,
     score?: { home: number; away: number },
   ) {
-    const state = this.getOrCreateState(fixtureId, newPhase);
+    const state = this.getOrCreateState(fixtureId, newPhase, elapsed);
 
     // Prevent generating for the same phase twice — persisted in Redis to survive restarts
     const phaseKey = `phase:${fixtureId}:last-generated`;
@@ -176,7 +177,7 @@ export class MatchScenarioEngine {
 
     // Calculate spaced opensAt timestamps within the phase
     const currentElapsed = elapsed ?? 0;
-    const kickoffTime = new Date(Date.now() - currentElapsed * 60_000);
+    const kickoffTime = new Date(state.kickoffTime ?? (Date.now() - currentElapsed * 60_000));
     // If this is the first batch for this fixture, open first question immediately
     const isFirstBatch = state.questionsGenerated === 0;
     const scheduledTimes = this.calculateSpacedTimes(newPhase, templates.length, kickoffTime, currentElapsed, isFirstBatch);
@@ -227,7 +228,7 @@ export class MatchScenarioEngine {
     const trigger = EVENT_TRIGGER_MAP[eventType];
     if (!trigger) return null;
 
-    const state = this.getOrCreateState(fixtureId);
+    const state = this.getOrCreateState(fixtureId, undefined, event.time?.elapsed);
 
     // Max questions cap
     if (state.questionsGenerated >= MAX_QUESTIONS_PER_MATCH) {
@@ -382,15 +383,20 @@ export class MatchScenarioEngine {
   //  Internal helpers
   // ──────────────────────────────────────────────
 
-  private getOrCreateState(fixtureId: number, phase?: MatchPhase): FixtureState {
+  private getOrCreateState(fixtureId: number, phase?: MatchPhase, elapsed?: number): FixtureState {
     let state = this.fixtureStates.get(fixtureId);
     if (!state) {
       state = {
         currentPhase: phase ?? 'PRE_MATCH',
         questionsGenerated: 0,
         lastQuestionTime: 0,
+        kickoffTime: elapsed != null ? Date.now() - elapsed * 60_000 : null,
       };
       this.fixtureStates.set(fixtureId, state);
+    }
+    // If kickoffTime was never set and now we have elapsed, set it once
+    if (state.kickoffTime == null && elapsed != null) {
+      state.kickoffTime = Date.now() - elapsed * 60_000;
     }
     return state;
   }

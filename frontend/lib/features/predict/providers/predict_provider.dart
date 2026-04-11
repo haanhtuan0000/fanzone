@@ -39,6 +39,7 @@ class PredictState {
   final int totalCoinsEarned;
   final int totalQuestions;
   final bool showFirstPredictionBonus;
+  final DateTime? nextEstimatedAt;
 
   const PredictState({
     this.fixtureId,
@@ -53,6 +54,7 @@ class PredictState {
     this.totalCoinsEarned = 0,
     this.totalQuestions = 0,
     this.showFirstPredictionBonus = false,
+    this.nextEstimatedAt,
   });
 
   PredictState copyWith({
@@ -70,6 +72,8 @@ class PredictState {
     int? totalCoinsEarned,
     int? totalQuestions,
     bool? showFirstPredictionBonus,
+    DateTime? nextEstimatedAt,
+    bool clearNextEstimatedAt = false,
   }) {
     return PredictState(
       fixtureId: fixtureId ?? this.fixtureId,
@@ -84,6 +88,7 @@ class PredictState {
       totalCoinsEarned: totalCoinsEarned ?? this.totalCoinsEarned,
       totalQuestions: totalQuestions ?? this.totalQuestions,
       showFirstPredictionBonus: showFirstPredictionBonus ?? false,
+      nextEstimatedAt: clearNextEstimatedAt ? null : (nextEstimatedAt ?? this.nextEstimatedAt),
     );
   }
 
@@ -168,6 +173,10 @@ class PredictNotifier extends StateNotifier<PredictState> {
 
       final questionsData = (results[0] as Map<String, dynamic>?) ?? {'active': null, 'upcoming': [], 'pendingResults': [], 'resolved': []};
       final predictionsData = (results[1] as List<dynamic>?) ?? [];
+
+      // Parse server-estimated next question time
+      final nextEstimatedAtStr = questionsData['nextEstimatedAt'] as String?;
+      final nextEstimatedAt = nextEstimatedAtStr != null ? DateTime.parse(nextEstimatedAtStr) : null;
 
       // Parse active question
       final activeJson = questionsData['active'];
@@ -266,6 +275,7 @@ class PredictNotifier extends StateNotifier<PredictState> {
         isLoading: false,
         totalCoinsEarned: totalCoins,
         totalQuestions: mergedAnswered.length + (active != null ? 1 : 0) + upcoming.length,
+        nextEstimatedAt: nextEstimatedAt,
       );
 
       // Start/stop poll timer: if no active and no upcoming, poll for new questions

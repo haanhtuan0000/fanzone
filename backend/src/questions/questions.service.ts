@@ -80,7 +80,31 @@ export class QuestionsService {
       take: 10,
     });
 
-    return { active: openQuestion, upcoming: upcomingQuestions, pendingResults, resolved };
+    // Estimate next question time when no upcoming and no open question
+    let nextEstimatedAt: string | null = null;
+    if (upcomingQuestions.length === 0 && !openQuestion) {
+      const latest = await this.prisma.question.findFirst({
+        where: { fixtureId },
+        orderBy: { opensAt: 'desc' },
+        select: { matchMinute: true, opensAt: true },
+      });
+      if (latest?.matchMinute != null) {
+        const phaseBoundaries = [0, 15, 35, 45, 46, 60, 75, 90];
+        const estimatedKickoff = latest.opensAt.getTime() - (latest.matchMinute! * 60_000);
+        const now = Date.now();
+        // Find the next boundary whose wall-clock time is still in the future
+        for (const boundary of phaseBoundaries) {
+          if (boundary <= latest.matchMinute!) continue;
+          const estimatedTime = estimatedKickoff + boundary * 60_000;
+          if (estimatedTime > now) {
+            nextEstimatedAt = new Date(estimatedTime).toISOString();
+            break;
+          }
+        }
+      }
+    }
+
+    return { active: openQuestion, upcoming: upcomingQuestions, pendingResults, resolved, nextEstimatedAt };
   }
 
   /**
