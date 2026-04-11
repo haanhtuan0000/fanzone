@@ -355,13 +355,17 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
   // ─── Step 4: Lineup fetching ───
 
   private async fetchMissingLineups() {
+    // Limit to 3 lineup fetches per tick to avoid burning API budget
+    let fetchedThisTick = 0;
     for (const [id, state] of this.matchStates) {
       if (state.lineupsLoaded || state.lineupRetries >= 3) continue;
+      if (fetchedThisTick >= 3) break;
       if (!this.budget.canMakeCall()) break;
 
       try {
         const lineups = await this.apiFootball.getFixtureLineups(id);
         this.budget.recordCall();
+        fetchedThisTick++;
 
         if ((lineups as any[]).length >= 2) {
           const parsed = this.parseLineups(lineups as any[]);
@@ -479,9 +483,10 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
           // Re-fetch lineups on substitution so future questions use updated player names
           // Only reset once per event poll cycle (not per individual sub event)
+          // Cap total lineup fetches: only allow 1 re-fetch per match (retries reset to 2, not 0)
           if (event.type?.toLowerCase() === 'subst' && state.lineupsLoaded) {
             state.lineupsLoaded = false;
-            state.lineupRetries = 0; // Reset retries so re-fetch is attempted
+            state.lineupRetries = 2; // Allow 1 retry only (cap is 3)
           }
 
           const resolved = await this.questionResolver.tryResolveFromEvent(
