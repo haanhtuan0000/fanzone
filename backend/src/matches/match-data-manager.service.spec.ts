@@ -44,6 +44,7 @@ describe('MatchDataManager', () => {
     };
     questionGenerator = {
       generateForPhase: jest.fn().mockResolvedValue([]),
+      generateCatchUp: jest.fn().mockResolvedValue([]),
       generateFromEvent: jest.fn().mockResolvedValue(null),
       determinePhase: jest.fn().mockReturnValue('EARLY_H1'),
       cleanupFixture: jest.fn().mockResolvedValue(undefined),
@@ -119,6 +120,20 @@ describe('MatchDataManager', () => {
       expect(state.period).toBe('2H');
       expect(state.elapsed).toBe(68);
       expect(state.score).toEqual({ home: 2, away: 1 });
+    });
+
+    it('uses current elapsed for lastPhase, not stale question matchPhase', async () => {
+      prisma.question.groupBy.mockResolvedValue([{ fixtureId: 111 }]);
+      // Latest question was from EARLY_H1, but match is now at 65' (MID_H2)
+      prisma.question.findFirst.mockResolvedValue({ matchPhase: 'EARLY_H1', matchMinute: 5 });
+      redis.getJson.mockResolvedValue({ period: '2H', elapsed: 65, homeScore: 1, awayScore: 0 });
+      questionGenerator.determinePhase.mockReturnValue('MID_H2');
+
+      await (manager as any).recoverMatchStates();
+
+      const state = (manager as any).matchStates.get(111);
+      // lastPhase should be MID_H2 (from current elapsed), NOT EARLY_H1 (from stale question)
+      expect(state.lastPhase).toBe('MID_H2');
     });
 
     it('falls back to defaults when Redis cache empty', async () => {
@@ -330,7 +345,7 @@ describe('MatchDataManager', () => {
 
       const states = (manager as any).matchStates as Map<number, any>;
       expect(states.has(111)).toBe(true);
-      expect(questionGenerator.generateForPhase).toHaveBeenCalledWith(
+      expect(questionGenerator.generateCatchUp).toHaveBeenCalledWith(
         111, 5, { home: 'Arsenal', away: 'Chelsea' }, { home: 0, away: 0 }, '1H',
       );
     });

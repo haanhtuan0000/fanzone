@@ -105,6 +105,51 @@ describe('QuestionGeneratorService', () => {
     });
   });
 
+  describe('generateCatchUp', () => {
+    it('generates for previous phase + current phase when mid-game', async () => {
+      mockScenarioEngine.determinePhase.mockReturnValue('MID_H2');
+      mockScenarioEngine.onPhaseChange.mockResolvedValue([{ id: 'q-1' }]);
+
+      await service.generateCatchUp(fixtureId, 65, teams, { home: 1, away: 0 }, '2H');
+
+      // Should call onPhaseChange twice: EARLY_H2 (prev) + MID_H2 (current)
+      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(2);
+      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(
+        fixtureId, 'EARLY_H2', teams, 65, { home: 1, away: 0 },
+      );
+      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(
+        fixtureId, 'MID_H2', teams, 65, { home: 1, away: 0 },
+      );
+    });
+
+    it('only generates current phase when at PRE_MATCH (no previous)', async () => {
+      mockScenarioEngine.determinePhase.mockReturnValue('PRE_MATCH');
+      mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
+
+      await service.generateCatchUp(fixtureId, 0, teams);
+
+      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(1);
+      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(
+        fixtureId, 'PRE_MATCH', teams, 0, undefined,
+      );
+    });
+
+    it('generates for LATE_H1 + HALF_TIME when joining at HT', async () => {
+      mockScenarioEngine.determinePhase.mockReturnValue('HALF_TIME');
+      mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
+
+      await service.generateCatchUp(fixtureId, 45, teams, undefined, 'HT');
+
+      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(2);
+      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(
+        fixtureId, 'LATE_H1', teams, 45, undefined,
+      );
+      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(
+        fixtureId, 'HALF_TIME', teams, 45, undefined,
+      );
+    });
+  });
+
   describe('cleanupFixture', () => {
     it('should delegate to engine.cleanup', async () => {
       mockScenarioEngine.cleanup.mockResolvedValue(undefined);

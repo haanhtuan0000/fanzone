@@ -108,7 +108,9 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
         const cached = await this.redis.getJson<any>(`cache:fixture:${fixtureId}:score`);
         const period = cached?.period ?? '2H';
         const elapsed = cached?.elapsed ?? latestQuestion?.matchMinute ?? 0;
-        const phase = latestQuestion?.matchPhase ?? this.questionGenerator.determinePhase(elapsed, period);
+        // Use current elapsed to determine phase — NOT the stale question's matchPhase
+        // This prevents fake phase transitions (e.g., EARLY_H1 → MID_H2) on first tick
+        const phase = this.questionGenerator.determinePhase(elapsed, period);
 
         // Create match state — pollFixtures will update teams/score from API
         this.matchStates.set(fixtureId, {
@@ -278,9 +280,9 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
         this.matchStates.set(id, state);
         this.logger.log(`New match detected: ${homeTeam} vs ${awayTeam} (${period} ${elapsed}' → phase ${initialPhase})`);
 
-        // Generate questions for current phase
+        // Generate questions — catch up with previous phase + current phase
         if (LIVE_STATUSES.has(period)) {
-          await this.questionGenerator.generateForPhase(id, elapsed, teams, score, period);
+          await this.questionGenerator.generateCatchUp(id, elapsed, teams, score, period);
           state.hasActiveQuestions = true;
         }
 

@@ -51,6 +51,44 @@ export class QuestionGeneratorService {
   }
 
   /**
+   * Catch-up generation for matches discovered mid-game.
+   * Generates for the previous phase + current phase so the user
+   * gets a reasonable question pipeline instead of just 2 questions.
+   */
+  async generateCatchUp(
+    fixtureId: number,
+    elapsed: number,
+    teams: { home: string; away: string },
+    score?: { home: number; away: number },
+    period?: string,
+  ) {
+    const PHASE_ORDER = [
+      'PRE_MATCH', 'EARLY_H1', 'MID_H1', 'LATE_H1',
+      'HALF_TIME', 'EARLY_H2', 'MID_H2', 'LATE_H2',
+    ];
+    const currentPhase = this.scenarioEngine.determinePhase(elapsed, period);
+    const currentIdx = PHASE_ORDER.indexOf(currentPhase);
+    const results = [];
+
+    // Generate for 1 previous phase (catch-up) — the Redis guard prevents duplicates
+    if (currentIdx > 0) {
+      const prevPhase = PHASE_ORDER[currentIdx - 1];
+      const prev = await this.scenarioEngine.onPhaseChange(
+        fixtureId, prevPhase as any, teams, elapsed, score,
+      );
+      results.push(...prev);
+    }
+
+    // Generate for current phase
+    const current = await this.scenarioEngine.onPhaseChange(
+      fixtureId, currentPhase as any, teams, elapsed, score,
+    );
+    results.push(...current);
+
+    return results;
+  }
+
+  /**
    * Cleanup scenario state when a fixture ends.
    */
   async cleanupFixture(fixtureId: number) {
