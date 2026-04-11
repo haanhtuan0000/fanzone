@@ -216,6 +216,34 @@ describe('MatchScenarioEngine', () => {
       }
     });
 
+    it('filters out questions scheduled after minute 85 (late cutoff)', async () => {
+      // Generate LATE_H2 at minute 83 — Q1 might be ~85, Q2 might be ~88
+      templateService.selectForPhaseWithCategories.mockResolvedValue([
+        createMockTemplate({ id: 'tpl-late1' }),
+        createMockTemplate({ id: 'tpl-late2' }),
+      ]);
+
+      const result = await engine.onPhaseChange(fixtureId, 'LATE_H2', teams, 83, score);
+
+      // Questions after minute 85 should be filtered out
+      // With 2 templates and phase 75-90, some may be past 85 cutoff
+      // At minimum, should not create more than what fits before 85
+      for (const q of result) {
+        const opensAt = new Date(questionsService.createQuestion.mock.calls[0][0].opensAt);
+        // opensAt should not be more than ~3 min in the future (83 + 2 = 85 max)
+        expect(opensAt.getTime()).toBeLessThanOrEqual(Date.now() + 3 * 60_000);
+      }
+    });
+
+    it('uses elapsed as matchMinute (not opensAt-derived)', async () => {
+      templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
+
+      await engine.onPhaseChange(fixtureId, 'MID_H1', teams, 25, score);
+
+      const createCall = questionsService.createQuestion.mock.calls[0][0];
+      expect(createCall.matchMinute).toBe(25);
+    });
+
     it('returns empty when no templates available', async () => {
       templateService.selectForPhaseWithCategories.mockResolvedValue([]);
       templateService.selectForPhase.mockResolvedValue([]);

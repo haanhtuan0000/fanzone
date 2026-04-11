@@ -248,17 +248,24 @@ class PredictNotifier extends StateNotifier<PredictState> {
       // Keep selection if same question is still active
       final sameQuestion = active != null && active.id == state.activeQuestion?.id;
 
+      // Merge: keep locally-answered questions not yet in API response
+      final apiQuestionIds = answered.map((a) => a.question.id).toSet();
+      final localOnly = state.answeredQuestions
+          .where((a) => !apiQuestionIds.contains(a.question.id) && a.status == 'pending')
+          .toList();
+      final mergedAnswered = [...localOnly, ...answered];
+
       state = PredictState(
         fixtureId: fixtureId,
         activeQuestion: active,
-        answeredQuestions: answered,
+        answeredQuestions: mergedAnswered,
         upcomingQuestions: upcoming,
         selectedOptionId: sameQuestion ? state.selectedOptionId : null,
         isLocked: sameQuestion ? state.isLocked : false,
         isExpired: sameQuestion ? state.isExpired : false,
         isLoading: false,
         totalCoinsEarned: totalCoins,
-        totalQuestions: answered.length + (active != null ? 1 : 0) + upcoming.length,
+        totalQuestions: mergedAnswered.length + (active != null ? 1 : 0) + upcoming.length,
       );
 
       // Start/stop poll timer: if no active and no upcoming, poll for new questions
@@ -305,8 +312,8 @@ class PredictNotifier extends StateNotifier<PredictState> {
       _submitPrediction(questionId, optionId);
     }
 
-    // Delay refresh to let auto-submit complete on server
-    Future.delayed(const Duration(seconds: 2), () {
+    // Short delay to let auto-submit complete on server, then refresh
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted && _currentFixtureId != null) {
         loadQuestions(_currentFixtureId!);
       }

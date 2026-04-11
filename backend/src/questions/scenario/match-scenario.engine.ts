@@ -371,7 +371,9 @@ export class MatchScenarioEngine {
     // Ensure times are in order (jitter could swap them)
     times.sort((a, b) => a.getTime() - b.getTime());
 
-    return times;
+    // Don't schedule questions in the last 5 minutes of the match (after 85')
+    const cutoffTime = new Date(kickoffTime.getTime() + 85 * 60_000);
+    return times.filter(t => t.getTime() <= cutoffTime.getTime());
   }
 
   // ──────────────────────────────────────────────
@@ -459,9 +461,8 @@ export class MatchScenarioEngine {
         ? new Date(opensAt.getTime() + timeoutWindowMin * 60_000).toISOString()
         : undefined;
 
-      // Calculate the match minute when question will open (not creation time)
-      const kickoff = new Date(Date.now() - (elapsed ?? 0) * 60_000);
-      const targetMinute = Math.round((opensAt.getTime() - kickoff.getTime()) / 60_000);
+      // Use the current match elapsed as the question's minute (what the user sees)
+      const targetMinute = elapsed ?? 0;
 
       const question = await this.questionsService.createQuestion({
         fixtureId,

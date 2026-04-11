@@ -695,8 +695,16 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       if (state) state.hasActiveQuestions = true;
     } else {
       // All questions resolved/closed — but match is still live?
-      // Generate fresh questions for the current phase (e.g. after server restart
-      // where old questions are all resolved but match is still going)
+      // Check Redis phase guard first — don't regenerate if phase was already generated
+      const currentPhase = this.questionGenerator.determinePhase(elapsed, period);
+      const phaseKey = `phase:${fixtureId}:last-generated`;
+      const cached = await this.redis.get(phaseKey);
+      if (cached === currentPhase) {
+        // Phase already generated — just mark inactive
+        if (state) state.hasActiveQuestions = false;
+        return;
+      }
+
       const maxReached = totalGenerated >= 15;
       if (!maxReached) {
         this.logger.log(`Fixture ${fixtureId}: all ${totalGenerated} questions resolved, match still live at ${elapsed}' — generating more`);

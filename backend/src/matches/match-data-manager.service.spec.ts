@@ -224,6 +224,33 @@ describe('MatchDataManager', () => {
       expect(prisma.question.count).not.toHaveBeenCalled();
     });
 
+    it('skips generation when all resolved but phase already generated (Redis guard)', async () => {
+      redis.get
+        .mockResolvedValueOnce(null) // cooldown check — not active
+        .mockResolvedValueOnce('MID_H1'); // phase guard — already generated
+      prisma.question.count.mockResolvedValueOnce(0).mockResolvedValueOnce(8); // activeCount=0, totalGenerated=8
+      (manager as any).matchStates.set(111, { hasActiveQuestions: false });
+      questionGenerator.determinePhase.mockReturnValue('MID_H1');
+
+      await (manager as any).ensureQuestionsExist(111, '1H', 20, teams, sc);
+
+      expect(questionGenerator.generateForPhase).not.toHaveBeenCalled();
+      expect((manager as any).matchStates.get(111).hasActiveQuestions).toBe(false);
+    });
+
+    it('generates when all resolved and phase NOT in Redis guard', async () => {
+      redis.get
+        .mockResolvedValueOnce(null) // cooldown — not active
+        .mockResolvedValueOnce('EARLY_H1'); // phase guard — different phase
+      prisma.question.count.mockResolvedValueOnce(0).mockResolvedValueOnce(6);
+      (manager as any).matchStates.set(111, { hasActiveQuestions: false });
+      questionGenerator.determinePhase.mockReturnValue('MID_H1');
+
+      await (manager as any).ensureQuestionsExist(111, '1H', 20, teams, sc);
+
+      expect(questionGenerator.generateForPhase).toHaveBeenCalled();
+    });
+
     it('sets Redis cooldown key after check', async () => {
       redis.get.mockResolvedValue(null);
       prisma.question.count.mockResolvedValueOnce(2).mockResolvedValueOnce(5);
