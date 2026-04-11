@@ -1,9 +1,17 @@
+import 'package:flutter/widgets.dart';
+
 class AppStrings {
   static const vi = _Vi();
   static const en = _En();
 
-  // Current language — change this to switch
-  static const current = en;
+  /// Returns Vi or En based on device locale. Falls back to English.
+  static dynamic get current {
+    try {
+      final locale = WidgetsBinding.instance.platformDispatcher.locale;
+      if (locale.languageCode == 'vi') return vi;
+    } catch (_) {}
+    return en;
+  }
 }
 
 class _Vi {

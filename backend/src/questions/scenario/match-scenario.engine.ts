@@ -410,8 +410,17 @@ export class MatchScenarioEngine {
       // when lineup data is not available — no longer skipped
 
       // Resolve text (default to Vietnamese)
-      const text = this.variableResolver.resolveText(tpl.textVi, context);
-      let options = this.variableResolver.resolveOptions(tpl.options as any, context, 'vi');
+      // Store bilingual text: "English|Vietnamese" — client picks based on device locale
+      const textVi = this.variableResolver.resolveText(tpl.textVi, context);
+      const textEn = this.variableResolver.resolveText(tpl.textEn, context);
+      const text = `${textEn}|${textVi}`;
+      // Options: store bilingual names too
+      const optionsVi = this.variableResolver.resolveOptions(tpl.options as any, context, 'vi');
+      const optionsEn = this.variableResolver.resolveOptions(tpl.options as any, context, 'en');
+      let options = optionsVi.map((optVi, i) => ({
+        ...optVi,
+        name: `${optionsEn[i]?.name ?? optVi.name}|${optVi.name}`,
+      }));
 
       // Filter out time-range options that are already in the past
       options = this.filterPastTimeOptions(options, elapsed ?? 0);
