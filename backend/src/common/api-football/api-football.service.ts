@@ -112,6 +112,10 @@ export class ApiFootballService {
         });
 
         if (response.status === 429) {
+          // With 1 key, don't retry — fail fast so queue keeps flowing
+          if (this.apiKeys.length <= 1) {
+            throw new Error('Rate limited (429) — single key, no retry');
+          }
           retries++;
           const waitTime = Math.pow(2, retries) * 1000;
           this.logger.warn(`Rate limited, retrying in ${waitTime}ms (attempt ${retries}/${maxRetries})`);
@@ -137,6 +141,8 @@ export class ApiFootballService {
               retries++;
               continue; // Retry with new key
             }
+            // Single key — no point retrying, fail fast
+            throw new Error(`API-Football rate limit: ${errorMsg}`);
           }
         }
 
