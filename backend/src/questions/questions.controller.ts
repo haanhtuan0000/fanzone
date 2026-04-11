@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Param, Post, Body, UseGuards, Request, Headers } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { QuestionsService } from './questions.service';
 import { ScoringService } from '../predictions/scoring.service';
@@ -14,8 +14,37 @@ export class QuestionsController {
 
   @Get('active/:fixtureId')
   @UseGuards(JwtAuthGuard)
-  async getActiveQuestions(@Param('fixtureId') fixtureId: string) {
-    return this.questionsService.getActiveQuestions(parseInt(fixtureId));
+  async getActiveQuestions(
+    @Param('fixtureId') fixtureId: string,
+    @Headers('accept-language') lang?: string,
+  ) {
+    const result = await this.questionsService.getActiveQuestions(parseInt(fixtureId));
+    // Apply language translations if available
+    const locale = lang?.startsWith('vi') ? 'vi' : 'en';
+    return this.applyTranslations(result, locale);
+  }
+
+  private applyTranslations(data: any, locale: string) {
+    const translate = (question: any) => {
+      if (!question) return question;
+      const t = question.metadata?.translations?.[locale];
+      if (t) {
+        question.text = t.text;
+        if (t.options && question.options) {
+          question.options = question.options.map((opt: any, i: number) => ({
+            ...opt,
+            name: t.options[i] ?? opt.name,
+          }));
+        }
+      }
+      return question;
+    };
+
+    if (data.active) translate(data.active);
+    data.upcoming?.forEach(translate);
+    data.pendingResults?.forEach(translate);
+    data.resolved?.forEach(translate);
+    return data;
   }
 
   /**

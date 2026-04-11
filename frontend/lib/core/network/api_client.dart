@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../storage/secure_storage.dart';
 import 'api_endpoints.dart';
@@ -36,6 +37,11 @@ class ApiClient {
           _cachedToken = token;
           options.headers['Authorization'] = 'Bearer $token';
         }
+        // Send device language so server returns translated questions
+        try {
+          final locale = WidgetsBinding.instance.platformDispatcher.locale;
+          options.headers['Accept-Language'] = locale.languageCode;
+        } catch (_) {}
         handler.next(options);
       },
       onError: (error, handler) async {

@@ -1,14 +1,3 @@
-import '../l10n/app_strings.dart';
-
-/// Splits bilingual "English|Vietnamese" text and returns the right one.
-String localized(String text) {
-  final parts = text.split('|');
-  if (parts.length == 2) {
-    return identical(AppStrings.current, AppStrings.en) ? parts[0].trim() : parts[1].trim();
-  }
-  return text;
-}
-
 class Question {
   final String id;
   final int fixtureId;
