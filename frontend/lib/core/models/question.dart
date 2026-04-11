@@ -1,3 +1,16 @@
+import '../l10n/app_strings.dart';
+
+/// Client-side fallback: strip bilingual "English|Vietnamese" for old questions
+/// that were stored with delimiter before server-side translation was deployed.
+String _localize(String text) {
+  if (!text.contains('|')) return text;
+  final parts = text.split('|');
+  if (parts.length == 2) {
+    return identical(AppStrings.current, AppStrings.en) ? parts[0].trim() : parts[1].trim();
+  }
+  return text;
+}
+
 class Question {
   final String id;
   final int fixtureId;
@@ -35,7 +48,7 @@ class Question {
       id: json['id'] as String,
       fixtureId: json['fixtureId'] as int,
       category: json['category'] as String,
-      text: json['text'] as String,
+      text: _localize(json['text'] as String),
       rewardCoins: json['rewardCoins'] as int? ?? 50,
       status: json['status'] as String? ?? 'PENDING',
       correctOptionId: json['correctOptionId'] as String?,
@@ -74,7 +87,7 @@ class QuestionOption {
   factory QuestionOption.fromJson(Map<String, dynamic> json) {
     return QuestionOption(
       id: json['id'] as String,
-      name: json['name'] as String,
+      name: _localize(json['name'] as String),
       emoji: json['emoji'] as String?,
       info: json['info'] as String?,
       multiplier: (json['multiplier'] as num?)?.toDouble() ?? 2.0,
