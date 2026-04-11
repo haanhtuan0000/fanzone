@@ -82,10 +82,12 @@ export class ApiFootballService {
     const url = new URL(endpoint, this.baseUrl);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
-    // Minimum 500ms between requests to avoid per-minute rate limits
+    // Minimum 2s between requests — API-Football has per-minute rate limits
+    // (e.g., 30/min = 1 every 2s). This prevents "Too many requests" errors.
+    const minGapMs = 2000;
     const timeSinceLast = Date.now() - this.lastRequestTime;
-    if (timeSinceLast < 500) {
-      await new Promise((r) => setTimeout(r, 500 - timeSinceLast));
+    if (timeSinceLast < minGapMs) {
+      await new Promise((r) => setTimeout(r, minGapMs - timeSinceLast));
     }
     this.lastRequestTime = Date.now();
 
