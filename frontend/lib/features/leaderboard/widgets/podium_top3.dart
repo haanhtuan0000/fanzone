@@ -11,18 +11,18 @@ class PodiumTop3 extends StatelessWidget {
     if (entries.length < 3) return const SizedBox();
 
     return SizedBox(
-      height: 220,
+      height: 300,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           // #2 - Left
-          Expanded(child: _PodiumSlot(entry: entries[1], height: 140, color: AppColors.silver, rank: 2)),
+          Expanded(child: _PodiumSlot(entry: entries[1], height: 120, color: AppColors.silver, rank: 2)),
           const SizedBox(width: 8),
           // #1 - Center (tallest, with crown)
-          Expanded(child: _PodiumSlot(entry: entries[0], height: 180, color: AppColors.gold, rank: 1)),
+          Expanded(child: _PodiumSlot(entry: entries[0], height: 160, color: AppColors.gold, rank: 1)),
           const SizedBox(width: 8),
           // #3 - Right
-          Expanded(child: _PodiumSlot(entry: entries[2], height: 110, color: AppColors.bronze, rank: 3)),
+          Expanded(child: _PodiumSlot(entry: entries[2], height: 100, color: AppColors.bronze, rank: 3)),
         ],
       ),
     );
