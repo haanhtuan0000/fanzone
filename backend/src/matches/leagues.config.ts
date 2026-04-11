@@ -1,5 +1,11 @@
-/** Accept all leagues — filtering is done by MAX_LIVE_MATCHES cap */
-export const TRACKED_LEAGUE_IDS = { has: (_id: number) => true } as Set<number>;
+/** Top 5 European leagues only */
+export const TRACKED_LEAGUE_IDS = new Set([
+  39,  // England — Premier League
+  140, // Spain — La Liga
+  135, // Italy — Serie A
+  78,  // Germany — Bundesliga
+  61,  // France — Ligue 1
+]);
 
 /** Maximum live matches to process simultaneously (API budget constraint) */
 export const MAX_LIVE_MATCHES = 8;
