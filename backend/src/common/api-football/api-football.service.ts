@@ -93,8 +93,8 @@ export class ApiFootballService {
     const url = new URL(endpoint, this.baseUrl);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
-    // 2s gap between requests to respect per-minute rate limit
-    await new Promise((r) => setTimeout(r, 2000));
+    // 250ms gap between requests (Pro plan: 300/min = 5/sec, use 4/sec to be safe)
+    await new Promise((r) => setTimeout(r, 250));
 
     let retries = 0;
     const maxRetries = 3;
