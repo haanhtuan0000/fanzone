@@ -134,8 +134,14 @@ class LiveScreen extends ConsumerWidget {
               ],
             ],
 
-            // Empty state when no matches
-            if (liveState.activeMatch == null && liveState.matches.isEmpty)
+            // Loading spinner on cold start
+            if (liveState.isLoading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
+              ),
+
+            // Empty state when no matches (only after loading completes)
+            if (!liveState.isLoading && liveState.activeMatch == null && liveState.matches.isEmpty)
               SliverFillRemaining(
                 child: Center(
                   child: Column(

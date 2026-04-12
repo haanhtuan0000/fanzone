@@ -35,7 +35,15 @@ class ScaffoldWithNav extends StatelessWidget {
     final str = AppStrings.current;
     final currentIndex = _getCurrentIndex(context);
 
-    return Scaffold(
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        if (currentIndex != 0) {
+          context.go('/live');
+          return true; // handled, don't pop
+        }
+        return false; // let system handle (exit app)
+      },
+      child: Scaffold(
       body: child,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -83,6 +91,7 @@ class ScaffoldWithNav extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
