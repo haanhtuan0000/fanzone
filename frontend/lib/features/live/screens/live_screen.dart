@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../app/constants.dart';
 import '../../../app/responsive.dart' as r;
+import '../../../core/models/match.dart';
 import '../../../shared/widgets/coin_display.dart';
 import '../../../features/auth/providers/auth_provider.dart';
 import '../../predict/providers/predict_provider.dart';
@@ -183,17 +185,11 @@ class LiveScreen extends ConsumerWidget {
                         ),
                         Padding(
                           padding: r.sLTRB(context, 12, 0, 12, 12),
-                          child: Column(
-                            children: liveState.displayedLiveMatches.map((match) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 7),
-                                child: MatchCard(
-                                  match: match,
-                                  isSelected: match.fixtureId == liveState.activeMatch?.fixtureId,
-                                  onTap: () => ref.read(liveStateProvider.notifier).selectMatch(match),
-                                ),
-                              );
-                            }).toList(),
+                          child: _groupedMatchList(
+                            context: context,
+                            matches: liveState.displayedLiveMatches,
+                            selectedId: liveState.activeMatch?.fixtureId,
+                            onTap: (match) => ref.read(liveStateProvider.notifier).selectMatch(match),
                           ),
                         ),
                       ],
@@ -222,27 +218,18 @@ class LiveScreen extends ConsumerWidget {
                         ),
                         Padding(
                           padding: r.sLTRB(context, 12, 0, 12, 12),
-                          child: Column(
-                            children: liveState.displayedTodayMatches.map((match) {
+                          child: _groupedMatchList(
+                            context: context,
+                            matches: liveState.displayedTodayMatches,
+                            onTap: (match) {
                               final isFt = match.status == 'FT' || match.status == 'AET' || match.status == 'PEN';
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 7),
-                                child: Opacity(
-                                  opacity: isFt ? 0.68 : 1.0,
-                                  child: MatchCard(
-                                    match: match,
-                                    isSelected: false,
-                                    onTap: () {
-                                      if (isFt) {
-                                        context.push('/match/${match.fixtureId}', extra: match);
-                                      } else if (match.status == 'NS' || match.status == 'TBD') {
-                                        context.push('/match-info/${match.fixtureId}', extra: match);
-                                      }
-                                    },
-                                  ),
-                                ),
-                              );
-                            }).toList(),
+                              if (isFt) {
+                                context.push('/match/${match.fixtureId}', extra: match);
+                              } else if (match.status == 'NS' || match.status == 'TBD') {
+                                context.push('/match-info/${match.fixtureId}', extra: match);
+                              }
+                            },
+                            dimFinished: true,
                           ),
                         ),
                       ],
@@ -364,5 +351,73 @@ class LiveScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Widget _groupedMatchList({
+    required BuildContext context,
+    required List<MatchData> matches,
+    int? selectedId,
+    required void Function(MatchData) onTap,
+    bool dimFinished = false,
+  }) {
+    // Group by league name, preserve order
+    final groups = <String, List<MatchData>>{};
+    for (final match in matches) {
+      final league = match.league ?? 'Other';
+      groups.putIfAbsent(league, () => []).add(match);
+    }
+
+    final children = <Widget>[];
+    for (final entry in groups.entries) {
+      // League header
+      final firstMatch = entry.value.first;
+      children.add(Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 6),
+        child: Row(
+          children: [
+            if (firstMatch.leagueLogoUrl != null) ...[
+              CachedNetworkImage(
+                imageUrl: firstMatch.leagueLogoUrl!,
+                width: r.s(context, 16),
+                height: r.s(context, 16),
+                errorWidget: (_, __, ___) => Icon(Icons.emoji_events, size: r.s(context, 14), color: AppColors.textSecondary),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Expanded(
+              child: Text(
+                '${entry.key}${firstMatch.leagueRound != null ? ' \u00b7 ${firstMatch.leagueRound}' : ''}',
+                style: TextStyle(
+                  fontFamily: AppFonts.barlowCondensed,
+                  fontSize: r.sf(context, 10),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                  color: AppColors.textSecondary.withOpacity(0.6),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ));
+
+      // Matches in this league
+      for (final match in entry.value) {
+        final isFt = match.status == 'FT' || match.status == 'AET' || match.status == 'PEN';
+        children.add(Padding(
+          padding: const EdgeInsets.only(bottom: 7),
+          child: Opacity(
+            opacity: dimFinished && isFt ? 0.68 : 1.0,
+            child: MatchCard(
+              match: match,
+              isSelected: match.fixtureId == selectedId,
+              onTap: () => onTap(match),
+            ),
+          ),
+        ));
+      }
+    }
+
+    return Column(children: children);
   }
 }
