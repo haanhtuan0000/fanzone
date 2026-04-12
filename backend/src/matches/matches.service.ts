@@ -93,9 +93,10 @@ export class MatchesService {
       this.redis.get(userKey),
     ]);
 
-    const home = parseInt(counts.home || '0');
-    const draw = parseInt(counts.draw || '0');
-    const away = parseInt(counts.away || '0');
+    // Clamp negatives to 0 (cleanup from earlier bug)
+    const home = Math.max(0, parseInt(counts.home || '0'));
+    const draw = Math.max(0, parseInt(counts.draw || '0'));
+    const away = Math.max(0, parseInt(counts.away || '0'));
     const total = home + draw + away;
 
     return { home, draw, away, total, myVote };
