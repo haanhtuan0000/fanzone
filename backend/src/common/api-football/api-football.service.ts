@@ -19,6 +19,8 @@ export class ApiFootballService {
   private exhaustedKeys: Set<number> = new Set();
   private lastResetCheck = 0;
   private rateLimitedUntil = 0; // epoch ms — pause all requests until this time
+  private callsThisMinute = 0;
+  private minuteStart = Date.now();
 
   constructor(private config: ConfigService) {
     this.baseUrl = this.config.get<string>('API_FOOTBALL_BASE_URL') || 'https://v3.football.api-sports.io';
@@ -119,6 +121,17 @@ export class ApiFootballService {
     while (retries < maxRetries) {
       const apiKey = this.getCurrentKey();
       try {
+        // Track calls per minute for debugging
+        const now = Date.now();
+        if (now - this.minuteStart > 60_000) {
+          if (this.callsThisMinute > 0) {
+            this.logger.log(`API calls last minute: ${this.callsThisMinute}`);
+          }
+          this.callsThisMinute = 0;
+          this.minuteStart = now;
+        }
+        this.callsThisMinute++;
+
         const response = await fetch(url.toString(), {
           headers: { 'x-apisports-key': apiKey },
         });

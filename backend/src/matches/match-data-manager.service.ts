@@ -66,10 +66,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       this.logger.log('MatchDataManager DISABLED (MOCK_MODE=true)');
       return;
     }
-    this.logger.log('MatchDataManager starting — waiting 30s for old instance to shut down');
-    // Delay startup to avoid two instances polling simultaneously during deploy
-    await new Promise((r) => setTimeout(r, 30_000));
-    this.logger.log('MatchDataManager ready (30s heartbeat)');
+    this.logger.log('MatchDataManager starting (30s heartbeat)');
     // Clear stale fixture caches so league filter changes take effect immediately
     await this.redis.del('cache:fixtures:live');
     await this.redis.del('cache:fixtures:today');
@@ -157,6 +154,13 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
   private async tick() {
     if (this._tickRunning) return; // Prevent overlapping ticks
+
+    // Redis lock: only one instance polls at a time (prevents dual-instance conflicts during deploy)
+    const lockKey = 'lock:match-data-manager:tick';
+    const lockValue = `${process.pid}-${Date.now()}`;
+    const acquired = await this.redis.setNX(lockKey, lockValue, 60); // 60s TTL, only if not exists
+    if (!acquired) return; // Another instance holds the lock
+
     this._tickRunning = true;
     try {
       // 1. Schedule check
@@ -218,6 +222,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`Tick failed: ${e}`);
     } finally {
       this._tickRunning = false;
+      await this.redis.del(lockKey);
     }
   }
 
@@ -246,7 +251,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     });
 
     // Only cache the capped list — frontend only sees matches we actively process
-    await this.redis.setJson('cache:fixtures:live', fixtures, 20);
+    await this.redis.setJson('cache:fixtures:live', fixtures, 45); // TTL > tick interval (30s) to prevent cache-miss API calls
 
     // Track which fixtures are still live
     const liveIds = new Set<number>();

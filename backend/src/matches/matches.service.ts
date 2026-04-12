@@ -22,7 +22,7 @@ export class MatchesService {
     if (this.apiFootball.isRateLimited()) return [];
     const all = await this.apiFootball.getLiveFixtures();
     const data = (all as any[]).filter((f) => TRACKED_LEAGUE_IDS.has(f?.league?.id));
-    await this.redis.setJson('cache:fixtures:live', data, 20);
+    await this.redis.setJson('cache:fixtures:live', data, 45);
     return data;
   }
 
