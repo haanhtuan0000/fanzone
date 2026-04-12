@@ -55,7 +55,8 @@ class FanVoteNotifier extends StateNotifier<FanVoteState> {
   FanVoteNotifier(this._apiClient) : super(const FanVoteState());
 
   Future<void> load(int fixtureId) async {
-    state = state.copyWith(isLoading: true);
+    // Clear old state immediately so previous match data doesn't flash
+    state = const FanVoteState(isLoading: true);
     try {
       final response = await _apiClient.get(ApiEndpoints.fanVote(fixtureId));
       final data = response.data as Map<String, dynamic>;
