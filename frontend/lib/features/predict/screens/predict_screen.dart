@@ -8,6 +8,7 @@ import '../widgets/countdown_strip.dart';
 import '../widgets/predict_card.dart';
 import '../widgets/option_button.dart';
 import '../widgets/progress_strip.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../widgets/answered_card.dart';
 import '../widgets/next_question_strip.dart';
 import '../../../core/l10n/app_strings.dart';
@@ -65,6 +66,20 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
     });
 
     final coins = ref.watch(userCoinsProvider);
+
+    // No live match — show empty state instead of infinite spinner
+    if (activeMatch == null || !activeMatch.isLive) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(
+          child: EmptyState(
+            icon: '⚡',
+            title: str.waitingForNewQuestion,
+            subtitle: str.comeBackLater,
+          ),
+        ),
+      );
+    }
 
     if (!stateMatchesCurrent || (predictState.isLoading && predictState.activeQuestion == null && predictState.answeredQuestions.isEmpty)) {
       return Scaffold(
