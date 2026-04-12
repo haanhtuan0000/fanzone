@@ -136,8 +136,16 @@ export class ApiFootballService {
           headers: { 'x-apisports-key': apiKey },
         });
 
+        // Log rate limit headers for debugging
+        const rlLimit = response.headers.get('x-ratelimit-requests-limit');
+        const rlRemaining = response.headers.get('x-ratelimit-requests-remaining');
+        if (rlLimit || rlRemaining) {
+          this.logger.debug(`Rate headers: ${rlRemaining}/${rlLimit} remaining for ${endpoint}`);
+        }
+
         if (response.status === 429) {
-          // Set cooldown so queued requests don't also hit 429
+          const headers = Object.fromEntries(response.headers.entries());
+          this.logger.warn(`HTTP 429 headers: ${JSON.stringify(headers)}`);
           this.rateLimitedUntil = Date.now() + 20_000;
           this.logger.warn('HTTP 429 — pausing all requests for 20s');
           throw new Error('Rate limited (429)');
@@ -155,8 +163,10 @@ export class ApiFootballService {
           this.logger.warn(`API-Football response errors for ${endpoint}: ${errorMsg}`);
 
           if (errorMsg.includes('request limit') || errorMsg.includes('requests')) {
+            // Log headers to identify source (API-Football vs proxy/CDN)
+            const headers = Object.fromEntries(response.headers.entries());
+            this.logger.warn(`Rate limit response headers: ${JSON.stringify(headers)}`);
             if (errorMsg.includes('per minute')) {
-              // Per-minute rate limit — don't exhaust key, just cooldown 60s
               this.rateLimitedUntil = Date.now() + 20_000;
               this.logger.warn(`Per-minute rate limit hit — pausing all requests for 20s`);
               throw new Error(`API-Football per-minute rate limit — cooling down`);
