@@ -312,6 +312,28 @@ describe('MatchScenarioEngine', () => {
       expect(kickoffAfterPhase2).toBe(kickoffAfterPhase1);
     });
 
+    it('does not set kickoffTime from elapsed=0 (recovery with no API data)', async () => {
+      templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
+
+      // Simulate recovery: elapsed=0 (no API data yet)
+      await engine.onPhaseChange(fixtureId, 'PRE_MATCH', teams, 0, score);
+
+      const states = (engine as any).fixtureStates as Map<number, any>;
+      // kickoffTime should NOT be set — elapsed=0 is unreliable
+      expect(states.get(fixtureId).kickoffTime).toBeNull();
+
+      // Later, real elapsed arrives — kickoffTime gets set correctly
+      redis.get.mockImplementation((key: string) => {
+        if (key.includes('last-generated')) return Promise.resolve('PRE_MATCH');
+        return Promise.resolve(null);
+      });
+      await engine.onPhaseChange(fixtureId, 'EARLY_H1', teams, 5, score);
+
+      expect(states.get(fixtureId).kickoffTime).not.toBeNull();
+      // Should be ~5 min before now
+      expect(Math.abs(states.get(fixtureId).kickoffTime - (Date.now() - 5 * 60_000))).toBeLessThan(2000);
+    });
+
     it('kickoffTime survives half-time and produces correct 2H matchMinutes', async () => {
       templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
 

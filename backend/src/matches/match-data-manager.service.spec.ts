@@ -149,6 +149,31 @@ describe('MatchDataManager', () => {
       expect(state.score).toEqual({ home: 0, away: 0 });
     });
 
+    it('does NOT use matchMinute as elapsed fallback (prevents kickoffTime error)', async () => {
+      prisma.question.groupBy.mockResolvedValue([{ fixtureId: 111 }]);
+      // Latest question at matchMinute=28, but Redis cache expired — no real elapsed
+      prisma.question.findFirst.mockResolvedValue({ matchPhase: 'MID_H1', matchMinute: 28 });
+      redis.getJson.mockResolvedValue(null); // cache expired
+
+      await (manager as any).recoverMatchStates();
+
+      const state = (manager as any).matchStates.get(111);
+      // elapsed should be 0, NOT 28 (matchMinute is not the match clock)
+      expect(state.elapsed).toBe(0);
+    });
+
+    it('uses API elapsed from Redis, not matchMinute, when cache exists', async () => {
+      prisma.question.groupBy.mockResolvedValue([{ fixtureId: 111 }]);
+      prisma.question.findFirst.mockResolvedValue({ matchPhase: 'MID_H1', matchMinute: 28 });
+      redis.getJson.mockResolvedValue({ period: '2H', elapsed: 70, homeScore: 1, awayScore: 0 });
+
+      await (manager as any).recoverMatchStates();
+
+      const state = (manager as any).matchStates.get(111);
+      // elapsed should be 70 from API cache, not 28 from matchMinute
+      expect(state.elapsed).toBe(70);
+    });
+
     it('clears Redis cooldown keys for recovered fixtures', async () => {
       prisma.question.groupBy.mockResolvedValue([{ fixtureId: 111 }, { fixtureId: 222 }]);
       prisma.question.findFirst.mockResolvedValue({ matchPhase: 'EARLY_H1', matchMinute: 5 });
