@@ -33,6 +33,7 @@ describe('MatchDataManager', () => {
       getFixtureStatistics: jest.fn().mockResolvedValue([]),
       getFixtureEvents: jest.fn().mockResolvedValue([]),
       getFixtureLineups: jest.fn().mockResolvedValue([]),
+      isRateLimited: jest.fn().mockReturnValue(false),
     };
     questionResolver = {
       lockExpiredQuestions: jest.fn().mockResolvedValue(undefined),

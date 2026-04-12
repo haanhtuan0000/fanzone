@@ -77,6 +77,11 @@ export class ApiFootballService {
     return false;
   }
 
+  /** Check if currently in rate limit cooldown */
+  isRateLimited(): boolean {
+    return Date.now() < this.rateLimitedUntil;
+  }
+
   /** Serial queue: ensures only one API request runs at a time with 300ms gap */
   private requestQueue: Promise<void> = Promise.resolve();
 

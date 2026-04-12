@@ -221,7 +221,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
   // ─── Step 3: Fixture polling ───
 
   private async pollFixtures() {
-    if (!this.budget.canMakeCall()) return;
+    if (this.apiFootball.isRateLimited() || !this.budget.canMakeCall()) return;
 
     const allFixtures = await this.apiFootball.getLiveFixtures();
     this.budget.recordCall();
@@ -447,6 +447,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
   }
 
   private async pollEvents() {
+    if (this.apiFootball.isRateLimited()) return; // Skip during cooldown
     const now = Date.now();
 
     // Smart interval: scale based on number of active matches and budget
@@ -593,6 +594,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
   // ─── Step 7: Stats polling ───
 
   private async pollStats() {
+    if (this.apiFootball.isRateLimited()) return; // Skip during cooldown
     const now = Date.now();
     const interval = this.budget.isThrottled() ? 600_000 : 300_000; // 5-10 min
 
@@ -619,6 +621,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
   // ─── Step 8: Standings ───
 
   private async pollStandings() {
+    if (this.apiFootball.isRateLimited()) return; // Skip during cooldown
     if (Date.now() - this.lastStandingsPoll < 7200_000) return; // 2 hours
     this.lastStandingsPoll = Date.now();
 
