@@ -110,10 +110,17 @@ export class MatchesService {
     const userKey = `fanvote:${fixtureId}:user:${userId}`;
     const TTL = 86400; // 24 hours
 
-    // Check if user already voted — remove old vote first
+    // Check if user already voted
     const oldVote = await this.redis.get(userKey);
+    if (oldVote && oldVote === vote) {
+      return this.getFanVote(fixtureId, userId); // Same vote — no change
+    }
+    // Remove old vote (check count > 0 to prevent negatives)
     if (oldVote && ['home', 'draw', 'away'].includes(oldVote)) {
-      await this.redis.hincrby(countsKey, oldVote, -1);
+      const counts = await this.redis.hgetall(countsKey);
+      if (parseInt(counts[oldVote] || '0') > 0) {
+        await this.redis.hincrby(countsKey, oldVote, -1);
+      }
     }
 
     // Add new vote

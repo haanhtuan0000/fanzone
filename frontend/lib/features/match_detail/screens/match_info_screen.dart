@@ -378,7 +378,7 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
               style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 26),
                 color: pctColor, height: 1)),
             SizedBox(height: s(context, 4)),
-            Text(choice == 'draw' ? label : '${label.length > 10 ? label.substring(0, 10) : label} wins',
+            Text(choice == 'draw' ? label : '$label wins',
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,

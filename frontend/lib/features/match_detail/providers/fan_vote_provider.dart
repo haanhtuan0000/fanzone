@@ -72,14 +72,16 @@ class FanVoteNotifier extends StateNotifier<FanVoteState> {
   }
 
   Future<void> vote(int fixtureId, String choice) async {
+    if (state.myVote == choice) return; // Same vote — no change
+
     // Optimistic update
     final oldVote = state.myVote;
     int h = state.home, d = state.draw, a = state.away;
 
-    // Remove old vote
-    if (oldVote == 'home') h--;
-    if (oldVote == 'draw') d--;
-    if (oldVote == 'away') a--;
+    // Remove old vote (prevent negatives)
+    if (oldVote == 'home' && h > 0) h--;
+    if (oldVote == 'draw' && d > 0) d--;
+    if (oldVote == 'away' && a > 0) a--;
 
     // Add new vote
     if (choice == 'home') h++;
