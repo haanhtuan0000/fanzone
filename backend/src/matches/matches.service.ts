@@ -18,7 +18,8 @@ export class MatchesService {
     const cached = await this.redis.getJson<unknown[]>('cache:fixtures:live');
     if (cached) return cached;
 
-    // Cold start fallback
+    // Cold start fallback (skip if rate limited — return empty, tick will populate cache)
+    if (this.apiFootball.isRateLimited()) return [];
     const all = await this.apiFootball.getLiveFixtures();
     const data = (all as any[]).filter((f) => TRACKED_LEAGUE_IDS.has(f?.league?.id));
     await this.redis.setJson('cache:fixtures:live', data, 20);
@@ -33,6 +34,8 @@ export class MatchesService {
     const cached = await this.redis.getJson<unknown[]>('cache:fixtures:today');
     if (cached) return cached;
 
+    // Cold start fallback (skip if rate limited — return empty, schedule tracker will populate)
+    if (this.apiFootball.isRateLimited()) return [];
     const today = new Date().toISOString().split('T')[0];
     const all = await this.apiFootball.getFixturesByDate(today);
     const data = (all as any[]).filter((f) => TRACKED_LEAGUE_IDS.has(f?.league?.id));
@@ -51,18 +54,18 @@ export class MatchesService {
       this.redis.getJson<any[]>(`cache:fixture:${fixtureId}:stats`),
     ]);
 
-    // Fetch any missing data directly from API
+    // Fetch any missing data directly from API (only if not rate limited)
     let finalEvents = events;
     let finalStats = stats;
 
-    if (!finalEvents || finalEvents.length === 0) {
+    if ((!finalEvents || finalEvents.length === 0) && !this.apiFootball.isRateLimited()) {
       try {
         finalEvents = await this.apiFootball.getFixtureEvents(fixtureId) as any[];
         await this.redis.setJson(`cache:fixture:${fixtureId}:events`, finalEvents, 120);
       } catch (_) { finalEvents = []; }
     }
 
-    if (!finalStats || finalStats.length === 0) {
+    if ((!finalStats || finalStats.length === 0) && !this.apiFootball.isRateLimited()) {
       try {
         finalStats = await this.apiFootball.getFixtureStatistics(fixtureId) as any[];
         await this.redis.setJson(`cache:fixture:${fixtureId}:stats`, finalStats, 300);

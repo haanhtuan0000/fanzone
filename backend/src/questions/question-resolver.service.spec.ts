@@ -35,6 +35,7 @@ describe('QuestionResolverService', () => {
     apiFootball = {
       getFixtureStatistics: jest.fn().mockResolvedValue([]),
       getFixtureEvents: jest.fn().mockResolvedValue([]),
+      isRateLimited: jest.fn().mockReturnValue(false),
     };
 
     const module: TestingModule = await Test.createTestingModule({

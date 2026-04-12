@@ -81,20 +81,26 @@ export class QuestionResolverService {
   ) {
     this.logger.log(`Half-time for fixture ${fixtureId}: ${score.home}-${score.away}`);
 
-    // Fetch HT stats for stat-based questions
+    // Fetch HT stats for stat-based questions (skip if rate limited)
     let stats: MatchStats | null = null;
-    try {
-      const rawStats = await this.apiFootball.getFixtureStatistics(fixtureId);
-      stats = this.parseStats(rawStats as any[]);
-    } catch (e) {
-      this.logger.warn(`Failed to fetch HT stats for ${fixtureId}: ${e}`);
+    if (!this.apiFootball.isRateLimited()) {
+      try {
+        const rawStats = await this.apiFootball.getFixtureStatistics(fixtureId);
+        stats = this.parseStats(rawStats as any[]);
+      } catch (e) {
+        this.logger.warn(`Failed to fetch HT stats for ${fixtureId}: ${e}`);
+      }
     }
 
-    // Fetch events for HT resolution
+    // Fetch events for HT resolution (prefer cache, skip API if rate limited)
     let events: MatchEvent[] = [];
     try {
       const cachedEvents = await this.redis.getJson<any[]>(`cache:fixture:${fixtureId}:events`);
-      events = (cachedEvents ?? await this.apiFootball.getFixtureEvents(fixtureId)) as MatchEvent[];
+      if (cachedEvents) {
+        events = cachedEvents as MatchEvent[];
+      } else if (!this.apiFootball.isRateLimited()) {
+        events = await this.apiFootball.getFixtureEvents(fixtureId) as MatchEvent[];
+      }
     } catch (e) {
       this.logger.warn(`Failed to fetch events for ${fixtureId}: ${e}`);
     }
@@ -141,20 +147,26 @@ export class QuestionResolverService {
   ) {
     this.logger.log(`Full-time for fixture ${fixtureId}: ${score.home}-${score.away} (${finishedStatus ?? 'FT'})`);
 
-    // Fetch final stats (1 API call)
+    // Fetch final stats (skip if rate limited — resolve with cached data)
     let stats: MatchStats | null = null;
-    try {
-      const rawStats = await this.apiFootball.getFixtureStatistics(fixtureId);
-      stats = this.parseStats(rawStats as any[]);
-    } catch (e) {
-      this.logger.warn(`Failed to fetch final stats for ${fixtureId}: ${e}`);
+    if (!this.apiFootball.isRateLimited()) {
+      try {
+        const rawStats = await this.apiFootball.getFixtureStatistics(fixtureId);
+        stats = this.parseStats(rawStats as any[]);
+      } catch (e) {
+        this.logger.warn(`Failed to fetch final stats for ${fixtureId}: ${e}`);
+      }
     }
 
-    // Fetch match events for event-dependent resolution (goals in stoppage, first scorer, etc.)
+    // Fetch match events (prefer cache, skip API if rate limited)
     let events: MatchEvent[] = [];
     try {
       const cachedEvents = await this.redis.getJson<any[]>(`cache:fixture:${fixtureId}:events`);
-      events = (cachedEvents ?? await this.apiFootball.getFixtureEvents(fixtureId)) as MatchEvent[];
+      if (cachedEvents) {
+        events = cachedEvents as MatchEvent[];
+      } else if (!this.apiFootball.isRateLimited()) {
+        events = await this.apiFootball.getFixtureEvents(fixtureId) as MatchEvent[];
+      }
     } catch (e) {
       this.logger.warn(`Failed to fetch events for ${fixtureId}: ${e}`);
     }
