@@ -96,17 +96,17 @@ export class ApiFootballService {
   }
 
   private async doRequest<T>(endpoint: string, params: Record<string, string>): Promise<T> {
-    // If rate limited, reject immediately — don't waste the queue
+    const url = new URL(endpoint, this.baseUrl);
+    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+
+    // Gap between requests — always wait, even during cooldown, to prevent queue blast
+    await new Promise((r) => setTimeout(r, 2000));
+
+    // Check rate limit cooldown AFTER the gap
     if (Date.now() < this.rateLimitedUntil) {
       const waitSec = Math.round((this.rateLimitedUntil - Date.now()) / 1000);
       throw new Error(`Rate limited — ${waitSec}s cooldown remaining`);
     }
-
-    const url = new URL(endpoint, this.baseUrl);
-    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
-
-    // 2s gap between requests (safe for 30 req/min plans)
-    await new Promise((r) => setTimeout(r, 2000));
 
     let retries = 0;
     const maxRetries = 3;
