@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
 import '../../../app/responsive.dart';
 import '../../../core/models/match.dart';
@@ -148,32 +149,42 @@ class MatchCard extends StatelessWidget {
                 ),
               ],
             ),
-            // Engagement strip for selected live match
-            if (isSelected && match.isLive) ...[
-              SizedBox(height: s(context, 10)),
-              Container(
-                width: double.infinity,
-                padding: sp(context, v: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.neonGreen.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.bolt, color: AppColors.neonGreen, size: 16),
-                    const SizedBox(width: 4),
-                    Text(
-                      match.fanOnlineCount != null
-                          ? loc.fanOnline(match.fanOnlineCount!)
-                          : loc.predicting,
-                      style: TextStyle(
-                        color: AppColors.neonGreen,
-                        fontSize: sf(context, 12),
-                        fontWeight: FontWeight.w500,
+            // Row 3: Fan bar — ALL live cards (v3.0), with stopPropagation → navigate predict
+            if (match.isLive) ...[
+              SizedBox(height: s(context, 8)),
+              GestureDetector(
+                onTap: () {
+                  // stopPropagation: don't trigger card's onTap (switchMatch)
+                  context.go('/predict');
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: sp(context, v: 7, h: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.neonGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.neonGreen.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 5, height: 5,
+                        decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.neonGreen),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Text(
+                        '⚡ ${match.fanOnlineCount != null ? loc.fanOnline(match.fanOnlineCount!) : loc.predicting}',
+                        style: TextStyle(
+                          fontFamily: AppFonts.barlowCondensed,
+                          color: AppColors.neonGreen,
+                          fontSize: sf(context, 11),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

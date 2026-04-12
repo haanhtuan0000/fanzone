@@ -2,11 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
 import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/match.dart';
 import '../providers/fan_vote_provider.dart';
+import '../../../core/notifications/notification_service.dart';
 
 class MatchInfoScreen extends ConsumerStatefulWidget {
   final int fixtureId;
@@ -97,7 +99,17 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
                   if (m.kickoffTime != null && _remaining.inSeconds > 0)
                     SizedBox(height: s(context, 12)),
 
-                  // Reminder button
+                  // Post-kickoff banner
+                  if (m.kickoffTime != null && _remaining.inSeconds <= 0)
+                    _postKickoffBanner(context, str),
+                  if (m.kickoffTime != null && _remaining.inSeconds <= 0)
+                    SizedBox(height: s(context, 12)),
+
+                  // Info pills
+                  _infoPills(context, m),
+                  SizedBox(height: s(context, 12)),
+
+                  // Reminder button (disabled after kickoff)
                   _reminderButton(context, str),
                   SizedBox(height: s(context, 12)),
 
@@ -215,21 +227,109 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
     );
   }
 
+  // ─── Info Pills ───
+
+  Widget _infoPills(BuildContext context, MatchData m) {
+    return Row(
+      children: [
+        if (m.league != null)
+          Expanded(child: _pill(context, '🏆', m.league!, m.leagueRound ?? '')),
+        if (m.league != null) SizedBox(width: s(context, 7)),
+        Expanded(child: _pill(context, '🏟', 'Stadium', 'TBD')),
+        SizedBox(width: s(context, 7)),
+        Expanded(child: _pill(context, '🌍', 'Location', 'TBD')),
+      ],
+    );
+  }
+
+  Widget _pill(BuildContext context, String icon, String value, String label) {
+    return Container(
+      padding: sp(context, v: 9, h: 8),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurfaceLight.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        children: [
+          Text(icon, style: TextStyle(fontSize: sf(context, 16))),
+          SizedBox(height: s(context, 3)),
+          Text(value, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, maxLines: 1,
+            style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 11),
+              fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          if (label.isNotEmpty)
+            Text(label, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, maxLines: 1,
+              style: TextStyle(fontSize: sf(context, 9), letterSpacing: 0.4,
+                color: AppColors.textSecondary.withOpacity(0.4))),
+        ],
+      ),
+    );
+  }
+
+  // ─── Post-Kickoff Banner ───
+
+  Widget _postKickoffBanner(BuildContext context, dynamic str) {
+    return GestureDetector(
+      onTap: () => context.go('/live'),
+      child: Container(
+        width: double.infinity,
+        padding: sa(context, 12),
+        decoration: BoxDecoration(
+          color: AppColors.neonGreen.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: AppColors.neonGreen.withOpacity(0.25)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(width: 5, height: 5,
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.neonGreen)),
+            SizedBox(width: s(context, 8)),
+            Text('Match in progress \u2192 Watch live',
+              style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 13),
+                fontWeight: FontWeight.w700, color: AppColors.neonGreen, letterSpacing: 0.5)),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ─── Reminder ───
 
   Widget _reminderButton(BuildContext context, dynamic str) {
+    final isPostKickoff = widget.match?.kickoffTime != null && _remaining.inSeconds <= 0;
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
+        onPressed: isPostKickoff ? null : () async {
+          final m = widget.match!;
+          if (!_reminderSet) {
+            // Schedule notification
+            final ok = await NotificationService.scheduleMatchReminder(
+              fixtureId: widget.fixtureId,
+              homeTeam: m.homeTeam,
+              awayTeam: m.awayTeam,
+              kickoffTime: m.kickoffTime!,
+            );
+            if (!ok && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Could not set reminder (permission denied or match too soon)')),
+              );
+              return;
+            }
+          } else {
+            await NotificationService.cancelMatchReminder(widget.fixtureId);
+          }
           setState(() => _reminderSet = !_reminderSet);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_reminderSet ? '🔔 ${str.reminderSet}' : '🔕 Reminder cancelled'),
-              backgroundColor: AppColors.amber.withOpacity(0.9),
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(_reminderSet ? '🔔 ${str.reminderSet}' : '🔕 Reminder cancelled'),
+                backgroundColor: AppColors.amber.withOpacity(0.9),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          }
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: _reminderSet ? Colors.transparent : AppColors.amber,

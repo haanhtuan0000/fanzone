@@ -93,7 +93,25 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                 ),
               )
             : null,
-        actions: [_coinBadge(context, coins)],
+        actions: [
+          Padding(
+            padding: EdgeInsets.only(right: s(context, 16)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '+${predictState.totalCoinsEarned}\u{1FA99}',
+                  style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 15),
+                    fontWeight: FontWeight.w700, color: AppColors.neonGreen),
+                ),
+                Text('this match', style: TextStyle(fontSize: sf(context, 9),
+                  color: AppColors.textSecondary.withOpacity(0.4), letterSpacing: 0.4,
+                  fontFamily: AppFonts.barlowCondensed)),
+              ],
+            ),
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {

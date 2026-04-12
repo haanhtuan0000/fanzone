@@ -6,6 +6,7 @@ import '../../../app/responsive.dart';
 import '../../live/providers/live_provider.dart';
 import '../providers/feed_provider.dart';
 import '../widgets/online_counter.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../widgets/feed_card_correct.dart';
 import '../widgets/feed_card_wrong.dart';
 import '../widgets/feed_card_rank.dart';
@@ -90,19 +91,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 child: feedState.isLoading && feedState.events.isEmpty
                     ? const Center(child: CircularProgressIndicator())
                     : feedState.events.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.local_fire_department, size: s(context, 64),
-                                    color: AppColors.textSecondary.withOpacity(0.5)),
-                                SizedBox(height: s(context, 16)),
-                                Text(
-                                  str.noActivity,
-                                  style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 16)),
-                                ),
-                              ],
-                            ),
+                        ? EmptyState(
+                            icon: '🔥',
+                            title: str.noActivity,
+                            subtitle: 'Feed updates when fans start predicting',
                           )
                         : RefreshIndicator(
                             onRefresh: () async {

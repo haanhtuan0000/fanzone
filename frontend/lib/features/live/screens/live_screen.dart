@@ -15,6 +15,8 @@ import '../../../core/l10n/app_strings.dart';
 import '../widgets/match_card.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../shared/widgets/tutorial_overlay.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/loading_shimmer.dart';
 
 /// Tracks whether tutorial overlay should be visible
 final _showTutorialProvider = StateProvider<bool>((ref) => false);
@@ -134,32 +136,27 @@ class LiveScreen extends ConsumerWidget {
               ],
             ],
 
-            // Loading spinner on cold start
+            // Loading shimmer on cold start
             if (liveState.isLoading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator(color: AppColors.neonGreen)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: r.sa(context, 14),
+                  child: Column(
+                    children: List.generate(3, (_) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: LoadingShimmer(height: r.s(context, 80)),
+                    )),
+                  ),
+                ),
               ),
 
             // Empty state when no matches (only after loading completes)
             if (!liveState.isLoading && liveState.activeMatch == null && liveState.matches.isEmpty)
               SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.sports_soccer, size: r.s(context, 64), color: AppColors.textSecondary.withOpacity(0.5)),
-                      SizedBox(height: r.s(context, 16)),
-                      Text(
-                        s.noLiveMatches,
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: r.sf(context, 16)),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        s.comeBackLater,
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: r.sf(context, 14)),
-                      ),
-                    ],
-                  ),
+                child: EmptyState(
+                  icon: '📺',
+                  title: s.noLiveMatches,
+                  subtitle: s.comeBackLater,
                 ),
               ),
 

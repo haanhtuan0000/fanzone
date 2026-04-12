@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:go_router/go_router.dart';
 import '../../../app/constants.dart';
 import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
@@ -85,10 +86,53 @@ class MatchDetailScreen extends ConsumerWidget {
                   ),
                 ),
 
+              // Next match banner
+              SliverToBoxAdapter(
+                child: _nextMatchBanner(context, str),
+              ),
+
               SliverToBoxAdapter(child: SizedBox(height: s(context, 24))),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _nextMatchBanner(BuildContext context, dynamic str) {
+    // Simple "come back for more" banner since we don't have next-match API
+    return Padding(
+      padding: sLTRB(context, 14, 6, 14, 0),
+      child: GestureDetector(
+        onTap: () => context.go('/live'),
+        child: Container(
+          padding: sa(context, 12),
+          decoration: BoxDecoration(
+            color: AppColors.blue.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.blue.withOpacity(0.2)),
+          ),
+          child: Row(
+            children: [
+              Text('⚽', style: TextStyle(fontSize: sf(context, 20))),
+              SizedBox(width: s(context, 10)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('More matches today',
+                      style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 12),
+                        fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    Text('Go back to live matches to predict more!',
+                      style: TextStyle(fontSize: sf(context, 10),
+                        color: AppColors.textSecondary.withOpacity(0.5))),
+                  ],
+                ),
+              ),
+              Text('\u2192', style: TextStyle(fontSize: sf(context, 16), color: AppColors.blue)),
+            ],
+          ),
+        ),
       ),
     );
   }
