@@ -84,7 +84,7 @@ export class ApiFootballService {
     return Date.now() < this.rateLimitedUntil;
   }
 
-  /** Serial queue: ensures only one API request runs at a time with 300ms gap */
+  /** Serial queue: ensures only one API request runs at a time with 500ms gap */
   private requestQueue: Promise<void> = Promise.resolve();
 
   async request<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
@@ -106,8 +106,8 @@ export class ApiFootballService {
     const url = new URL(endpoint, this.baseUrl);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
-    // Gap between requests — always wait, even during cooldown, to prevent queue blast
-    await new Promise((r) => setTimeout(r, 300));
+    // Gap between requests — 500ms = max 2/sec (Pro plan burst limit: 5/sec)
+    await new Promise((r) => setTimeout(r, 500));
 
     // Check rate limit cooldown AFTER the gap
     if (Date.now() < this.rateLimitedUntil) {
