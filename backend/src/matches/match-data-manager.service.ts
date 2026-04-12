@@ -72,7 +72,9 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     await this.redis.del('cache:fixtures:today');
     await this.scheduleTracker.refresh();
     await this.recoverMatchStates();
-    this.heartbeat = setInterval(() => this.tick(), 30_000);
+    this.heartbeat = setInterval(() => {
+      if (!(this as any)._tickRunning) this.tick();
+    }, 30_000);
     // Run first tick immediately
     this.tick();
   }
@@ -148,7 +150,11 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
   // ─── Master loop ───
 
+  private _tickRunning = false;
+
   private async tick() {
+    if (this._tickRunning) return; // Prevent overlapping ticks
+    this._tickRunning = true;
     try {
       // 1. Schedule check
       await this.scheduleTracker.refreshIfNeeded();
@@ -207,6 +213,8 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       await this.pollStandings();
     } catch (e) {
       this.logger.error(`Tick failed: ${e}`);
+    } finally {
+      this._tickRunning = false;
     }
   }
 
