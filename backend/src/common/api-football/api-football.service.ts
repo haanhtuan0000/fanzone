@@ -120,8 +120,8 @@ export class ApiFootballService {
 
         if (response.status === 429) {
           // Set cooldown so queued requests don't also hit 429
-          this.rateLimitedUntil = Date.now() + 60_000;
-          this.logger.warn('HTTP 429 — pausing all requests for 60s');
+          this.rateLimitedUntil = Date.now() + 20_000;
+          this.logger.warn('HTTP 429 — pausing all requests for 20s');
           throw new Error('Rate limited (429)');
         }
 
@@ -139,8 +139,8 @@ export class ApiFootballService {
           if (errorMsg.includes('request limit') || errorMsg.includes('requests')) {
             if (errorMsg.includes('per minute')) {
               // Per-minute rate limit — don't exhaust key, just cooldown 60s
-              this.rateLimitedUntil = Date.now() + 60_000;
-              this.logger.warn(`Per-minute rate limit hit — pausing all requests for 60s`);
+              this.rateLimitedUntil = Date.now() + 20_000;
+              this.logger.warn(`Per-minute rate limit hit — pausing all requests for 20s`);
               throw new Error(`API-Football per-minute rate limit — cooling down`);
             }
             // Daily limit — rotate key
