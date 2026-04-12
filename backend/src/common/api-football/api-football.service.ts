@@ -18,6 +18,7 @@ export class ApiFootballService {
   private currentKeyIndex = 0;
   private exhaustedKeys: Set<number> = new Set();
   private lastResetCheck = 0;
+  private rateLimitedUntil = 0; // epoch ms — pause all requests until this time
 
   constructor(private config: ConfigService) {
     this.baseUrl = this.config.get<string>('API_FOOTBALL_BASE_URL') || 'https://v3.football.api-sports.io';
@@ -95,11 +96,17 @@ export class ApiFootballService {
   }
 
   private async doRequest<T>(endpoint: string, params: Record<string, string>): Promise<T> {
+    // If rate limited, reject immediately — don't waste the queue
+    if (Date.now() < this.rateLimitedUntil) {
+      const waitSec = Math.round((this.rateLimitedUntil - Date.now()) / 1000);
+      throw new Error(`Rate limited — ${waitSec}s cooldown remaining`);
+    }
+
     const url = new URL(endpoint, this.baseUrl);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
 
-    // 250ms gap between requests (Pro plan: 300/min = 5/sec, use 4/sec to be safe)
-    await new Promise((r) => setTimeout(r, 250));
+    // 2s gap between requests (safe for 30 req/min plans)
+    await new Promise((r) => setTimeout(r, 2000));
 
     let retries = 0;
     const maxRetries = 3;
@@ -135,13 +142,19 @@ export class ApiFootballService {
           this.logger.warn(`API-Football response errors for ${endpoint}: ${errorMsg}`);
 
           if (errorMsg.includes('request limit') || errorMsg.includes('requests')) {
-            this.logger.warn(`Key #${this.currentKeyIndex + 1} hit request limit — rotating`);
+            if (errorMsg.includes('per minute')) {
+              // Per-minute rate limit — don't exhaust key, just cooldown 60s
+              this.rateLimitedUntil = Date.now() + 60_000;
+              this.logger.warn(`Per-minute rate limit hit — pausing all requests for 60s`);
+              throw new Error(`API-Football per-minute rate limit — cooling down`);
+            }
+            // Daily limit — rotate key
+            this.logger.warn(`Key #${this.currentKeyIndex + 1} hit daily limit — rotating`);
             const rotated = this.rotateToNextKey();
             if (rotated) {
               retries++;
               continue; // Retry with new key
             }
-            // Single key — no point retrying, fail fast
             throw new Error(`API-Football rate limit: ${errorMsg}`);
           }
         }
