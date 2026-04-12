@@ -5,6 +5,8 @@ import 'websocket_client.dart';
 import '../../features/live/providers/live_provider.dart';
 import '../../features/predict/providers/predict_provider.dart';
 import '../../features/feed/providers/feed_provider.dart';
+import '../../features/profile/providers/profile_provider.dart';
+import '../../features/auth/providers/auth_provider.dart';
 import '../../core/models/feed_event.dart';
 
 /// Bridges WebSocket events to Riverpod state.
@@ -79,7 +81,16 @@ class MatchSocketService with WidgetsBindingObserver {
     // Refresh live matches (keeps existing data, shows refresh indicator)
     // Don't invalidate — that clears state and causes scoreboard flash
     _ref.read(liveStateProvider.notifier).refresh();
-    // Don't call loadQuestions directly — the liveState listener handles it
+
+    // Reload questions + coins (stale after long background, e.g. 5-7 hours)
+    if (_currentFixtureId != null) {
+      _ref.read(predictStateProvider.notifier).loadQuestions(_currentFixtureId!);
+    }
+    _ref.invalidate(profileStateProvider);
+    // Refresh coins directly (profile invalidation triggers async load)
+    _ref.read(authStateProvider.notifier).fetchCoins().then((c) {
+      if (c > 0) _ref.read(userCoinsProvider.notifier).state = c;
+    });
   }
 
   // ─── Internal ───

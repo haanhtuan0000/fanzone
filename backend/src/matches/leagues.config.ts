@@ -1,10 +1,12 @@
-/** Top 5 European leagues only */
+/** Top 5 European leagues + Americas for testing */
 export const TRACKED_LEAGUE_IDS = new Set([
   39,  // England — Premier League
   140, // Spain — La Liga
   135, // Italy — Serie A
   78,  // Germany — Bundesliga
   61,  // France — Ligue 1
+  253, // USA — MLS
+  128, // Argentina — Liga Profesional
 ]);
 
 /** Maximum live matches to process simultaneously (API budget constraint) */
