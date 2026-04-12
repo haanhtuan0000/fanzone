@@ -390,12 +390,12 @@ export class MatchScenarioEngine {
         currentPhase: phase ?? 'PRE_MATCH',
         questionsGenerated: 0,
         lastQuestionTime: 0,
-        kickoffTime: elapsed != null ? Date.now() - elapsed * 60_000 : null,
+        kickoffTime: (elapsed != null && elapsed > 0) ? Date.now() - elapsed * 60_000 : null,
       };
       this.fixtureStates.set(fixtureId, state);
     }
     // If kickoffTime was never set and now we have elapsed, set it once
-    if (state.kickoffTime == null && elapsed != null) {
+    if (state.kickoffTime == null && elapsed != null && elapsed > 0) {
       state.kickoffTime = Date.now() - elapsed * 60_000;
     }
     return state;

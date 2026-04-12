@@ -112,7 +112,8 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
         // Get cached score/period from Redis
         const cached = await this.redis.getJson<any>(`cache:fixture:${fixtureId}:score`);
         const period = cached?.period ?? '2H';
-        const elapsed = cached?.elapsed ?? latestQuestion?.matchMinute ?? 0;
+        // Only use API elapsed from Redis cache — matchMinute is NOT the match clock
+        const elapsed = cached?.elapsed ?? 0;
         // Use current elapsed to determine phase — NOT the stale question's matchPhase
         // This prevents fake phase transitions (e.g., EARLY_H1 → MID_H2) on first tick
         const phase = this.questionGenerator.determinePhase(elapsed, period);
