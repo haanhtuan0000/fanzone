@@ -66,7 +66,10 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       this.logger.log('MatchDataManager DISABLED (MOCK_MODE=true)');
       return;
     }
-    this.logger.log('MatchDataManager starting (30s heartbeat)');
+    this.logger.log('MatchDataManager starting — waiting 30s for old instance to shut down');
+    // Delay startup to avoid two instances polling simultaneously during deploy
+    await new Promise((r) => setTimeout(r, 30_000));
+    this.logger.log('MatchDataManager ready (30s heartbeat)');
     // Clear stale fixture caches so league filter changes take effect immediately
     await this.redis.del('cache:fixtures:live');
     await this.redis.del('cache:fixtures:today');
