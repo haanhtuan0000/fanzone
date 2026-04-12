@@ -216,7 +216,13 @@ class _Vi {
   String get kickoffLabel => 'Kick-off hôm nay';
   String get headToHead => 'Đối đầu';
   String get draws => 'Hòa';
+  String get draw => 'Hòa';
   String wins(String team) => '$team thắng';
+  String get fansPredicting => 'FAN ĐANG DỰ ĐOÁN';
+  String get fansPredictingMatch => 'fan đang dự đoán trận này';
+  String get hours => 'Giờ';
+  String get minutes => 'Phút';
+  String get seconds => 'Giây';
   String get noStatsAvailable => 'Chưa có thống kê';
   String get noTimeline => 'Chưa có sự kiện';
   String get noPredictions => 'Bạn chưa dự đoán trận này';
@@ -424,7 +430,13 @@ class _En {
   String get kickoffLabel => 'Kick-off today';
   String get headToHead => 'Head to Head';
   String get draws => 'Draws';
+  String get draw => 'Draw';
   String wins(String team) => '$team wins';
+  String get fansPredicting => 'FANS PREDICTING';
+  String get fansPredictingMatch => 'fans predicting this match';
+  String get hours => 'Hours';
+  String get minutes => 'Min';
+  String get seconds => 'Sec';
   String get noStatsAvailable => 'No stats available';
   String get noTimeline => 'No events yet';
   String get noPredictions => 'You didn\'t predict in this match';

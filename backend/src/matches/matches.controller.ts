@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, Request } from '@nestjs/common';
 import { MatchesService } from './matches.service';
 import { RedisService } from '../common/redis/redis.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('matches')
 export class MatchesController {
@@ -22,6 +23,22 @@ export class MatchesController {
   @Get(':fixtureId')
   async getMatch(@Param('fixtureId') fixtureId: string) {
     return this.matchesService.getMatch(parseInt(fixtureId));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':fixtureId/fan-vote')
+  async getFanVote(@Param('fixtureId') fixtureId: string, @Request() req: any) {
+    return this.matchesService.getFanVote(parseInt(fixtureId), req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':fixtureId/fan-vote')
+  async submitFanVote(
+    @Param('fixtureId') fixtureId: string,
+    @Body() body: { vote: string },
+    @Request() req: any,
+  ) {
+    return this.matchesService.submitFanVote(parseInt(fixtureId), req.user.id, body.vote);
   }
 
   /**

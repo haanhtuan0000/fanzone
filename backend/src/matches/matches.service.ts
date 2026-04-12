@@ -81,4 +81,46 @@ export class MatchesService {
   async getStandings(leagueId: number) {
     return this.redis.getJson<unknown[]>(`cache:standings:${leagueId}`);
   }
+
+  // ─── Fan vote ───
+
+  async getFanVote(fixtureId: number, userId: string) {
+    const countsKey = `fanvote:${fixtureId}:counts`;
+    const userKey = `fanvote:${fixtureId}:user:${userId}`;
+
+    const [counts, myVote] = await Promise.all([
+      this.redis.hgetall(countsKey),
+      this.redis.get(userKey),
+    ]);
+
+    const home = parseInt(counts.home || '0');
+    const draw = parseInt(counts.draw || '0');
+    const away = parseInt(counts.away || '0');
+    const total = home + draw + away;
+
+    return { home, draw, away, total, myVote };
+  }
+
+  async submitFanVote(fixtureId: number, userId: string, vote: string) {
+    if (!['home', 'draw', 'away'].includes(vote)) {
+      throw new Error('Invalid vote. Must be home, draw, or away.');
+    }
+
+    const countsKey = `fanvote:${fixtureId}:counts`;
+    const userKey = `fanvote:${fixtureId}:user:${userId}`;
+    const TTL = 86400; // 24 hours
+
+    // Check if user already voted — remove old vote first
+    const oldVote = await this.redis.get(userKey);
+    if (oldVote && ['home', 'draw', 'away'].includes(oldVote)) {
+      await this.redis.hincrby(countsKey, oldVote, -1);
+    }
+
+    // Add new vote
+    await this.redis.hincrby(countsKey, vote, 1);
+    await this.redis.set(userKey, vote, TTL);
+    await this.redis.expire(countsKey, TTL);
+
+    return this.getFanVote(fixtureId, userId);
+  }
 }

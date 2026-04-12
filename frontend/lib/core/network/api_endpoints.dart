@@ -14,6 +14,7 @@ class ApiEndpoints {
   static const String liveMatches = '/matches/live';
   static const String todayMatches = '/matches/today';
   static String matchDetail(int fixtureId) => '/matches/$fixtureId';
+  static String fanVote(int fixtureId) => '/matches/$fixtureId/fan-vote';
 
   // Questions
   static String activeQuestions(int fixtureId) => '/questions/active/$fixtureId';
