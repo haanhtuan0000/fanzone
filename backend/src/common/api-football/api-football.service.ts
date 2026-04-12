@@ -77,7 +77,7 @@ export class ApiFootballService {
     return false;
   }
 
-  /** Serial queue: ensures only one API request runs at a time with 250ms gap */
+  /** Serial queue: ensures only one API request runs at a time with 2s gap */
   private requestQueue: Promise<void> = Promise.resolve();
 
   async request<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
@@ -119,15 +119,10 @@ export class ApiFootballService {
         });
 
         if (response.status === 429) {
-          // With 1 key, don't retry — fail fast so queue keeps flowing
-          if (this.apiKeys.length <= 1) {
-            throw new Error('Rate limited (429) — single key, no retry');
-          }
-          retries++;
-          const waitTime = Math.pow(2, retries) * 1000;
-          this.logger.warn(`Rate limited, retrying in ${waitTime}ms (attempt ${retries}/${maxRetries})`);
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
-          continue;
+          // Set cooldown so queued requests don't also hit 429
+          this.rateLimitedUntil = Date.now() + 60_000;
+          this.logger.warn('HTTP 429 — pausing all requests for 60s');
+          throw new Error('Rate limited (429)');
         }
 
         if (!response.ok) {
@@ -161,6 +156,11 @@ export class ApiFootballService {
 
         return data.response;
       } catch (error) {
+        // Don't retry rate limit errors — they already set cooldown
+        const msg = (error as Error).message ?? '';
+        if (msg.includes('Rate limited') || msg.includes('rate limit') || msg.includes('cooldown')) {
+          throw error;
+        }
         if (retries >= maxRetries - 1) throw error;
         retries++;
         await new Promise((resolve) => setTimeout(resolve, Math.pow(2, retries) * 1000));
