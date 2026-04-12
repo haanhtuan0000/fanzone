@@ -154,13 +154,6 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
   private async tick() {
     if (this._tickRunning) return; // Prevent overlapping ticks
-
-    // Redis lock: only one instance polls at a time (prevents dual-instance conflicts during deploy)
-    const lockKey = 'lock:match-data-manager:tick';
-    const lockValue = `${process.pid}-${Date.now()}`;
-    const acquired = await this.redis.setNX(lockKey, lockValue, 60); // 60s TTL, only if not exists
-    if (!acquired) return; // Another instance holds the lock
-
     this._tickRunning = true;
     try {
       // 1. Schedule check
@@ -222,7 +215,6 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`Tick failed: ${e}`);
     } finally {
       this._tickRunning = false;
-      await this.redis.del(lockKey);
     }
   }
 
