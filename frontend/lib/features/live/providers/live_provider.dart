@@ -28,12 +28,12 @@ class LiveState {
 
   List<MatchData> get displayedLiveMatches {
     final live = liveMatches;
-    return liveExpanded ? live : live.take(4).toList();
+    return liveExpanded ? live : live.take(8).toList();
   }
 
   List<MatchData> get displayedTodayMatches {
     final today = upcomingMatches;
-    return todayExpanded ? today : today.take(4).toList();
+    return todayExpanded ? today : today.take(8).toList();
   }
 
   LiveState copyWith({
