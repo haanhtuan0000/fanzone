@@ -41,6 +41,10 @@ export class ScheduleTracker {
   /**
    * Returns minutes until the next kickoff from today's cached fixtures.
    * Returns Infinity if no upcoming matches.
+   *
+   * IMPORTANT: returns 0 (or negative as 0) if a match's kickoff time has
+   * passed but it's still marked NS — API-Football may be delayed in
+   * marking the match as live. We treat this as "should poll now".
    */
   async minutesUntilNextKickoff(): Promise<number> {
     const fixtures = await this.redis.getJson<any[]>('cache:fixtures:today');
@@ -58,6 +62,12 @@ export class ScheduleTracker {
       if (!dateStr) continue;
       const kickoff = new Date(dateStr).getTime();
       const diff = (kickoff - now) / 60_000;
+
+      // Match should already have started but API hasn't updated status yet
+      // (within 30 min grace period) — treat as imminent so we poll frequently
+      if (diff <= 0 && diff > -30) {
+        return 0;
+      }
       if (diff > 0 && diff < nearest) {
         nearest = diff;
       }

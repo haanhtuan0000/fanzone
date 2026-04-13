@@ -476,6 +476,164 @@ describe('MatchDataManager', () => {
       expect((manager as any).matchStates.has(111)).toBe(false);
     });
 
+    it('detects stale elapsed (stuck for 5+ min while still appearing live) and triggers FT', async () => {
+      // Match still appears in API but elapsed has been stuck at 84' for 6 minutes
+      const sixMinAgo = Date.now() - 6 * 60_000;
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '2H', elapsed: 84, lastPhase: 'LATE_H2',
+        teams: { home: 'Crystal Palace', away: 'Newcastle' }, score: { home: 1, away: 1 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(), // still appearing in API
+        lastElapsedChange: sixMinAgo, // but elapsed hasn't changed in 6 min
+      });
+
+      // API returns the match with same elapsed (84' frozen)
+      const fixture = makeFixture(111, '2H', 84, 'Crystal Palace', 'Newcastle');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('LATE_H2');
+
+      await (manager as any).pollFixtures();
+
+      // Should be detected as stuck and treated as FT
+      // Note: score gets updated from API (0-0 from makeFixture) before stale check
+      expect(questionResolver.onFullTime).toHaveBeenCalledWith(
+        111, { home: 'Crystal Palace', away: 'Newcastle' }, { home: 0, away: 0 }, undefined, 'FT',
+      );
+      expect((manager as any).matchStates.has(111)).toBe(false);
+    });
+
+    it('does not flag stale when elapsed changes recently (4 min stuck = OK)', async () => {
+      const fourMinAgo = Date.now() - 4 * 60_000;
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '2H', elapsed: 84, lastPhase: 'LATE_H2',
+        teams: { home: 'A', away: 'B' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(),
+        lastElapsedChange: fourMinAgo, // stuck 4 min — under threshold
+      });
+
+      const fixture = makeFixture(111, '2H', 84, 'A', 'B');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('LATE_H2');
+
+      await (manager as any).pollFixtures();
+
+      // Should NOT trigger FT yet
+      expect(questionResolver.onFullTime).not.toHaveBeenCalled();
+      expect((manager as any).matchStates.has(111)).toBe(true);
+    });
+
+    it('rejects elapsed going backwards within same period (clock cannot decrease)', async () => {
+      // Match is at 90', API returns 84' (impossible — clock can't go back)
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '2H', elapsed: 90, lastPhase: 'LATE_H2',
+        teams: { home: 'A', away: 'B' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(),
+        lastElapsedChange: Date.now(),
+      });
+
+      const fixture = makeFixture(111, '2H', 84, 'A', 'B'); // ← API says 84
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('LATE_H2');
+
+      await (manager as any).pollFixtures();
+
+      const state = (manager as any).matchStates.get(111);
+      // State should keep 90', not regress to 84
+      expect(state.elapsed).toBe(90);
+    });
+
+    it('accepts elapsed going forward (normal advancement)', async () => {
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '2H', elapsed: 80, lastPhase: 'LATE_H2',
+        teams: { home: 'A', away: 'B' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(),
+        lastElapsedChange: Date.now(),
+      });
+
+      const fixture = makeFixture(111, '2H', 85, 'A', 'B'); // ← forward
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('LATE_H2');
+
+      await (manager as any).pollFixtures();
+
+      expect((manager as any).matchStates.get(111).elapsed).toBe(85);
+    });
+
+    it('accepts elapsed reset across period boundary (1H 45 → 2H 46)', async () => {
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '1H', elapsed: 45, lastPhase: 'LATE_H1',
+        teams: { home: 'A', away: 'B' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(),
+        lastElapsedChange: Date.now(),
+      });
+
+      // Different period — even if elapsed value is lower, should accept
+      const fixture = makeFixture(111, '2H', 46, 'A', 'B');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('EARLY_H2');
+
+      await (manager as any).pollFixtures();
+
+      expect((manager as any).matchStates.get(111).elapsed).toBe(46);
+    });
+
+    it('backwards elapsed does not reset staleness timer', async () => {
+      const tenMinAgo = Date.now() - 10 * 60_000;
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '2H', elapsed: 90, lastPhase: 'LATE_H2',
+        teams: { home: 'A', away: 'B' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(),
+        lastElapsedChange: tenMinAgo, // stuck for 10 min
+      });
+
+      // API returns 84 (going backwards) — should NOT reset staleness timer
+      const fixture = makeFixture(111, '2H', 84, 'A', 'B');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('LATE_H2');
+
+      await (manager as any).pollFixtures();
+
+      // Should be marked as FT because staleness timer wasn't reset
+      expect(questionResolver.onFullTime).toHaveBeenCalled();
+    });
+
+    it('updates lastElapsedChange when elapsed changes', async () => {
+      const oneMinAgo = Date.now() - 60_000;
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '2H', elapsed: 80, lastPhase: 'LATE_H2',
+        teams: { home: 'A', away: 'B' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(),
+        lastElapsedChange: oneMinAgo,
+      });
+
+      // API returns match with new elapsed (81)
+      const fixture = makeFixture(111, '2H', 81, 'A', 'B');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('LATE_H2');
+
+      const before = Date.now();
+      await (manager as any).pollFixtures();
+      const after = Date.now();
+
+      const state = (manager as any).matchStates.get(111);
+      // lastElapsedChange should be updated to ~now
+      expect(state.lastElapsedChange).toBeGreaterThanOrEqual(before);
+      expect(state.lastElapsedChange).toBeLessThanOrEqual(after);
+    });
+
     it('does not trigger onFullTime within 5-minute grace period', async () => {
       const twoMinAgo = Date.now() - 120_000;
       (manager as any).matchStates.set(111, {

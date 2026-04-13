@@ -3,11 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app/router.dart';
 import 'app/theme.dart';
+import 'core/notifications/notification_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Allow Google Fonts to fetch over HTTP (needed for Android)
   GoogleFonts.config.allowRuntimeFetching = true;
+  // Initialize notifications (non-blocking)
+  NotificationService.init();
   runApp(const ProviderScope(child: FanZoneApp()));
 }
 

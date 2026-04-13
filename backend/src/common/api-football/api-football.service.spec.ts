@@ -7,10 +7,23 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 /** Helper: build a successful API-Football response */
-function okResponse(data: any = []) {
+/** Mock fetch Headers object — supports .get() and .entries() like real Response.headers */
+function mockHeaders(headers: Record<string, string> = {}) {
+  return {
+    get: (key: string) => headers[key.toLowerCase()] ?? null,
+    entries: () => Object.entries(headers)[Symbol.iterator](),
+  };
+}
+
+function okResponse(data: any = [], extraHeaders: Record<string, string> = {}) {
   return {
     ok: true,
     status: 200,
+    headers: mockHeaders({
+      'x-ratelimit-requests-limit': '7500',
+      'x-ratelimit-requests-remaining': '7000',
+      ...extraHeaders,
+    }),
     json: async () => ({
       get: 'fixtures',
       parameters: {},
@@ -27,6 +40,7 @@ function errorBodyResponse(errors: Record<string, string>) {
   return {
     ok: true,
     status: 200,
+    headers: mockHeaders({ 'server': 'cloudflare', 'cf-ray': 'test-ray' }),
     json: async () => ({
       get: 'fixtures',
       parameters: {},
@@ -40,7 +54,12 @@ function errorBodyResponse(errors: Record<string, string>) {
 
 /** Helper: build an HTTP 429 response */
 function http429Response() {
-  return { ok: false, status: 429, statusText: 'Too Many Requests' };
+  return {
+    ok: false,
+    status: 429,
+    statusText: 'Too Many Requests',
+    headers: mockHeaders({ 'server': 'cloudflare', 'retry-after': '5' }),
+  };
 }
 
 /**
@@ -141,6 +160,35 @@ describe('ApiFootballService', () => {
       await service.getFixtureEvents(12345);
       const calledUrl = mockFetch.mock.calls[0][0];
       expect(calledUrl).toContain('fixture=12345');
+    });
+  });
+
+  // ═══ Rate limit header logging (debugging visibility) ═══
+
+  describe('rate limit header logging', () => {
+    it('reads x-ratelimit headers from successful responses', async () => {
+      const loggerSpy = jest.spyOn((service as any).logger, 'debug');
+      mockFetch.mockResolvedValue(okResponse([], {
+        'x-ratelimit-requests-limit': '7500',
+        'x-ratelimit-requests-remaining': '6500',
+      }));
+      await service.getLiveFixtures();
+      // Should log remaining/limit so we can see actual quota usage
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('6500/7500'),
+      );
+    });
+
+    it('logs full headers on rate limit so source can be identified', async () => {
+      const loggerSpy = jest.spyOn((service as any).logger, 'warn');
+      mockFetch.mockResolvedValueOnce(errorBodyResponse({
+        rateLimit: 'Too many requests. You have exceeded the limit of requests per minute of your subscription.',
+      }));
+      await expect(service.getLiveFixtures()).rejects.toThrow();
+      // Should log "cloudflare" or other server identifier
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('cloudflare'),
+      );
     });
   });
 

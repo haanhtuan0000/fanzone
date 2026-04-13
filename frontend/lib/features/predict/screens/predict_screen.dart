@@ -115,14 +115,23 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  '+${predictState.totalCoinsEarned}\u{1FA99}',
-                  style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 15),
-                    fontWeight: FontWeight.w700, color: AppColors.neonGreen),
+                // Top row: total balance (amber)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.monetization_on, color: AppColors.amber, size: 16),
+                    const SizedBox(width: 3),
+                    Text('$coins',
+                      style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 16),
+                        color: AppColors.amber, letterSpacing: 0.5)),
+                  ],
                 ),
-                Text('this match', style: TextStyle(fontSize: sf(context, 9),
-                  color: AppColors.textSecondary.withOpacity(0.4), letterSpacing: 0.4,
-                  fontFamily: AppFonts.barlowCondensed)),
+                // Bottom row: this match earnings (neon)
+                Text(
+                  '+${predictState.totalCoinsEarned} this match',
+                  style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 9),
+                    fontWeight: FontWeight.w700, color: AppColors.neonGreen, letterSpacing: 0.4),
+                ),
               ],
             ),
           ),

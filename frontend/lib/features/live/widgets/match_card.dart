@@ -9,12 +9,17 @@ class MatchCard extends StatelessWidget {
   final MatchData match;
   final bool isSelected;
   final VoidCallback onTap;
+  /// Optional callback for when the "Predicting" fan bar is tapped.
+  /// If provided, takes precedence over the default predict navigation
+  /// so callers can switch active match before navigating.
+  final VoidCallback? onPredictTap;
 
   const MatchCard({
     super.key,
     required this.match,
     this.isSelected = false,
     required this.onTap,
+    this.onPredictTap,
   });
 
   @override
@@ -154,8 +159,14 @@ class MatchCard extends StatelessWidget {
               SizedBox(height: s(context, 8)),
               GestureDetector(
                 onTap: () {
-                  // stopPropagation: don't trigger card's onTap (switchMatch)
-                  context.go('/predict');
+                  // stopPropagation: don't trigger card's onTap.
+                  // If onPredictTap provided, caller handles match-switch + navigate.
+                  // Otherwise just navigate (legacy fallback).
+                  if (onPredictTap != null) {
+                    onPredictTap!();
+                  } else {
+                    context.go('/predict');
+                  }
                 },
                 child: Container(
                   width: double.infinity,

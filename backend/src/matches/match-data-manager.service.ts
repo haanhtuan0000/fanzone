@@ -29,6 +29,7 @@ interface MatchState {
   lastStatsPoll: number;
   eventsLastCount: number;
   lastSeenInApi: number; // Timestamp of last time this fixture appeared in live API
+  lastElapsedChange: number; // Timestamp of last time elapsed value changed
 }
 
 /**
@@ -133,6 +134,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
           lastStatsPoll: 0,
           eventsLastCount: 0,
           lastSeenInApi: Date.now(),
+          lastElapsedChange: Date.now(),
         });
 
         // Clear stale cooldown so ensureQuestionsExist runs fresh
@@ -288,6 +290,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
           hasActiveQuestions: false,
           lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
           lastSeenInApi: Date.now(),
+          lastElapsedChange: Date.now(),
         };
         this.matchStates.set(id, state);
         this.logger.log(`New match detected: ${homeTeam} vs ${awayTeam} (${period} ${elapsed}' → phase ${initialPhase})`);
@@ -314,10 +317,40 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       }
 
       const prevPeriod = state.period;
+      const prevElapsed = state.elapsed;
       state.period = period;
-      state.elapsed = elapsed;
       state.score = score;
       state.lastSeenInApi = Date.now();
+
+      // Reject elapsed going backwards within the same period — football clock
+      // never decreases. API-Football occasionally returns stale/buggy values
+      // (e.g. 90' → 84'). Keep our higher value.
+      const elapsedWentBackwards = prevPeriod === period && elapsed < prevElapsed;
+      if (elapsedWentBackwards) {
+        this.logger.warn(`Fixture ${id}: API returned elapsed ${elapsed}' < state ${prevElapsed}' (same period ${period}) — keeping ${prevElapsed}'`);
+        // Don't update state.elapsed; treat as no change for staleness tracking
+      } else {
+        state.elapsed = elapsed;
+        // Track when elapsed last changed (to detect stuck/stale matches)
+        if (elapsed !== prevElapsed) {
+          state.lastElapsedChange = Date.now();
+        }
+      }
+
+      // Stale match detection: elapsed unchanged for 5+ minutes while still appearing live
+      // → API has frozen on this match; treat as finished
+      const STALE_THRESHOLD_MS = 5 * 60_000;
+      if (LIVE_STATUSES.has(period) && Date.now() - state.lastElapsedChange > STALE_THRESHOLD_MS) {
+        this.logger.warn(`Fixture ${id}: elapsed stuck at ${elapsed}' for ${Math.round((Date.now() - state.lastElapsedChange) / 1000)}s — treating as finished`);
+        try {
+          await this.questionResolver.onFullTime(id, state.teams, state.score, undefined, 'FT');
+          await this.questionGenerator.cleanupFixture(id);
+        } catch (e) {
+          this.logger.error(`Failed onFullTime for stale match ${id}: ${e}`);
+        }
+        this.matchStates.delete(id);
+        continue; // Skip rest of this fixture's processing
+      }
 
       // Handle API period transitions (1H→HT→2H→FT)
       let periodTransitioned = false;
@@ -463,15 +496,19 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       .filter(([, s]) => s.hasActiveQuestions)
       .sort((a, b) => a[1].lastEventPoll - b[1].lastEventPoll); // oldest poll first
 
+    let eventsPollThisTick = 0;
     for (const [id, state] of entries) {
       // Respect interval
       if (now - state.lastEventPoll < interval) continue;
       if (!this.budget.canMakeCall()) break;
+      // Max 1 event poll per tick to stay under rate limit
+      if (eventsPollThisTick >= 1) break;
 
       try {
         const events = await this.apiFootball.getFixtureEvents(id);
         this.budget.recordCall();
         state.lastEventPoll = now;
+        eventsPollThisTick++;
 
         // Cache events
         await this.redis.setJson(`cache:fixture:${id}:events`, events, 120);

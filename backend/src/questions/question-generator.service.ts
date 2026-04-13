@@ -52,8 +52,12 @@ export class QuestionGeneratorService {
 
   /**
    * Catch-up generation for matches discovered mid-game.
-   * Generates for the previous phase + current phase so the user
-   * gets a reasonable question pipeline instead of just 2 questions.
+   * Generates for ALL phases from EARLY_H1 up to and including current phase.
+   * Skips PRE_MATCH (only relevant before kickoff).
+   * The Redis guard in onPhaseChange prevents duplicate generation per phase.
+   *
+   * Example: match discovered at minute 70 (MID_H2):
+   *   → generates EARLY_H1, MID_H1, LATE_H1, HALF_TIME, EARLY_H2, MID_H2
    */
   async generateCatchUp(
     fixtureId: number,
@@ -70,20 +74,23 @@ export class QuestionGeneratorService {
     const currentIdx = PHASE_ORDER.indexOf(currentPhase);
     const results = [];
 
-    // Generate for 1 previous phase (catch-up) — the Redis guard prevents duplicates
-    if (currentIdx > 0) {
-      const prevPhase = PHASE_ORDER[currentIdx - 1];
-      const prev = await this.scenarioEngine.onPhaseChange(
-        fixtureId, prevPhase as any, teams, elapsed, score,
+    // For PRE_MATCH only (before kickoff): just current phase
+    if (currentIdx === 0) {
+      const current = await this.scenarioEngine.onPhaseChange(
+        fixtureId, currentPhase as any, teams, elapsed, score,
       );
-      results.push(...prev);
+      results.push(...current);
+      return results;
     }
 
-    // Generate for current phase
-    const current = await this.scenarioEngine.onPhaseChange(
-      fixtureId, currentPhase as any, teams, elapsed, score,
-    );
-    results.push(...current);
+    // Match has started: generate for ALL phases from EARLY_H1 (idx 1) to current (inclusive)
+    for (let i = 1; i <= currentIdx; i++) {
+      const phase = PHASE_ORDER[i];
+      const generated = await this.scenarioEngine.onPhaseChange(
+        fixtureId, phase as any, teams, elapsed, score,
+      );
+      results.push(...generated);
+    }
 
     return results;
   }

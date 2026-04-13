@@ -193,6 +193,11 @@ class LiveScreen extends ConsumerWidget {
                             matches: liveState.displayedLiveMatches,
                             selectedId: liveState.activeMatch?.fixtureId,
                             onTap: (match) => ref.read(liveStateProvider.notifier).selectMatch(match),
+                            onPredictTap: (match) {
+                              // Switch active match BEFORE navigating so predict screen shows correct match
+                              ref.read(liveStateProvider.notifier).selectMatch(match);
+                              context.go('/predict');
+                            },
                           ),
                         ),
                       ],
@@ -361,6 +366,7 @@ class LiveScreen extends ConsumerWidget {
     required List<MatchData> matches,
     int? selectedId,
     required void Function(MatchData) onTap,
+    void Function(MatchData)? onPredictTap,
     bool dimFinished = false,
   }) {
     // Group by league name, preserve order
@@ -415,6 +421,7 @@ class LiveScreen extends ConsumerWidget {
               match: match,
               isSelected: match.fixtureId == selectedId,
               onTap: () => onTap(match),
+              onPredictTap: onPredictTap == null ? null : () => onPredictTap(match),
             ),
           ),
         ));
