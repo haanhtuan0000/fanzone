@@ -15,7 +15,7 @@ const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN']);
 const LIVE_STATUSES = new Set(['1H', '2H', 'HT', 'ET', 'BT', 'P']);
 const HT_STATUS = 'HT';
 
-interface MatchState {
+export interface MatchState {
   fixtureId: number;
   period: string;
   elapsed: number;
