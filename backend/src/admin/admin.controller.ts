@@ -183,12 +183,12 @@ export class AdminController {
       aggregates.byTemplate[code] = (aggregates.byTemplate[code] ?? 0) + 1;
     }
 
-    // Cached events + stats from Redis
-    const [cachedEvents, cachedStats, lastGeneratedPhase, usedTemplateIds] = await Promise.all([
+    // Cached events + stats from Redis + generation Sets (engine writes both as Sets)
+    const [cachedEvents, cachedStats, generatedPhases, usedTemplateIds] = await Promise.all([
       this.redis.getJson<any[]>(`cache:fixture:${fixtureId}:events`),
       this.redis.getJson<any>(`cache:fixture:${fixtureId}:stats`),
-      this.redis.get(`phase:${fixtureId}:last-generated`),
-      this.redis.hgetall(`fixture:${fixtureId}:used-templates`),
+      this.redis.smembers(`phase:${fixtureId}:generated`),
+      this.redis.smembers(`fixture:${fixtureId}:used-templates`),
     ]);
 
     // Recent feed events
@@ -226,8 +226,8 @@ export class AdminController {
       fixtureId,
       matchState: this.matchManager.getStateSnapshot(fixtureId)[0] ?? null,
       generation: {
-        lastGeneratedPhase,
-        usedTemplateIds: Object.keys(usedTemplateIds ?? {}),
+        generatedPhases,
+        usedTemplateIds,
       },
       cache: {
         eventsCount: Array.isArray(cachedEvents) ? cachedEvents.length : 0,

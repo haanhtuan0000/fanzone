@@ -778,12 +778,11 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       if (state) state.hasActiveQuestions = true;
     } else {
       // All questions resolved/closed — but match is still live?
-      // Check Redis phase guard first — don't regenerate if phase was already generated
+      // Check Redis phase guard first — don't regenerate if this phase was already
+      // generated (the engine stores generated phases as a Set, not a single value).
       const currentPhase = this.questionGenerator.determinePhase(elapsed, period);
-      const phaseKey = `phase:${fixtureId}:last-generated`;
-      const cached = await this.redis.get(phaseKey);
-      if (cached === currentPhase) {
-        // Phase already generated — just mark inactive
+      const alreadyGenerated = await this.redis.sismember(`phase:${fixtureId}:generated`, currentPhase);
+      if (alreadyGenerated) {
         if (state) state.hasActiveQuestions = false;
         return;
       }

@@ -77,11 +77,8 @@ const EVENT_TRIGGER_MAP: Record<string, string> = {
 /** Minimum cooldown between questions per fixture (ms) */
 const COOLDOWN_MS = 45_000;
 
-/** Redis sliding window size — last N template IDs to avoid repetition (doc v2.3: 12) */
-const WINDOW_SIZE = 12;
-
-/** TTL for the Redis sliding window key (4 hours, covers a full match) */
-const WINDOW_TTL_SEC = 4 * 3600;
+/** TTL for fixture-scoped Redis Sets (4 hours, covers a full match + ET) */
+const FIXTURE_KEY_TTL_SEC = 4 * 3600;
 
 @Injectable()
 export class MatchScenarioEngine {
@@ -115,17 +112,20 @@ export class MatchScenarioEngine {
   ) {
     const state = this.getOrCreateState(fixtureId, newPhase, elapsed);
 
-    // Prevent generating for the same phase twice — persisted in Redis to survive restarts
-    const phaseKey = `phase:${fixtureId}:last-generated`;
-    const cachedPhase = await this.redis.get(phaseKey);
-    if (cachedPhase === newPhase) {
-      this.logger.debug(`[${fixtureId}] Already generated for ${newPhase} (Redis) — skipping`);
+    // Prevent generating for the same phase twice — persisted in Redis as a Set so
+    // that catchUp re-runs (e.g. after a server restart that lost in-memory state)
+    // skip every phase that's already been generated, not just the most recent one.
+    const phaseKey = this.generatedPhasesKey(fixtureId);
+    const alreadyGenerated = await this.redis.sismember(phaseKey, newPhase);
+    if (alreadyGenerated) {
+      this.logger.debug(`[${fixtureId}] Phase ${newPhase} already generated — skipping`);
       return [];
     }
 
     this.logger.log(`[${fixtureId}] Phase change → ${newPhase}`);
     state.currentPhase = newPhase;
-    await this.redis.set(phaseKey, newPhase, 14400); // 4 hour TTL (covers full match + ET)
+    await this.redis.sadd(phaseKey, newPhase);
+    await this.redis.expire(phaseKey, 14400); // 4 hour TTL (covers full match + ET)
 
     // Enforce max questions per match
     if (state.questionsGenerated >= MAX_QUESTIONS_PER_MATCH) {
@@ -307,8 +307,8 @@ export class MatchScenarioEngine {
    */
   async cleanup(fixtureId: number) {
     this.fixtureStates.delete(fixtureId);
-    await this.redis.del(this.windowKey(fixtureId));
-    await this.redis.del(`phase:${fixtureId}:last-generated`);
+    await this.redis.del(this.usedTemplatesKey(fixtureId));
+    await this.redis.del(this.generatedPhasesKey(fixtureId));
     this.logger.log(`[${fixtureId}] Scenario state cleaned up`);
   }
 
@@ -540,40 +540,42 @@ export class MatchScenarioEngine {
   }
 
   // ──────────────────────────────────────────────
-  //  Redis sliding window for template dedup
+  //  Redis Sets for in-fixture dedup
   // ──────────────────────────────────────────────
 
-  private windowKey(fixtureId: number): string {
-    return `window:fixture:${fixtureId}:templates`;
+  private usedTemplatesKey(fixtureId: number): string {
+    return `fixture:${fixtureId}:used-templates`;
+  }
+
+  private generatedPhasesKey(fixtureId: number): string {
+    return `phase:${fixtureId}:generated`;
   }
 
   /**
-   * Get template IDs in the sliding window (last 12 used).
-   * Falls back to DB if Redis is empty (e.g., after restart).
+   * Get the FULL set of template IDs already used in this fixture.
+   * No cap — every template should appear at most once per match. Falls back
+   * to DB (and seeds Redis) if the Set is empty (e.g. after restart / Redis flush).
    */
   private async getUsedTemplateIds(fixtureId: number): Promise<string[]> {
-    const cached = await this.redis.get(this.windowKey(fixtureId));
-    if (cached) {
-      try { return JSON.parse(cached); } catch { /* fall through */ }
+    const key = this.usedTemplatesKey(fixtureId);
+    let ids = await this.redis.smembers(key);
+    if (ids.length === 0) {
+      const dbIds = await this.questionsService.getTemplateIdsForFixture(fixtureId);
+      if (dbIds.length > 0) {
+        await this.redis.sadd(key, ...dbIds);
+        await this.redis.expire(key, FIXTURE_KEY_TTL_SEC);
+        ids = dbIds;
+      }
     }
-    // Fallback: load from DB and seed the window
-    const dbIds = await this.questionsService.getTemplateIdsForFixture(fixtureId);
-    const window = dbIds.slice(-WINDOW_SIZE);
-    if (window.length > 0) {
-      await this.redis.set(this.windowKey(fixtureId), JSON.stringify(window), WINDOW_TTL_SEC);
-    }
-    return window;
+    return ids;
   }
 
   /**
-   * Record a template ID in the sliding window (Redis, last 12).
+   * Record a template ID in the fixture's used-templates Set.
    */
   private async recordUsedTemplate(fixtureId: number, templateId: string): Promise<void> {
-    const key = this.windowKey(fixtureId);
-    const cached = await this.redis.get(key);
-    const list: string[] = cached ? (JSON.parse(cached) ?? []) : [];
-    list.push(templateId);
-    if (list.length > WINDOW_SIZE) list.shift(); // Keep last 12
-    await this.redis.set(key, JSON.stringify(list), WINDOW_TTL_SEC);
+    const key = this.usedTemplatesKey(fixtureId);
+    await this.redis.sadd(key, templateId);
+    await this.redis.expire(key, FIXTURE_KEY_TTL_SEC);
   }
 }

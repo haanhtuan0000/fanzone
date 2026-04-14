@@ -51,6 +51,10 @@ export function createMockRedis() {
     lpush: jest.fn().mockResolvedValue(undefined),
     lrange: jest.fn().mockResolvedValue([]),
     ltrim: jest.fn().mockResolvedValue(undefined),
+    sadd: jest.fn().mockResolvedValue(undefined),
+    smembers: jest.fn().mockResolvedValue([]),
+    sismember: jest.fn().mockResolvedValue(false),
+    expire: jest.fn().mockResolvedValue(undefined),
   };
 }
 
