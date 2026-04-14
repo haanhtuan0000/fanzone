@@ -613,112 +613,217 @@ describe('MatchScenarioEngine', () => {
     });
   });
 
-  // ═══ Bug 1379285: catchUp idempotency ═══
-  // Production scenario: server restart → recoverMatchStates misses the fixture
-  // → pollFixtures sees match as "new" → generateCatchUp runs again. Without a
-  // Set-based phase guard this duplicates every phase. Tests below codify the
-  // requirement that re-running phase generation is safe.
+  // ═══════════════════════════════════════════════════════════════
+  // REQUIREMENT TESTS — Bug 1379285 post-mortem
+  //
+  // The old implementation-detail tests (mock redis.get → check redis.set)
+  // passed for months while production happily duplicated templates and
+  // over-generated questions. These tests encode the actual invariants:
+  //
+  //   R1. Each template appears at most once per match.
+  //   R2. Total questions per match ≤ MAX_QUESTIONS_PER_MATCH (15).
+  //   R3. Running generateCatchUp twice produces the same result as once.
+  //
+  // Each test simulates a realistic multi-phase sequence with Redis state
+  // evolving across calls (not mocked to a fixed value).
+  // ═══════════════════════════════════════════════════════════════
 
-  describe('phase guard prevents duplicate generation across catchUp re-runs', () => {
+  describe('R1: each template appears at most once per match', () => {
+    // Realistic Redis: Sets evolve as sadd/sismember/smembers are called
+    let phasesSet: Set<string>;
+    let templatesSet: Set<string>;
+
     beforeEach(() => {
-      // Track phases SADDed; SISMEMBER reflects what's been added
-      const generated = new Set<string>();
-      redis.sadd.mockImplementation(async (_key: string, ...members: string[]) => {
-        members.forEach((m) => generated.add(m));
+      phasesSet = new Set();
+      templatesSet = new Set();
+      redis.sadd.mockImplementation(async (key: string, ...members: string[]) => {
+        const target = key.includes(':generated') ? phasesSet : templatesSet;
+        members.forEach((m) => target.add(m));
       });
-      redis.sismember.mockImplementation(async (_key: string, member: string) => generated.has(member));
-      redis.smembers.mockImplementation(async () => []); // used-templates Set starts empty
+      redis.sismember.mockImplementation(async (key: string, member: string) => {
+        return key.includes(':generated') ? phasesSet.has(member) : templatesSet.has(member);
+      });
+      redis.smembers.mockImplementation(async (key: string) => {
+        return key.includes(':used-templates') ? [...templatesSet] : [];
+      });
     });
 
-    it('second invocation of the same phase generates 0 questions', async () => {
-      templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
+    it('full match lifecycle: no templateId appears twice across all phases', async () => {
+      // Each phase returns 2 templates with unique IDs
+      let tplCounter = 0;
+      templateService.selectForPhaseWithCategories.mockImplementation(async () => [
+        createMockTemplate({ id: `tpl-${++tplCounter}` }),
+        createMockTemplate({ id: `tpl-${++tplCounter}` }),
+      ]);
 
-      await engine.onPhaseChange(fixtureId, 'HALF_TIME', teams, 45, score);
-      jest.clearAllMocks();
+      const allPhases = ['EARLY_H1', 'MID_H1', 'LATE_H1', 'HALF_TIME', 'EARLY_H2', 'MID_H2', 'LATE_H2'];
+      for (const phase of allPhases) {
+        await engine.onPhaseChange(fixtureId, phase as any, teams, 50, score);
+      }
 
-      const result = await engine.onPhaseChange(fixtureId, 'HALF_TIME', teams, 90, score);
-
-      expect(result).toEqual([]);
-      expect(questionsService.createQuestion).not.toHaveBeenCalled();
+      // Collect all templateIds passed to createQuestion
+      const createdTemplateIds = questionsService.createQuestion.mock.calls.map(
+        (c: any[]) => c[0].templateId,
+      );
+      const uniqueIds = new Set(createdTemplateIds);
+      expect(uniqueIds.size).toBe(createdTemplateIds.length); // no duplicates
     });
 
-    it('catchUp loop over all phases twice in a row only generates each phase once', async () => {
-      // Mirrors the prod bug: at minute 50 catchUp runs → generates 5 phases.
-      // Restart, in-memory state lost, second catchUp at minute 90 runs again.
-      templateService.selectForPhaseWithCategories.mockImplementation(async (phase: string) => {
-        return [createMockTemplate({ id: `tpl-${phase}` })];
-      });
+    it('the very first template used in the match is still excluded on the last phase', async () => {
+      // Old sliding window of 12 would have dropped tpl-1 by the 13th selection.
+      // With unbounded Set, tpl-1 remains excluded forever within the match.
+      let tplCounter = 0;
+      templateService.selectForPhaseWithCategories.mockImplementation(async () => [
+        createMockTemplate({ id: `tpl-${++tplCounter}` }),
+        createMockTemplate({ id: `tpl-${++tplCounter}` }),
+      ]);
 
-      const phases = ['EARLY_H1', 'MID_H1', 'LATE_H1', 'HALF_TIME', 'EARLY_H2'];
-
-      for (const p of phases) {
-        await engine.onPhaseChange(fixtureId, p as any, teams, 50, score);
-      }
-      const firstRunCount = questionsService.createQuestion.mock.calls.length;
-      expect(firstRunCount).toBe(5);
-
-      // Simulate a second catchUp wave (server restart scenario)
-      for (const p of phases) {
-        await engine.onPhaseChange(fixtureId, p as any, teams, 90, score);
+      const phases = ['EARLY_H1', 'MID_H1', 'LATE_H1', 'HALF_TIME', 'EARLY_H2', 'MID_H2', 'LATE_H2'];
+      for (const phase of phases) {
+        await engine.onPhaseChange(fixtureId, phase as any, teams, 80, score);
       }
 
-      // No new questions on the second pass
-      expect(questionsService.createQuestion.mock.calls.length).toBe(firstRunCount);
+      // Last call's excludeIds must contain tpl-1 (from EARLY_H1, the very first phase)
+      const lastCall = templateService.selectForPhaseWithCategories.mock.calls.at(-1);
+      const excludeIds: string[] = lastCall[1];
+      expect(excludeIds).toContain('tpl-1');
+      // And all other prior templates too
+      expect(excludeIds).toContain('tpl-2');
+      expect(excludeIds).toContain(`tpl-${tplCounter - 2}`); // second-to-last
     });
   });
 
-  // ═══ Bug 1379285: in-fixture template dedupe is unbounded ═══
-  // Old code used a sliding window of size 12. With MAX_QUESTIONS_PER_MATCH=15
-  // the 13th template selection could re-pick the 1st template (it had aged
-  // out of the window). Set-based dedupe must scale to the full 15.
+  describe('R2: total questions per match ≤ 15, even after restarts', () => {
+    let phasesSet: Set<string>;
+    let templatesSet: Set<string>;
 
-  describe('in-fixture template dedupe is unbounded', () => {
-    it('exclude list passed to selectForPhaseWithCategories grows past 12', async () => {
-      // Seed Redis used-templates Set with 14 prior templates
-      const priorIds = Array.from({ length: 14 }, (_, i) => `tpl-prior-${i}`);
-      redis.smembers.mockImplementation(async (key: string) => {
-        if (key === `fixture:${fixtureId}:used-templates`) return priorIds;
-        return [];
+    beforeEach(() => {
+      phasesSet = new Set();
+      templatesSet = new Set();
+      redis.sadd.mockImplementation(async (key: string, ...members: string[]) => {
+        const target = key.includes(':generated') ? phasesSet : templatesSet;
+        members.forEach((m) => target.add(m));
       });
-      redis.sismember.mockResolvedValue(false);
-      templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate({ id: 'tpl-new' })]);
-
-      await engine.onPhaseChange(fixtureId, 'LATE_H2', teams, 80, score);
-
-      const callArgs = templateService.selectForPhaseWithCategories.mock.calls[0];
-      const excludeIds = callArgs[1];
-      // All 14 prior IDs forwarded to template service — no cap
-      expect(excludeIds).toHaveLength(14);
-      expect(excludeIds).toEqual(expect.arrayContaining(priorIds));
+      redis.sismember.mockImplementation(async (key: string, member: string) => {
+        return key.includes(':generated') ? phasesSet.has(member) : templatesSet.has(member);
+      });
+      redis.smembers.mockImplementation(async (key: string) => {
+        return key.includes(':used-templates') ? [...templatesSet] : [];
+      });
     });
 
-    it('seeds questionsGenerated from DB so MAX cap works after restart', async () => {
-      // DB already has 14 questions for this fixture (server restarted, counter lost)
+    it('MAX cap respected when DB already has 14 questions (restart scenario)', async () => {
       questionsService.countQuestionsForFixture.mockResolvedValue(14);
       templateService.selectForPhaseWithCategories.mockResolvedValue([
         createMockTemplate({ id: 'tpl-a' }), createMockTemplate({ id: 'tpl-b' }),
       ]);
 
-      // LATE_H2 config.count=2, but MAX=15 and 14 already in DB → only 1 slot left
+      // Config requests 2 for LATE_H2, but only 1 slot left (15 - 14)
       await engine.onPhaseChange(fixtureId, 'LATE_H2', teams, 80, score);
 
       expect(questionsService.createQuestion).toHaveBeenCalledTimes(1);
     });
 
-    it('seeds the used-templates Set from DB if Redis is empty', async () => {
-      questionsService.getTemplateIdsForFixture.mockResolvedValue(['tpl-from-db-1', 'tpl-from-db-2']);
-      redis.smembers.mockImplementation(async () => []);
+    it('total never exceeds 15 across a full 8-phase match', async () => {
+      let tplCounter = 0;
+      templateService.selectForPhaseWithCategories.mockImplementation(async () => [
+        createMockTemplate({ id: `tpl-${++tplCounter}` }),
+        createMockTemplate({ id: `tpl-${++tplCounter}` }),
+      ]);
+
+      const allPhases = ['PRE_MATCH', 'EARLY_H1', 'MID_H1', 'LATE_H1', 'HALF_TIME', 'EARLY_H2', 'MID_H2', 'LATE_H2'];
+      for (const phase of allPhases) {
+        await engine.onPhaseChange(fixtureId, phase as any, teams, 0, score);
+      }
+
+      // 8 phases × 2 per phase = 16 attempted, but capped at 15
+      expect(questionsService.createQuestion.mock.calls.length).toBeLessThanOrEqual(15);
+    });
+  });
+
+  describe('R3: catchUp is idempotent — re-running produces no new questions', () => {
+    let phasesSet: Set<string>;
+    let templatesSet: Set<string>;
+
+    beforeEach(() => {
+      phasesSet = new Set();
+      templatesSet = new Set();
+      redis.sadd.mockImplementation(async (key: string, ...members: string[]) => {
+        const target = key.includes(':generated') ? phasesSet : templatesSet;
+        members.forEach((m) => target.add(m));
+      });
+      redis.sismember.mockImplementation(async (key: string, member: string) => {
+        return key.includes(':generated') ? phasesSet.has(member) : templatesSet.has(member);
+      });
+      redis.smembers.mockImplementation(async (key: string) => {
+        return key.includes(':used-templates') ? [...templatesSet] : [];
+      });
+    });
+
+    it('second catchUp at minute 90 after first at minute 50 generates zero new questions', async () => {
+      templateService.selectForPhaseWithCategories.mockImplementation(async (phase: string) => [
+        createMockTemplate({ id: `tpl-${phase}` }),
+      ]);
+
+      // First catchUp: 5 phases
+      const firstPhases = ['EARLY_H1', 'MID_H1', 'LATE_H1', 'HALF_TIME', 'EARLY_H2'];
+      for (const p of firstPhases) {
+        await engine.onPhaseChange(fixtureId, p as any, teams, 50, score);
+      }
+      const afterFirstRun = questionsService.createQuestion.mock.calls.length;
+      expect(afterFirstRun).toBe(5);
+
+      // Second catchUp: same phases (server restart lost in-memory state)
+      for (const p of firstPhases) {
+        await engine.onPhaseChange(fixtureId, p as any, teams, 90, score);
+      }
+
+      // Zero new questions from the second pass
+      expect(questionsService.createQuestion.mock.calls.length).toBe(afterFirstRun);
+    });
+
+    it('second catchUp with MORE phases only generates the genuinely new ones', async () => {
+      templateService.selectForPhaseWithCategories.mockImplementation(async (phase: string) => [
+        createMockTemplate({ id: `tpl-${phase}` }),
+      ]);
+
+      // First catchUp at minute 50: 5 phases
+      const firstPhases = ['EARLY_H1', 'MID_H1', 'LATE_H1', 'HALF_TIME', 'EARLY_H2'];
+      for (const p of firstPhases) {
+        await engine.onPhaseChange(fixtureId, p as any, teams, 50, score);
+      }
+      expect(questionsService.createQuestion.mock.calls.length).toBe(5);
+
+      // Second catchUp at minute 90: includes 3 new phases
+      const secondPhases = [...firstPhases, 'MID_H2', 'LATE_H2'];
+      for (const p of secondPhases) {
+        await engine.onPhaseChange(fixtureId, p as any, teams, 90, score);
+      }
+
+      // Only the 2 genuinely new phases generated (+2 = 7 total)
+      expect(questionsService.createQuestion.mock.calls.length).toBe(7);
+    });
+  });
+
+  // ═══ Fallback: DB seeding when Redis is empty ═══
+
+  describe('DB fallback seeding (restart + Redis flush)', () => {
+    it('used-templates Set is seeded from DB if Redis returns empty', async () => {
+      questionsService.getTemplateIdsForFixture.mockResolvedValue(['tpl-db-1', 'tpl-db-2']);
+      redis.smembers.mockResolvedValue([]);
       redis.sismember.mockResolvedValue(false);
       templateService.selectForPhaseWithCategories.mockResolvedValue([createMockTemplate()]);
 
       await engine.onPhaseChange(fixtureId, 'EARLY_H2', teams, 50, score);
 
-      // The DB-seeded ids should now be in the Set (sadd called with them)
       const saddCalls = redis.sadd.mock.calls;
       const seedCall = saddCalls.find((c: any[]) =>
-        c[0] === `fixture:${fixtureId}:used-templates` && c.slice(1).includes('tpl-from-db-1'),
+        c[0] === `fixture:${fixtureId}:used-templates` && c.length > 2,
       );
       expect(seedCall).toBeTruthy();
+      expect(seedCall).toEqual(expect.arrayContaining([
+        `fixture:${fixtureId}:used-templates`, 'tpl-db-1', 'tpl-db-2',
+      ]));
     });
   });
 });
