@@ -168,6 +168,10 @@ export class QuestionsService {
     return question;
   }
 
+  async countQuestionsForFixture(fixtureId: number): Promise<number> {
+    return this.prisma.question.count({ where: { fixtureId } });
+  }
+
   async getTemplateIdsForFixture(fixtureId: number): Promise<string[]> {
     const questions = await this.prisma.question.findMany({
       where: { fixtureId, templateId: { not: null } },

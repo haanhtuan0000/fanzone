@@ -110,7 +110,7 @@ export class MatchScenarioEngine {
     elapsed?: number,
     score?: { home: number; away: number },
   ) {
-    const state = this.getOrCreateState(fixtureId, newPhase, elapsed);
+    const state = await this.getOrCreateState(fixtureId, newPhase, elapsed);
 
     // Prevent generating for the same phase twice — persisted in Redis as a Set so
     // that catchUp re-runs (e.g. after a server restart that lost in-memory state)
@@ -228,7 +228,7 @@ export class MatchScenarioEngine {
     const trigger = EVENT_TRIGGER_MAP[eventType];
     if (!trigger) return null;
 
-    const state = this.getOrCreateState(fixtureId, undefined, event.time?.elapsed);
+    const state = await this.getOrCreateState(fixtureId, undefined, event.time?.elapsed);
 
     // Max questions cap
     if (state.questionsGenerated >= MAX_QUESTIONS_PER_MATCH) {
@@ -383,16 +383,26 @@ export class MatchScenarioEngine {
   //  Internal helpers
   // ──────────────────────────────────────────────
 
-  private getOrCreateState(fixtureId: number, phase?: MatchPhase, elapsed?: number): FixtureState {
+  /**
+   * Get or lazily create in-memory state for a fixture.
+   * When creating, `questionsGenerated` is seeded from DB (not 0) so that
+   * the MAX_QUESTIONS_PER_MATCH cap works correctly even after a server restart
+   * that lost the in-memory counter.
+   */
+  private async getOrCreateState(fixtureId: number, phase?: MatchPhase, elapsed?: number): Promise<FixtureState> {
     let state = this.fixtureStates.get(fixtureId);
     if (!state) {
+      const dbCount = await this.questionsService.countQuestionsForFixture(fixtureId);
       state = {
         currentPhase: phase ?? 'PRE_MATCH',
-        questionsGenerated: 0,
+        questionsGenerated: dbCount,
         lastQuestionTime: 0,
         kickoffTime: (elapsed != null && elapsed > 0) ? Date.now() - elapsed * 60_000 : null,
       };
       this.fixtureStates.set(fixtureId, state);
+      if (dbCount > 0) {
+        this.logger.log(`[${fixtureId}] Recovered in-memory state: ${dbCount} questions already in DB`);
+      }
     }
     // If kickoffTime was never set and now we have elapsed, set it once
     if (state.kickoffTime == null && elapsed != null && elapsed > 0) {

@@ -24,6 +24,7 @@ describe('MatchScenarioEngine', () => {
       hasPendingQuestion: jest.fn().mockResolvedValue(false),
       createQuestion: jest.fn().mockResolvedValue(createMockQuestion()),
       openQuestion: jest.fn().mockResolvedValue(createMockQuestion({ status: 'OPEN' })),
+      countQuestionsForFixture: jest.fn().mockResolvedValue(0),
       getTemplateIdsForFixture: jest.fn().mockResolvedValue([]),
     };
     templateService = {
@@ -689,6 +690,19 @@ describe('MatchScenarioEngine', () => {
       // All 14 prior IDs forwarded to template service — no cap
       expect(excludeIds).toHaveLength(14);
       expect(excludeIds).toEqual(expect.arrayContaining(priorIds));
+    });
+
+    it('seeds questionsGenerated from DB so MAX cap works after restart', async () => {
+      // DB already has 14 questions for this fixture (server restarted, counter lost)
+      questionsService.countQuestionsForFixture.mockResolvedValue(14);
+      templateService.selectForPhaseWithCategories.mockResolvedValue([
+        createMockTemplate({ id: 'tpl-a' }), createMockTemplate({ id: 'tpl-b' }),
+      ]);
+
+      // LATE_H2 config.count=2, but MAX=15 and 14 already in DB → only 1 slot left
+      await engine.onPhaseChange(fixtureId, 'LATE_H2', teams, 80, score);
+
+      expect(questionsService.createQuestion).toHaveBeenCalledTimes(1);
     });
 
     it('seeds the used-templates Set from DB if Redis is empty', async () => {
