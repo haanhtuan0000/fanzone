@@ -638,7 +638,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`Timer resolution failed: ${e}`);
     }
 
-    // Cleanup: VOID orphaned LOCKED questions older than 3 hours (run every 10 min)
+    // Cleanup: VOID orphaned questions older than 10 min (run every 10 min)
     if (Date.now() - this.lastOrphanCleanup > 600_000) {
       this.lastOrphanCleanup = Date.now();
       try {
@@ -647,9 +647,8 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
         const liveFixtureIds = [...this.matchStates.keys()];
         const orphaned = await this.prisma.question.findMany({
           where: {
-            status: { in: ['LOCKED', 'OPEN'] },
+            status: { in: ['PENDING', 'LOCKED', 'OPEN'] },
             closesAt: { lt: cutoff },
-            resolvesAt: null,
             ...(liveFixtureIds.length > 0 ? { fixtureId: { notIn: liveFixtureIds } } : {}),
           },
           include: { options: true },

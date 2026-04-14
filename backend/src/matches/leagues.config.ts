@@ -1,27 +1,29 @@
 /** Tracked leagues — top European + Americas + popular */
-export const TRACKED_LEAGUE_IDS = new Set([
-  // Top 5 European
-  39,  // England — Premier League
-  140, // Spain — La Liga
-  135, // Italy — Serie A
-  78,  // Germany — Bundesliga
-  61,  // France — Ligue 1
-  // Other major European
-  88,  // Netherlands — Eredivisie
-  94,  // Portugal — Primeira Liga
-  40,  // England — Championship
-  144, // Belgium — Pro League
-  203, // Turkey — Süper Lig
-  // Americas
-  253, // USA — MLS
-  128, // Argentina — Liga Profesional
-  71,  // Brazil — Serie A
-  262, // Mexico — Liga MX
-  // International cups
-  2,   // UEFA Champions League
-  3,   // UEFA Europa League
-  848, // UEFA Conference League
-]);
+// TESTING: commented out to accept all leagues. Uncomment to restore filtering.
+// export const TRACKED_LEAGUE_IDS = new Set([
+//   // Top 5 European
+//   39,  // England — Premier League
+//   140, // Spain — La Liga
+//   135, // Italy — Serie A
+//   78,  // Germany — Bundesliga
+//   61,  // France — Ligue 1
+//   // Other major European
+//   88,  // Netherlands — Eredivisie
+//   94,  // Portugal — Primeira Liga
+//   40,  // England — Championship
+//   144, // Belgium — Pro League
+//   203, // Turkey — Süper Lig
+//   // Americas
+//   253, // USA — MLS
+//   128, // Argentina — Liga Profesional
+//   71,  // Brazil — Serie A
+//   262, // Mexico — Liga MX
+//   // International cups
+//   2,   // UEFA Champions League
+//   3,   // UEFA Europa League
+//   848, // UEFA Conference League
+// ]);
+export const TRACKED_LEAGUE_IDS = { has: () => true } as Set<number>;
 
 /** Maximum live matches to process simultaneously (API budget constraint) */
 export const MAX_LIVE_MATCHES = 8;
