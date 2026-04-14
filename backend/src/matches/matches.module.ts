@@ -16,6 +16,6 @@ import { PollBudgetService } from './poll-budget.service';
     ScheduleTracker,
     PollBudgetService,
   ],
-  exports: [MatchesService],
+  exports: [MatchesService, MatchDataManager, PollBudgetService],
 })
 export class MatchesModule {}

@@ -84,6 +84,23 @@ export class ApiFootballService {
     return Date.now() < this.rateLimitedUntil;
   }
 
+  /** Snapshot of API-Football integration state (for /admin/recent). */
+  getStatus(): {
+    keysTotal: number;
+    keysExhausted: number;
+    currentKeyIndex: number;
+    rateLimitedUntil: number;
+    rateLimitedForMs: number;
+  } {
+    return {
+      keysTotal: this.apiKeys.length,
+      keysExhausted: this.exhaustedKeys.size,
+      currentKeyIndex: this.currentKeyIndex,
+      rateLimitedUntil: this.rateLimitedUntil,
+      rateLimitedForMs: Math.max(0, this.rateLimitedUntil - Date.now()),
+    };
+  }
+
   /** Serial queue: ensures only one API request runs at a time with 500ms gap */
   private requestQueue: Promise<void> = Promise.resolve();
 

@@ -10,6 +10,7 @@ import { FeedModule } from './feed/feed.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { CommonModule } from './common/common.module';
 import { MockModule } from './mock/mock.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MockModule } from './mock/mock.module';
     FeedModule,
     WebsocketModule,
     MockModule,
+    AdminModule,
   ],
 })
 export class AppModule {}
