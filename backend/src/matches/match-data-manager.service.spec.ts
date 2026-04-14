@@ -145,7 +145,8 @@ describe('MatchDataManager', () => {
       await (manager as any).recoverMatchStates();
 
       const state = (manager as any).matchStates.get(111);
-      expect(state.period).toBe('2H'); // default
+      // Empty string signals "unknown period" — prevents fake 2H→1H transitions
+      expect(state.period).toBe('');
       expect(state.score).toEqual({ home: 0, away: 0 });
     });
 
@@ -380,7 +381,8 @@ describe('MatchDataManager', () => {
         fixtureId: 111, period: '1H', elapsed: 5, lastPhase: 'EARLY_H1',
         teams: { home: 'Arsenal', away: 'Chelsea' }, score: { home: 0, away: 0 },
         lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
-        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0, lastSeenInApi: Date.now(),
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(), lastElapsedChange: Date.now(),
       });
 
       const fixture = makeFixture(111, '1H', 10, 'Arsenal', 'Chelsea');
@@ -400,7 +402,8 @@ describe('MatchDataManager', () => {
         fixtureId: 111, period: '1H', elapsed: 45, lastPhase: 'LATE_H1',
         teams: { home: 'Arsenal', away: 'Chelsea' }, score: { home: 1, away: 0 },
         lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
-        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0, lastSeenInApi: Date.now(),
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(), lastElapsedChange: Date.now(),
       });
 
       const fixture = makeFixture(111, 'HT', 45, 'Arsenal', 'Chelsea');
@@ -420,7 +423,8 @@ describe('MatchDataManager', () => {
         fixtureId: 111, period: '1H', elapsed: 44, lastPhase: 'LATE_H1',
         teams: { home: 'Arsenal', away: 'Chelsea' }, score: { home: 0, away: 0 },
         lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
-        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0, lastSeenInApi: Date.now(),
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(), lastElapsedChange: Date.now(),
       });
 
       const fixture = makeFixture(111, 'HT', 45, 'Arsenal', 'Chelsea');
@@ -436,12 +440,13 @@ describe('MatchDataManager', () => {
       expect(genCalls.length).toBe(1);
     });
 
-    it('detects internal phase change and generates', async () => {
+    it('detects internal phase change and generates via catch-up', async () => {
       (manager as any).matchStates.set(111, {
         fixtureId: 111, period: '1H', elapsed: 14, lastPhase: 'EARLY_H1',
         teams: { home: 'Arsenal', away: 'Chelsea' }, score: { home: 0, away: 0 },
         lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
         lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0, lastSeenInApi: Date.now(),
+        lastElapsedChange: Date.now(),
       });
 
       const fixture = makeFixture(111, '1H', 20, 'Arsenal', 'Chelsea');
@@ -450,8 +455,9 @@ describe('MatchDataManager', () => {
 
       await (manager as any).pollFixtures();
 
-      expect(questionGenerator.generateForPhase).toHaveBeenCalledWith(
-        111, 20, expect.any(Object), expect.any(Object), '1H',
+      // Uses generateCatchUp so intermediate phases are never skipped
+      expect(questionGenerator.generateCatchUp).toHaveBeenCalledWith(
+        111, 20, { home: 'Arsenal', away: 'Chelsea' }, { home: 0, away: 0 }, '1H',
       );
     });
 
@@ -702,6 +708,169 @@ describe('MatchDataManager', () => {
       await (manager as any).pollFixtures();
 
       expect(apiFootball.getLiveFixtures).not.toHaveBeenCalled();
+    });
+
+    // ═══ Requirement: recovery with expired cache must not skip phases ═══
+
+    it('first poll after recovery (unknown period) runs catch-up for all missed phases', async () => {
+      // Simulate a recovered match with unknown period (Redis cache expired during restart)
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '', elapsed: 0, lastPhase: 'PRE_MATCH',
+        teams: { home: 'TBD', away: 'TBD' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(), lastElapsedChange: Date.now(),
+      });
+
+      // API reveals the match is actually at minute 40, period 1H
+      const fixture = makeFixture(111, '1H', 40, 'Arsenal', 'Chelsea');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('LATE_H1');
+
+      await (manager as any).pollFixtures();
+
+      // Must call generateCatchUp (covers ALL phases up to current), not handlePeriodTransition
+      expect(questionGenerator.generateCatchUp).toHaveBeenCalledWith(
+        111, 40, { home: 'Arsenal', away: 'Chelsea' }, { home: 0, away: 0 }, '1H',
+      );
+      // Must NOT treat this as a real period transition (no HT/FT resolution)
+      expect(questionResolver.onHalfTime).not.toHaveBeenCalled();
+      expect(questionResolver.onFullTime).not.toHaveBeenCalled();
+    });
+
+    it('recovery with unknown period into HT still runs catch-up (not HT handler)', async () => {
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '', elapsed: 0, lastPhase: 'PRE_MATCH',
+        teams: { home: 'TBD', away: 'TBD' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(), lastElapsedChange: Date.now(),
+      });
+
+      const fixture = makeFixture(111, 'HT', 45, 'Arsenal', 'Chelsea');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('HALF_TIME');
+
+      await (manager as any).pollFixtures();
+
+      // Catch-up covers EARLY_H1 through HALF_TIME via Redis guards
+      expect(questionGenerator.generateCatchUp).toHaveBeenCalledWith(
+        111, 45, { home: 'Arsenal', away: 'Chelsea' }, { home: 0, away: 0 }, 'HT',
+      );
+      // Must NOT call onHalfTime — this is a recovery catch-up, not a real 1H→HT transition.
+      // The match's 1H questions were (or should have been) already resolved by onFullTime
+      // during the prior server session, or they'll be caught by the orphan cleanup.
+      expect(questionResolver.onHalfTime).not.toHaveBeenCalled();
+    });
+
+    // ═══ Requirement: phase jumps must cover intermediate phases ═══
+
+    it('phase jump EARLY_H1→LATE_H1 covers MID_H1 via catch-up', async () => {
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '1H', elapsed: 10, lastPhase: 'EARLY_H1',
+        teams: { home: 'Arsenal', away: 'Chelsea' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(), lastElapsedChange: Date.now(),
+      });
+
+      // Big elapsed jump: 10 → 40 (skips MID_H1 entirely)
+      const fixture = makeFixture(111, '1H', 40, 'Arsenal', 'Chelsea');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('LATE_H1');
+
+      await (manager as any).pollFixtures();
+
+      // generateCatchUp generates for ALL phases from EARLY_H1 to LATE_H1
+      // (Redis guards skip already-generated phases like EARLY_H1)
+      expect(questionGenerator.generateCatchUp).toHaveBeenCalledWith(
+        111, 40, { home: 'Arsenal', away: 'Chelsea' }, { home: 0, away: 0 }, '1H',
+      );
+      expect((manager as any).matchStates.get(111).lastPhase).toBe('LATE_H1');
+    });
+
+    // ═══ Requirement: team names must reflect API data after recovery ═══
+
+    it('updates state.teams from API for recovered matches (replaces TBD)', async () => {
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '1H', elapsed: 20, lastPhase: 'MID_H1',
+        teams: { home: 'TBD', away: 'TBD' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(), lastElapsedChange: Date.now(),
+      });
+
+      const fixture = makeFixture(111, '1H', 25, 'Arsenal', 'Chelsea');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('MID_H1');
+      redis.get.mockResolvedValue('1'); // cooldown active
+
+      await (manager as any).pollFixtures();
+
+      const state = (manager as any).matchStates.get(111);
+      expect(state.teams).toEqual({ home: 'Arsenal', away: 'Chelsea' });
+    });
+
+    it('uses real team names when onFullTime fires for a recovered match', async () => {
+      // Recovered match with TBD teams, then API provides real names, then match disappears
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '2H', elapsed: 90, lastPhase: 'LATE_H2',
+        teams: { home: 'TBD', away: 'TBD' }, score: { home: 2, away: 1 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(), lastElapsedChange: Date.now(),
+      });
+
+      // First poll: match still live — teams get updated
+      const fixture = makeFixture(111, 'FT', 90, 'Arsenal', 'Chelsea');
+      fixture.goals = { home: 2, away: 1 };
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('LATE_H2');
+
+      await (manager as any).pollFixtures();
+
+      // Period transition 2H→FT triggers onFullTime with updated team names
+      expect(questionResolver.onFullTime).toHaveBeenCalledWith(
+        111,
+        { home: 'Arsenal', away: 'Chelsea' },  // real names, not TBD
+        { home: 2, away: 1 },
+        undefined,  // stoppageMinutes: elapsed=90 → no stoppage
+        'FT',
+      );
+    });
+
+    // ═══ Requirement: end-to-end recovery → first poll → correct generation ═══
+
+    it('full recovery flow: expired cache → first poll at 2H → catches up all phases', async () => {
+      // Step 1: Simulate recovery with expired Redis cache
+      prisma.question.groupBy.mockResolvedValue([{ fixtureId: 111 }]);
+      prisma.question.findFirst.mockResolvedValue({ matchPhase: 'EARLY_H1', matchMinute: 5 });
+      redis.getJson.mockResolvedValueOnce(null); // cache expired
+      questionGenerator.determinePhase.mockReturnValueOnce('PRE_MATCH'); // for recovery (elapsed=0, period='')
+
+      await (manager as any).recoverMatchStates();
+
+      const recoveredState = (manager as any).matchStates.get(111);
+      expect(recoveredState.period).toBe('');
+      expect(recoveredState.teams).toEqual({ home: 'TBD', away: 'TBD' });
+
+      // Step 2: First poll — match is actually at 2H minute 65
+      const fixture = makeFixture(111, '2H', 65, 'Arsenal', 'Chelsea');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('MID_H2');
+      redis.getJson.mockResolvedValue(null); // for setJson calls
+      redis.get.mockResolvedValue('1'); // cooldown for ensureQuestionsExist
+
+      await (manager as any).pollFixtures();
+
+      // Verify: catch-up called with correct params (covers EARLY_H1 through MID_H2)
+      expect(questionGenerator.generateCatchUp).toHaveBeenCalledWith(
+        111, 65, { home: 'Arsenal', away: 'Chelsea' }, { home: 0, away: 0 }, '2H',
+      );
+      // Verify: teams updated from API
+      expect((manager as any).matchStates.get(111).teams).toEqual({ home: 'Arsenal', away: 'Chelsea' });
+      // Verify: lastPhase set to current
+      expect((manager as any).matchStates.get(111).lastPhase).toBe('MID_H2');
     });
   });
 });

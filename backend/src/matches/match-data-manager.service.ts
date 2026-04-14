@@ -126,7 +126,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
         // Get cached score/period from Redis
         const cached = await this.redis.getJson<any>(`cache:fixture:${fixtureId}:score`);
-        const period = cached?.period ?? '2H';
+        const period = cached?.period ?? '';  // empty = unknown (cache expired)
         // Only use API elapsed from Redis cache — matchMinute is NOT the match clock
         const elapsed = cached?.elapsed ?? 0;
         // Use current elapsed to determine phase — NOT the stale question's matchPhase
@@ -334,6 +334,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       const prevElapsed = state.elapsed;
       state.period = period;
       state.score = score;
+      state.teams = teams;
       state.lastSeenInApi = Date.now();
 
       // Reject elapsed going backwards within the same period — football clock
@@ -375,19 +376,34 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       // Handle API period transitions (1H→HT→2H→FT)
       let periodTransitioned = false;
       if (prevPeriod !== period) {
-        await this.handlePeriodTransition(id, prevPeriod, period, elapsed, teams, score);
+        if (prevPeriod === '') {
+          // Recovery case: period was unknown (Redis cache expired during restart).
+          // Run full catch-up to cover any phases missed while the server was down.
+          // Redis guards in onPhaseChange prevent duplicate generation for phases
+          // that were already generated before the restart.
+          this.logger.log(`Fixture ${id}: first poll after recovery (unknown → ${period} at ${elapsed}') — running catch-up`);
+          if (LIVE_STATUSES.has(period)) {
+            await this.questionGenerator.generateCatchUp(id, elapsed, teams, score, period);
+            state.hasActiveQuestions = true;
+          }
+        } else {
+          await this.handlePeriodTransition(id, prevPeriod, period, elapsed, teams, score);
+        }
         state.lastPhase = this.questionGenerator.determinePhase(elapsed, period);
         periodTransitioned = true;
       }
 
       // Handle internal phase transitions (EARLY_H1→MID_H1→LATE_H1, etc.)
-      // Only if no period transition already generated questions this tick
+      // Only if no period transition already generated questions this tick.
+      // Uses generateCatchUp instead of generateForPhase so that any intermediate
+      // phases skipped (e.g., server was slow, big elapsed jump) are also covered.
+      // Redis guards prevent re-generating phases that already have questions.
       if (LIVE_STATUSES.has(period) && !periodTransitioned) {
         const currentPhase = this.questionGenerator.determinePhase(elapsed, period);
         if (currentPhase !== state.lastPhase) {
           this.logger.log(`Fixture ${id}: internal phase ${state.lastPhase} → ${currentPhase} at ${elapsed}'`);
           state.lastPhase = currentPhase;
-          await this.questionGenerator.generateForPhase(id, elapsed, teams, score, period);
+          await this.questionGenerator.generateCatchUp(id, elapsed, teams, score, period);
           state.hasActiveQuestions = true;
         }
         await this.ensureQuestionsExist(id, period, elapsed, teams, score);
