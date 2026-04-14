@@ -62,6 +62,20 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     this.mockMode = this.config.get('MOCK_MODE') === 'true';
   }
 
+  /** Snapshot of in-memory match state for the admin API (no copies of timers/teams etc). */
+  getStateSnapshot(fixtureId?: number): MatchState[] {
+    if (fixtureId != null) {
+      const s = this.matchStates.get(fixtureId);
+      return s ? [{ ...s }] : [];
+    }
+    return [...this.matchStates.values()].map((s) => ({ ...s }));
+  }
+
+  /** Total live match count tracked in memory (for /admin/recent). */
+  getLiveMatchCount(): number {
+    return this.matchStates.size;
+  }
+
   async onModuleInit() {
     if (this.mockMode) {
       this.logger.log('MatchDataManager DISABLED (MOCK_MODE=true)');
@@ -339,11 +353,17 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
 
       // Stale match detection: elapsed unchanged for 5+ minutes while still appearing live
       // → API has frozen on this match; treat as finished
+      // EXCEPT during HT (half-time) where no clock progress is normal (15 min break)
+      // EXCEPT during BT (break time) and P (penalty shootout) where clock can stop
       const STALE_THRESHOLD_MS = 5 * 60_000;
-      if (LIVE_STATUSES.has(period) && Date.now() - state.lastElapsedChange > STALE_THRESHOLD_MS) {
-        this.logger.warn(`Fixture ${id}: elapsed stuck at ${elapsed}' for ${Math.round((Date.now() - state.lastElapsedChange) / 1000)}s — treating as finished`);
+      const PLAYING_STATUSES = new Set(['1H', '2H', 'ET']);
+      if (PLAYING_STATUSES.has(period) && Date.now() - state.lastElapsedChange > STALE_THRESHOLD_MS) {
+        this.logger.warn(`Fixture ${id}: elapsed stuck at ${elapsed}' (period=${period}) for ${Math.round((Date.now() - state.lastElapsedChange) / 1000)}s — treating as finished`);
         try {
-          await this.questionResolver.onFullTime(id, state.teams, state.score, undefined, 'FT');
+          // Forward the LAST KNOWN period rather than 'FT' so the resolver's completeness
+          // guard can VOID H2-dependent / aggregate questions when the stuck period is 1H
+          // (H2 never played) or 2H mid-game (events past min 80 may not exist yet).
+          await this.questionResolver.onFullTime(id, state.teams, state.score, undefined, period);
           await this.questionGenerator.cleanupFixture(id);
         } catch (e) {
           this.logger.error(`Failed onFullTime for stale match ${id}: ${e}`);
@@ -380,10 +400,14 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       if (!liveIds.has(id)) {
         const missingFor = now - state.lastSeenInApi;
         if (missingFor > 300_000) { // 5 minutes
-          this.logger.log(`Match ${id} missing from API for ${Math.round(missingFor / 1000)}s — treating as finished`);
-          // Match likely ended — trigger onFullTime so questions get resolved
+          this.logger.log(`Match ${id} missing from API for ${Math.round(missingFor / 1000)}s (last period=${state.period}) — treating as finished`);
+          // Match likely ended — trigger onFullTime so questions get resolved.
+          // Forward the LAST KNOWN period rather than hard-coding 'FT': if the match
+          // disappeared mid-game (e.g. during HT or 1H), the resolver's completeness
+          // guard will VOID H2-dependent / aggregate questions instead of resolving
+          // them with stale data.
           try {
-            await this.questionResolver.onFullTime(id, state.teams, state.score, undefined, 'FT');
+            await this.questionResolver.onFullTime(id, state.teams, state.score, undefined, state.period);
             await this.questionGenerator.cleanupFixture(id);
           } catch (e) {
             this.logger.error(`Failed onFullTime for disappeared match ${id}: ${e}`);

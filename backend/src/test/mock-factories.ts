@@ -42,6 +42,7 @@ export function createMockRedis() {
   return {
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue(undefined),
+    setNX: jest.fn().mockResolvedValue(true),
     del: jest.fn().mockResolvedValue(undefined),
     getJson: jest.fn().mockResolvedValue(null),
     setJson: jest.fn().mockResolvedValue(undefined),

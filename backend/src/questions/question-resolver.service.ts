@@ -171,6 +171,19 @@ export class QuestionResolverService {
       this.logger.warn(`Failed to fetch events for ${fixtureId}: ${e}`);
     }
 
+    // Centralized completeness flags — single source of truth about "how done is this match?"
+    // Used by resolveAtFullTime to VOID rather than guess at templates whose answer
+    // depends on a phase that hasn't actually played yet (stale-detection / disappear-mid-match).
+    const lastEventMinute = events
+      .map((e) => e.time?.elapsed ?? 0)
+      .reduce((m, x) => Math.max(m, x), 0);
+    const realFinish = finishedStatus === 'FT' || finishedStatus === 'AET' || finishedStatus === 'PEN';
+    const h2Played = realFinish || lastEventMinute >= 46;
+    const matchSeemsComplete = realFinish || lastEventMinute >= 80;
+    if (!realFinish) {
+      this.logger.warn(`[${fixtureId}] onFullTime called with finishedStatus=${finishedStatus ?? 'undefined'}, lastEventMinute=${lastEventMinute} → h2Played=${h2Played}, matchSeemsComplete=${matchSeemsComplete}`);
+    }
+
     // Resolve all remaining questions (OPEN, LOCKED waiting for result, and PENDING)
     const openQuestions = await this.prisma.question.findMany({
       where: { fixtureId, status: { in: ['OPEN', 'LOCKED', 'PENDING'] } },
@@ -190,7 +203,7 @@ export class QuestionResolverService {
         continue;
       }
 
-      const result = this.resolveAtFullTime(question, teams, score, stats, events, stoppageMinutes, finishedStatus);
+      const result = this.resolveAtFullTime(question, teams, score, stats, events, stoppageMinutes, finishedStatus, h2Played, matchSeemsComplete);
 
       if (result === 'VOID') {
         await this.voidQuestion(fixtureId, question, 'FULL_TIME');
@@ -680,9 +693,25 @@ export class QuestionResolverService {
     events: MatchEvent[],
     stoppageMinutes?: number,
     finishedStatus?: string,
+    h2Played: boolean = true,
+    matchSeemsComplete: boolean = true,
   ): string | null {
     const options: any[] = question.options;
     const tpl = this.getTemplateCode(question);
+
+    // ─── Centralized completeness guards (Layer 2) ───
+    // Templates whose answer depends on H2 events that may not have happened yet.
+    // If H2 didn't play (stale-FT bug, disappear-mid-match), VOID instead of guessing.
+    const H2_DEPENDENT = new Set(['Q008', 'Q032', 'Q034']);
+    if (H2_DEPENDENT.has(tpl ?? '') && !h2Played) {
+      return 'VOID';
+    }
+    // Templates that aggregate over the whole match. If we haven't seen events past min 80,
+    // the cache is incomplete — VOID rather than report an undercount.
+    const WHOLE_MATCH_AGGREGATE = new Set(['Q033', 'Q037', 'Q038', 'Q041', 'Q045', 'Q030', 'Q054', 'Q055']);
+    if (WHOLE_MATCH_AGGREGATE.has(tpl ?? '') && !matchSeemsComplete) {
+      return 'VOID';
+    }
 
     // ═══ GOAL ═══
 
@@ -765,6 +794,7 @@ export class QuestionResolverService {
     }
 
     // Q008: "Who scores first in 2H?" — v2.1 FIX: cutoff at minute 65
+    // (H2-not-played guard handled centrally above via h2Played flag.)
     if (tpl === 'Q008') {
       const firstH2Goal = events
         .filter((e) => e.type?.toLowerCase() === 'goal' && (e.time?.elapsed ?? 0) >= 46)
@@ -801,6 +831,8 @@ export class QuestionResolverService {
     // Q033: "Total goals in match?"
     if (tpl === 'Q033') {
       const totalGoals = events.filter((e) => e.type?.toLowerCase() === 'goal').length;
+      // Cross-check vs trusted final score: if events undercount, cache is incomplete → VOID
+      if (totalGoals < score.home + score.away) return 'VOID';
       return this.findRangeOption(options, totalGoals);
     }
 
@@ -808,6 +840,8 @@ export class QuestionResolverService {
     if (tpl === 'Q034') {
       const h1Goals = events.filter((e) => e.type?.toLowerCase() === 'goal' && (e.time?.elapsed ?? 0) < 46).length;
       const h2Goals = events.filter((e) => e.type?.toLowerCase() === 'goal' && (e.time?.elapsed ?? 0) >= 46).length;
+      // Cross-check: events must account for the full final score, otherwise per-half split is unreliable
+      if (h1Goals + h2Goals < score.home + score.away) return 'VOID';
       if (h2Goals > h1Goals) return options[0]?.id ?? null; // A: yes
       return options[1]?.id ?? null; // B: no
     }
@@ -853,7 +887,10 @@ export class QuestionResolverService {
         return e.type?.toLowerCase() === 'card' && (detail.includes('red card') || detail.includes('yellow red'));
       });
       if (redEvent?.team?.name) return this.findOptionByTeamName(options, redEvent.team.name) ?? null;
-      return this.findNoOption(options);
+      // Defensive: red cards are rare and easily missed by an incomplete event cache.
+      // Only confidently say "no red" if we know we have a full event stream.
+      if (matchSeemsComplete) return this.findNoOption(options);
+      return 'VOID';
     }
 
     // Q011: "How many more yellow cards?" — v2.2: count Yellow Card + Yellow Red Card
@@ -886,7 +923,11 @@ export class QuestionResolverService {
       const yellowRed = events.find((e) => {
         return e.type?.toLowerCase() === 'card' && e.detail?.toLowerCase().includes('yellow red');
       });
-      if (!yellowRed) return this.findNoOption(options); // C: nobody
+      if (!yellowRed) {
+        // Defensive: yellow-red is rare and easily missed by an incomplete event cache.
+        if (matchSeemsComplete) return this.findNoOption(options); // C: nobody
+        return 'VOID';
+      }
       const playerName = yellowRed.player?.name?.toLowerCase() ?? '';
       const matchedOpt = options.find((o) => o.name.toLowerCase().includes(playerName));
       if (matchedOpt) return matchedOpt.id;
@@ -967,9 +1008,17 @@ export class QuestionResolverService {
         return e.type?.toLowerCase() === 'var' && e.detail?.toLowerCase().includes('penalty cancelled');
       });
       if (penCancelled) return this.findNoOption(options);
-      // Case 4: No event at all → C (no penalty)
-      return this.findNoOption(options);
+      // Case 4: No event at all → "no penalty" only if we trust the event stream is complete
+      if (matchSeemsComplete) return this.findNoOption(options);
+      return 'VOID';
     }
+
+    // Q019: "VAR overturn?" — event-triggered. If we reached FT with no verdict event,
+    // it means the VAR review never produced a verdict in our cache → VOID + refund.
+    if (tpl === 'Q019') return 'VOID';
+
+    // Q042: "VAR review result?" — same reasoning as Q019.
+    if (tpl === 'Q042') return 'VOID';
 
     // Q021: "VAR in last 10 min?"
     if (tpl === 'Q021') {
@@ -1077,7 +1126,11 @@ export class QuestionResolverService {
         const extra = e.time?.extra;
         return elapsed >= 90 && extra != null && extra > 0;
       });
-      return this.findYesNoOption(options, stoppageGoal);
+      if (stoppageGoal) return this.findYesNoOption(options, true);
+      // Only confidently say "no" if the event stream actually reached stoppage time.
+      const reachedStoppage = events.some((e) => (e.time?.elapsed ?? 0) >= 90);
+      if (reachedStoppage || matchSeemsComplete) return this.findYesNoOption(options, false);
+      return 'VOID';
     }
 
     // Q046: "H1 stoppage time?"
@@ -1185,7 +1238,10 @@ export class QuestionResolverService {
       if (!stats?.possession || !stats?.shots) return 'VOID';
       const homePoss = parseInt(stats.possession.home ?? '50') || 50;
       const firstGoal = events.find((e) => e.type?.toLowerCase() === 'goal');
-      if (!firstGoal) return options[1]?.id ?? null;
+      // Question is event-triggered on first goal. If at FT we have no first goal in events,
+      // either the cache is incomplete (score>0 but no goal events) or the match was 0-0
+      // (so the trigger was never satisfied). Both cases → refund.
+      if (!firstGoal) return 'VOID';
       const scorer = this.goalBeneficiary(firstGoal, teams);
       const scorerPoss = scorer === teams.home ? homePoss : (100 - homePoss);
       const scorerShots = scorer === teams.home ? (stats.shots.home ?? 0) : (stats.shots.away ?? 0);
@@ -1197,14 +1253,12 @@ export class QuestionResolverService {
     if (tpl === 'Q055') {
       if (score.home === score.away) return 'VOID'; // v2.3: score became tied → VOID
       const sot = stats?.shotsOnTarget ?? stats?.shots;
-      if (sot) {
-        const homeDelta = sot.home;
-        const awayDelta = sot.away;
-        if (homeDelta > awayDelta + 2) return options[0]?.id ?? null; // A: leading team
-        if (awayDelta > homeDelta + 2) return options[1]?.id ?? null; // B: trailing team
-        return options[2]?.id ?? null; // C: both
-      }
-      return options[2]?.id ?? null;
+      if (!sot) return 'VOID'; // No shot stats → can't decide; refund rather than guess "Both"
+      const homeDelta = sot.home;
+      const awayDelta = sot.away;
+      if (homeDelta > awayDelta + 2) return options[0]?.id ?? null; // A: leading team
+      if (awayDelta > homeDelta + 2) return options[1]?.id ?? null; // B: trailing team
+      return options[2]?.id ?? null; // C: both
     }
 
     // ═══ Fallback: text-based matching ═══

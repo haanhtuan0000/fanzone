@@ -126,12 +126,18 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                         color: AppColors.amber, letterSpacing: 0.5)),
                   ],
                 ),
-                // Bottom row: this match earnings (neon)
-                Text(
-                  '+${predictState.totalCoinsEarned} this match',
-                  style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 9),
-                    fontWeight: FontWeight.w700, color: AppColors.neonGreen, letterSpacing: 0.4),
-                ),
+                // Bottom row: this match earnings — sign + color reflect win/loss state
+                Builder(builder: (_) {
+                  final earned = predictState.totalCoinsEarned;
+                  final isPositive = earned >= 0;
+                  return Text(
+                    '${isPositive ? "+" : ""}$earned this match',
+                    style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 9),
+                      fontWeight: FontWeight.w700,
+                      color: isPositive ? AppColors.neonGreen : AppColors.red,
+                      letterSpacing: 0.4),
+                  );
+                }),
               ],
             ),
           ),

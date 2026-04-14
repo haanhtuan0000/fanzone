@@ -457,7 +457,7 @@ describe('MatchDataManager', () => {
       );
     });
 
-    it('triggers onFullTime when match disappears for 5+ minutes', async () => {
+    it('triggers onFullTime when match disappears for 5+ minutes (forwards last known period)', async () => {
       const fiveMinAgo = Date.now() - 310_000;
       (manager as any).matchStates.set(111, {
         fixtureId: 111, period: '2H', elapsed: 90, lastPhase: 'LATE_H2',
@@ -470,10 +470,32 @@ describe('MatchDataManager', () => {
 
       await (manager as any).pollFixtures();
 
+      // Forward the LAST KNOWN period ('2H'), not literal 'FT'. This lets the resolver's
+      // completeness guard distinguish disappear-during-2H (likely real FT) from
+      // disappear-during-HT (NOT a real FT — H2 never played).
       expect(questionResolver.onFullTime).toHaveBeenCalledWith(
-        111, { home: 'Arsenal', away: 'Chelsea' }, { home: 2, away: 1 }, undefined, 'FT',
+        111, { home: 'Arsenal', away: 'Chelsea' }, { home: 2, away: 1 }, undefined, '2H',
       );
       expect((manager as any).matchStates.has(111)).toBe(false);
+    });
+
+    it('disappear-during-HT forwards period=HT (not FT) so resolver can VOID H2 questions', async () => {
+      const fiveMinAgo = Date.now() - 310_000;
+      (manager as any).matchStates.set(112, {
+        fixtureId: 112, period: 'HT', elapsed: 45, lastPhase: 'HALF_TIME',
+        teams: { home: 'Manchester United', away: 'Leeds' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0, lastSeenInApi: fiveMinAgo,
+      });
+
+      apiFootball.getLiveFixtures.mockResolvedValue([]);
+
+      await (manager as any).pollFixtures();
+
+      // Critical: must NOT pass 'FT' here — H2 never played.
+      expect(questionResolver.onFullTime).toHaveBeenCalledWith(
+        112, { home: 'Manchester United', away: 'Leeds' }, { home: 0, away: 0 }, undefined, 'HT',
+      );
     });
 
     it('detects stale elapsed (stuck for 5+ min while still appearing live) and triggers FT', async () => {
@@ -495,10 +517,12 @@ describe('MatchDataManager', () => {
 
       await (manager as any).pollFixtures();
 
-      // Should be detected as stuck and treated as FT
-      // Note: score gets updated from API (0-0 from makeFixture) before stale check
+      // Should be detected as stuck and treated as finished.
+      // We forward the LAST KNOWN period ('2H'), not 'FT', so the resolver's completeness
+      // guard can decide whether H2-dependent questions are safe to resolve.
+      // Note: score gets updated from API (0-0 from makeFixture) before stale check.
       expect(questionResolver.onFullTime).toHaveBeenCalledWith(
-        111, { home: 'Crystal Palace', away: 'Newcastle' }, { home: 0, away: 0 }, undefined, 'FT',
+        111, { home: 'Crystal Palace', away: 'Newcastle' }, { home: 0, away: 0 }, undefined, '2H',
       );
       expect((manager as any).matchStates.has(111)).toBe(false);
     });
@@ -521,6 +545,29 @@ describe('MatchDataManager', () => {
       await (manager as any).pollFixtures();
 
       // Should NOT trigger FT yet
+      expect(questionResolver.onFullTime).not.toHaveBeenCalled();
+      expect((manager as any).matchStates.has(111)).toBe(true);
+    });
+
+    it('does NOT trigger stale FT during HT (half-time has no clock progress)', async () => {
+      // At HT, elapsed stays at 45 for ~15 min — that's normal, not stale
+      const tenMinAgo = Date.now() - 10 * 60_000;
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: 'HT', elapsed: 45, lastPhase: 'HALF_TIME',
+        teams: { home: 'A', away: 'B' }, score: { home: 1, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(),
+        lastElapsedChange: tenMinAgo, // stuck 10 min, but at HT
+      });
+
+      const fixture = makeFixture(111, 'HT', 45, 'A', 'B');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('HALF_TIME');
+
+      await (manager as any).pollFixtures();
+
+      // Should NOT trigger FT — HT is a normal break period
       expect(questionResolver.onFullTime).not.toHaveBeenCalled();
       expect((manager as any).matchStates.has(111)).toBe(true);
     });

@@ -176,4 +176,307 @@ describe('QuestionResolverService', () => {
       expect(apiFootball.getFixtureEvents).toHaveBeenCalled();
     });
   });
+
+  // ═══ Q008 — H2 questions must not resolve before H2 plays ═══
+
+  describe('resolveAtFullTime — Q008 (Who scores first in 2H?)', () => {
+    /** Build a Q008 question with 3 options: home, away, nobody before 65 */
+    function q008Question() {
+      return {
+        id: 'q-008',
+        fixtureId,
+        templateId: 'tpl-q008',
+        options: [
+          { id: 'opt-home', name: 'Arsenal' },
+          { id: 'opt-away', name: 'Chelsea' },
+          { id: 'opt-no', name: 'Nobody before minute 65' },
+        ],
+      };
+    }
+
+    beforeEach(() => {
+      // Make getTemplateCode return Q008 for our test question
+      prisma.questionTemplate = {
+        findMany: jest.fn().mockResolvedValue([{ id: 'tpl-q008', code: 'Q008' }]),
+      } as any;
+      // Race-safe updateMany must report 1 row updated so resolution proceeds
+      prisma.question.updateMany.mockResolvedValue({ count: 1 });
+    });
+
+    it('VOIDs Q008 when called with no H2 events (H2 never played)', async () => {
+      // Bug scenario: stale detection at HT triggers onFullTime.
+      // No H2 events exist. Q008 should NOT resolve as "Nobody scored in H2"
+      // because H2 never actually played.
+      const question = q008Question();
+      prisma.question.findMany.mockResolvedValue([{ ...question, status: 'OPEN' }]);
+      // H1 events only (goal at 30')
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 30 }, team: { name: 'Arsenal' } },
+      ]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, undefined);
+
+      // Should be voided, not resolved as "nobody"
+      expect(scoringService.voidQuestion).toHaveBeenCalledWith(question.id);
+      expect(scoringService.scoreQuestion).not.toHaveBeenCalled();
+    });
+
+    it('resolves Q008 normally when H2 events exist', async () => {
+      const question = q008Question();
+      prisma.question.findMany.mockResolvedValue([{ ...question, status: 'OPEN' }]);
+      // Goal in H2 by Arsenal at 50'
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 50 }, team: { name: 'Arsenal' } },
+      ]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, undefined);
+
+      // Should resolve with Arsenal as scorer
+      expect(scoringService.scoreQuestion).toHaveBeenCalledWith(
+        question.id, 'opt-home',
+      );
+    });
+
+    it('resolves Q008 as "Nobody before 65" when H2 played but goal was after 65', async () => {
+      const question = q008Question();
+      prisma.question.findMany.mockResolvedValue([{ ...question, status: 'OPEN' }]);
+      // H2 events exist (sub at 50'), goal after 65
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'subst', time: { elapsed: 50 } },
+        { type: 'Goal', time: { elapsed: 70 }, team: { name: 'Arsenal' } },
+      ]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, undefined);
+
+      // Should resolve with "Nobody before 65"
+      expect(scoringService.scoreQuestion).toHaveBeenCalledWith(
+        question.id, 'opt-no',
+      );
+    });
+
+    it('resolves Q008 normally when finishedStatus is FT (real full time)', async () => {
+      const question = q008Question();
+      prisma.question.findMany.mockResolvedValue([{ ...question, status: 'OPEN' }]);
+      // No H2 events but match really did finish
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 30 }, team: { name: 'Arsenal' } },
+      ]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, 'FT');
+
+      // Should resolve as "Nobody" since real FT means H2 happened with no H2 goals
+      expect(scoringService.scoreQuestion).toHaveBeenCalledWith(
+        question.id, 'opt-no',
+      );
+    });
+  });
+
+  // ═══ Layer 2: centralized completeness guards ═══
+
+  describe('onFullTime — Layer 2 completeness guards', () => {
+    const tplId = (code: string) => `tpl-${code.toLowerCase()}`;
+
+    function buildQ(code: string, options: any[]) {
+      return {
+        id: `q-${code.toLowerCase()}`,
+        fixtureId,
+        templateId: tplId(code),
+        status: 'OPEN',
+        options,
+      };
+    }
+
+    beforeEach(() => {
+      prisma.question.updateMany.mockResolvedValue({ count: 1 });
+    });
+
+    function setTemplate(code: string) {
+      prisma.questionTemplate = {
+        findMany: jest.fn().mockResolvedValue([{ id: tplId(code), code }]),
+      } as any;
+    }
+
+    // ── H2-dependent templates ──
+
+    it.each([
+      ['Q008', [{ id: 'a', name: 'Arsenal' }, { id: 'b', name: 'Chelsea' }, { id: 'c', name: 'Nobody before 65' }]],
+      ['Q032', [{ id: 'a', name: 'Striker H1' }, { id: 'b', name: 'Striker H2' }, { id: 'c', name: 'No goal' }]],
+      ['Q034', [{ id: 'a', name: 'Yes H2 more' }, { id: 'b', name: 'No H1 equal/more' }]],
+    ])('VOIDs %s when H2 has not played (no H2 events, fake FT)', async (code, opts) => {
+      setTemplate(code);
+      const q = buildQ(code, opts);
+      prisma.question.findMany.mockResolvedValue([q]);
+      // Only H1 events; finishedStatus=undefined (e.g. stale-FT call)
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 20 }, team: { name: 'Arsenal' } },
+      ]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, undefined);
+
+      expect(scoringService.voidQuestion).toHaveBeenCalledWith(q.id);
+      expect(scoringService.scoreQuestion).not.toHaveBeenCalled();
+    });
+
+    // ── Whole-match aggregate templates ──
+
+    it.each([
+      ['Q033', [{ id: 'a', name: '0-1' }, { id: 'b', name: '2' }, { id: 'c', name: '3' }, { id: 'd', name: '4+' }]],
+      ['Q037', [{ id: 'a', name: '0-1' }, { id: 'b', name: '2-3' }, { id: 'c', name: '4-5' }, { id: 'd', name: '6+' }]],
+      ['Q045', [{ id: 'a', name: '0-2' }, { id: 'b', name: '3' }, { id: 'c', name: '4' }, { id: 'd', name: '5' }]],
+    ])('VOIDs %s when match did not seem complete (no events past min 80)', async (code, opts) => {
+      setTemplate(code);
+      const q = buildQ(code, opts);
+      prisma.question.findMany.mockResolvedValue([q]);
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 50 }, team: { name: 'Arsenal' } },
+      ]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, undefined);
+
+      expect(scoringService.voidQuestion).toHaveBeenCalledWith(q.id);
+      expect(scoringService.scoreQuestion).not.toHaveBeenCalled();
+    });
+
+    it('does NOT VOID aggregate when finishedStatus is real FT even with thin events', async () => {
+      setTemplate('Q033');
+      const q = buildQ('Q033', [
+        { id: 'a', name: '0-1' }, { id: 'b', name: '2' }, { id: 'c', name: '3' }, { id: 'd', name: '4+' },
+      ]);
+      prisma.question.findMany.mockResolvedValue([q]);
+      // Final score 2-1 = 3 goals. Events list has all 3.
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 20 } },
+        { type: 'Goal', time: { elapsed: 50 } },
+        { type: 'Goal', time: { elapsed: 70 } },
+      ]);
+
+      await service.onFullTime(fixtureId, teams, { home: 2, away: 1 }, undefined, 'FT');
+
+      expect(scoringService.scoreQuestion).toHaveBeenCalled();
+      expect(scoringService.voidQuestion).not.toHaveBeenCalled();
+    });
+  });
+
+  // ═══ Layer 3: per-template VOID for unsafe defaults ═══
+
+  describe('onFullTime — Layer 3 per-template defaults', () => {
+    const tplId = (code: string) => `tpl-${code.toLowerCase()}`;
+
+    function buildQ(code: string, options: any[]) {
+      return { id: `q-${code.toLowerCase()}`, fixtureId, templateId: tplId(code), status: 'OPEN', options };
+    }
+    function setTemplate(code: string) {
+      prisma.questionTemplate = { findMany: jest.fn().mockResolvedValue([{ id: tplId(code), code }]) } as any;
+    }
+
+    beforeEach(() => {
+      prisma.question.updateMany.mockResolvedValue({ count: 1 });
+    });
+
+    // Q033 — event-count mismatch with final score → VOID
+    it('Q033: VOIDs when goal-event count is less than final score sum (incomplete cache)', async () => {
+      setTemplate('Q033');
+      const q = buildQ('Q033', [
+        { id: 'a', name: '0-1' }, { id: 'b', name: '2' }, { id: 'c', name: '3' }, { id: 'd', name: '4+' },
+      ]);
+      prisma.question.findMany.mockResolvedValue([q]);
+      // Final score says 4 goals but events array only has 1 → cache lost 3 goals → VOID
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 95 } }, // event past min 80 so L2 doesn't gate
+      ]);
+
+      await service.onFullTime(fixtureId, teams, { home: 3, away: 1 }, undefined, 'FT');
+
+      expect(scoringService.voidQuestion).toHaveBeenCalledWith(q.id);
+      expect(scoringService.scoreQuestion).not.toHaveBeenCalled();
+    });
+
+    // Q034 — goal events undercount the score → VOID
+    it('Q034: VOIDs when total goal events undercount the final score', async () => {
+      setTemplate('Q034');
+      const q = buildQ('Q034', [{ id: 'a', name: 'Yes' }, { id: 'b', name: 'No' }]);
+      prisma.question.findMany.mockResolvedValue([q]);
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 95 } }, // pass L2 but undercounts score
+      ]);
+
+      await service.onFullTime(fixtureId, teams, { home: 2, away: 2 }, undefined, 'FT');
+
+      expect(scoringService.voidQuestion).toHaveBeenCalledWith(q.id);
+    });
+
+    // Q010 — VOID when no red event AND match incomplete
+    it('Q010: VOIDs when no red card found and match did not seem complete', async () => {
+      setTemplate('Q010');
+      const q = buildQ('Q010', [
+        { id: 'home', name: 'Arsenal' }, { id: 'away', name: 'Chelsea' }, { id: 'no', name: 'No red card' },
+      ]);
+      prisma.question.findMany.mockResolvedValue([q]);
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 30 } }, // no red, no late events
+      ]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, undefined);
+
+      expect(scoringService.voidQuestion).toHaveBeenCalledWith(q.id);
+    });
+
+    it('Q010: resolves "No red" when match really finished and no red event', async () => {
+      setTemplate('Q010');
+      const q = buildQ('Q010', [
+        { id: 'home', name: 'Arsenal' }, { id: 'away', name: 'Chelsea' }, { id: 'no', name: 'No red card' },
+      ]);
+      prisma.question.findMany.mockResolvedValue([q]);
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 30 } },
+      ]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, 'FT');
+
+      expect(scoringService.scoreQuestion).toHaveBeenCalledWith(q.id, 'no');
+    });
+
+    // Q020 — VOID instead of "no penalty" when match incomplete
+    it('Q020: VOIDs the no-event fall-through when match did not seem complete', async () => {
+      setTemplate('Q020');
+      const q = buildQ('Q020', [
+        { id: 'home', name: 'Arsenal' }, { id: 'away', name: 'Chelsea' }, { id: 'no', name: 'No penalty' },
+      ]);
+      prisma.question.findMany.mockResolvedValue([q]);
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 30 } }, // no penalty event, no late events
+      ]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, undefined);
+
+      expect(scoringService.voidQuestion).toHaveBeenCalledWith(q.id);
+    });
+
+    // Q027 — VOID when events never reached stoppage time AND not real FT
+    it('Q027: VOIDs when no events past minute 90 and not real FT', async () => {
+      setTemplate('Q027');
+      const q = buildQ('Q027', [{ id: 'yes', name: 'Yes' }, { id: 'no', name: 'No' }]);
+      prisma.question.findMany.mockResolvedValue([q]);
+      apiFootball.getFixtureEvents.mockResolvedValue([
+        { type: 'Goal', time: { elapsed: 50 } },
+      ]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, undefined);
+
+      expect(scoringService.voidQuestion).toHaveBeenCalledWith(q.id);
+    });
+
+    // Q019 / Q042 — VAR templates VOID at FT (no verdict event came through)
+    it.each(['Q019', 'Q042'])('%s: VOIDs at FT (no verdict event)', async (code) => {
+      setTemplate(code);
+      const q = buildQ(code, [{ id: 'a', name: 'Yes' }, { id: 'b', name: 'No' }]);
+      prisma.question.findMany.mockResolvedValue([q]);
+      apiFootball.getFixtureEvents.mockResolvedValue([]);
+
+      await service.onFullTime(fixtureId, teams, score, undefined, 'FT');
+
+      expect(scoringService.voidQuestion).toHaveBeenCalledWith(q.id);
+      expect(scoringService.scoreQuestion).not.toHaveBeenCalled();
+    });
+  });
 });
