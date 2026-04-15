@@ -77,7 +77,10 @@ describe('QuestionsService', () => {
         where: { fixtureId: 12345, status: 'PENDING', opensAt: { lte: expect.any(Date) } },
         orderBy: { opensAt: 'asc' },
       });
-      expect(result).toBeTruthy();
+      expect(result).not.toBeNull();
+      // Narrow for TS — jest assertions don't act as type guards. An explicit
+      // throw gives a clear message if the mock ever regresses to null.
+      if (!result) throw new Error('expected openNextPending to return a question');
       expect(result.status).toBe('OPEN');
     });
 
@@ -119,7 +122,9 @@ describe('QuestionsService', () => {
 
       const result = await service.getActiveQuestions(12345);
 
-      expect(result.active).toBeTruthy();
+      expect(result.active).not.toBeNull();
+      // Narrow for TS — jest assertions don't act as type guards.
+      if (!result.active) throw new Error('expected an active question');
       expect(result.active.options[0].fanCount).toBe(5);
       expect(result.active.options[0].fanPct).toBe(63);
       expect(result.active.options[1].fanCount).toBe(3);

@@ -61,15 +61,27 @@ export class QuestionsService {
       take: 5,
     });
 
-    // Enrich open question with fan percentages from Redis
+    // Enrich open question with fan percentages from Redis.
+    // Build as a new value (not a mutation) so the enriched option shape
+    // — with fanCount and fanPct — survives in the return type, not hidden
+    // behind `as any`. Callers (and this service's own spec) rely on those
+    // fields being visible on `active.options[i]`.
+    type NonNullOpen = NonNullable<typeof openQuestion>;
+    type EnrichedActive = Omit<NonNullOpen, 'options'> & {
+      options: Array<NonNullOpen['options'][number] & { fanCount: number; fanPct: number }>;
+    };
+    let activeQuestion: EnrichedActive | null = null;
     if (openQuestion) {
       const fanData = await this.redis.hgetall(`question:${openQuestion.id}:fans`);
       const totalFans = Object.values(fanData).reduce((sum, v) => sum + parseInt(v || '0'), 0);
-      openQuestion.options = openQuestion.options.map((opt) => ({
-        ...opt,
-        fanCount: parseInt(fanData[opt.id] || '0'),
-        fanPct: totalFans > 0 ? Math.round((parseInt(fanData[opt.id] || '0') / totalFans) * 100) : 0,
-      })) as any;
+      activeQuestion = {
+        ...openQuestion,
+        options: openQuestion.options.map((opt) => ({
+          ...opt,
+          fanCount: parseInt(fanData[opt.id] || '0'),
+          fanPct: totalFans > 0 ? Math.round((parseInt(fanData[opt.id] || '0') / totalFans) * 100) : 0,
+        })),
+      };
     }
 
     // Recently resolved + voided questions (for showing results)
@@ -82,7 +94,7 @@ export class QuestionsService {
 
     // Estimate next question time when no upcoming and no open question
     let nextEstimatedAt: string | null = null;
-    if (upcomingQuestions.length === 0 && !openQuestion) {
+    if (upcomingQuestions.length === 0 && !activeQuestion) {
       const latest = await this.prisma.question.findFirst({
         where: { fixtureId },
         orderBy: { opensAt: 'desc' },
@@ -104,7 +116,7 @@ export class QuestionsService {
       }
     }
 
-    return { active: openQuestion, upcoming: upcomingQuestions, pendingResults, resolved, nextEstimatedAt };
+    return { active: activeQuestion, upcoming: upcomingQuestions, pendingResults, resolved, nextEstimatedAt };
   }
 
   /**
