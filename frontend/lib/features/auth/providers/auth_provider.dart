@@ -137,18 +137,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<int> fetchCoins() async {
+  /// Fetches the current user's coin balance from the server.
+  ///
+  /// Returns:
+  ///   * a non-negative integer — the server's authoritative balance
+  ///     (including `0` — the user genuinely has zero coins);
+  ///   * `null` — the call could not be completed (no token, network error,
+  ///     timeout, non-2xx, parse error). The caller MUST treat `null` as
+  ///     "unknown" and preserve any previously-known balance, never overwrite
+  ///     it with zero. Collapsing errors to `0` makes a transient outage look
+  ///     identical to a legitimately empty wallet — that is the bug this
+  ///     signature prevents.
+  Future<int?> fetchCoins() async {
     final token = await _storage.getAccessToken();
-    if (token == null) return 0;
+    if (token == null) return null;
     try {
       final response = await Dio().get(
         '${ApiEndpoints.baseUrl}${ApiEndpoints.profileMe}',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       final data = response.data as Map<String, dynamic>;
-      return data['coins'] as int? ?? 0;
+      return data['coins'] as int?;
     } catch (_) {
-      return 0;
+      return null;
     }
   }
 
@@ -280,3 +291,19 @@ final authStateProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
 
 /// Standalone coins state — completely independent from authState/router
 final userCoinsProvider = StateProvider<int>((ref) => 0);
+
+/// Per-session flag: has the Live screen attempted its one-shot coin refresh?
+/// Exposed so tests (and the screen) can reset it on logout/app restart.
+final coinsFetchAttemptedProvider = StateProvider<bool>((ref) => false);
+
+/// Reconciles a freshly-fetched coin balance with the current local value.
+///
+/// * `fetched == null` → fetch failed or balance is unknown; keep [current].
+/// * `fetched != null` → authoritative server value; write it (including `0`).
+///
+/// Pulled out as a pure function so the rule can be verified in isolation —
+/// see `test/features/auth/coins_helpers_test.dart`. The two invariants it
+/// encodes are the exact ones the previous `if (c > 0)` guard violated:
+///   1. A real balance of zero MUST be displayed as zero.
+///   2. A network error MUST NOT silently overwrite a known balance with zero.
+int applyFetchedCoins(int current, int? fetched) => fetched ?? current;

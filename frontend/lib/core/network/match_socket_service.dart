@@ -87,9 +87,12 @@ class MatchSocketService with WidgetsBindingObserver {
       _ref.read(predictStateProvider.notifier).loadQuestions(_currentFixtureId!);
     }
     _ref.invalidate(profileStateProvider);
-    // Refresh coins directly (profile invalidation triggers async load)
-    _ref.read(authStateProvider.notifier).fetchCoins().then((c) {
-      if (c > 0) _ref.read(userCoinsProvider.notifier).state = c;
+    // Refresh coins directly (profile invalidation triggers async load).
+    // Errors return null — apply only authoritative values, never clobber a
+    // known balance with a transient failure's 0 (see applyFetchedCoins).
+    _ref.read(authStateProvider.notifier).fetchCoins().then((fetched) {
+      _ref.read(userCoinsProvider.notifier).state =
+          applyFetchedCoins(_ref.read(userCoinsProvider), fetched);
     });
   }
 

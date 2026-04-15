@@ -32,11 +32,16 @@ class LiveScreen extends ConsumerWidget {
     final predictState = ref.watch(predictStateProvider);
     final coins = ref.watch(userCoinsProvider);
 
-    // Fetch coins once if not loaded yet
-    if (coins == 0) {
+    // One-shot coin refresh per session. The attempted-flag must be flipped
+    // SYNCHRONOUSLY (before awaiting) — otherwise any rebuild that happens
+    // while the first request is still in flight would start another one,
+    // producing a fetch storm against /profile/me and starving other calls.
+    if (!ref.read(coinsFetchAttemptedProvider)) {
+      ref.read(coinsFetchAttemptedProvider.notifier).state = true;
       Future.microtask(() async {
-        final c = await ref.read(authStateProvider.notifier).fetchCoins();
-        if (c > 0) ref.read(userCoinsProvider.notifier).state = c;
+        final fetched = await ref.read(authStateProvider.notifier).fetchCoins();
+        ref.read(userCoinsProvider.notifier).state =
+            applyFetchedCoins(ref.read(userCoinsProvider), fetched);
       });
     }
 
@@ -69,8 +74,9 @@ class LiveScreen extends ConsumerWidget {
           RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(liveStateProvider);
-          final c = await ref.read(authStateProvider.notifier).fetchCoins();
-          if (c > 0) ref.read(userCoinsProvider.notifier).state = c;
+          final fetched = await ref.read(authStateProvider.notifier).fetchCoins();
+          ref.read(userCoinsProvider.notifier).state =
+              applyFetchedCoins(ref.read(userCoinsProvider), fetched);
         },
         child: CustomScrollView(
           slivers: [
