@@ -23,7 +23,12 @@
 //   3,   // UEFA Europa League
 //   848, // UEFA Conference League
 // ]);
-export const TRACKED_LEAGUE_IDS = { has: () => true } as Set<number>;
+// Narrowed to the single method all callers use (`.has`) so the testing shim
+// is type-checked honestly — casting `{has}` to full `Set<number>` fails under
+// stricter TS overlap rules, and hides breakage if someone later calls `.size`
+// or iterates this. Re-widen to `Set<number>` once the real Set above is
+// uncommented.
+export const TRACKED_LEAGUE_IDS: Pick<Set<number>, 'has'> = { has: () => true };
 
 /** Maximum live matches to process simultaneously (API budget constraint) */
 export const MAX_LIVE_MATCHES = 8;
