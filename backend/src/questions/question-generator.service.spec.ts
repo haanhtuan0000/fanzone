@@ -15,6 +15,7 @@ describe('QuestionGeneratorService', () => {
     onPhaseChange: jest.fn(),
     determinePhase: jest.fn(),
     cleanup: jest.fn(),
+    markPhaseGenerated: jest.fn(),
   };
 
   const teams = { home: 'Vietnam', away: 'Thailand' };
@@ -106,80 +107,113 @@ describe('QuestionGeneratorService', () => {
   });
 
   describe('generateCatchUp', () => {
-    // Requirement: when a match is discovered mid-game, generate questions
-    // for ALL phases from EARLY_H1 through current phase. This ensures
-    // users have a full pipeline of questions, not just 1-2.
+    // Background for these tests:
+    // Production data on fixture 1532900 (Bangkok United vs Gamba Osaka)
+    // showed catch-up firing EVERY past phase back-to-back when a match was
+    // discovered late, creating 12 questions in 13 wall-clock minutes. With
+    // 30-60s template answer windows, each question closed within a minute
+    // of being born — `predictionCount=0` across the board. The invariants
+    // below encode the rule that matters: catch-up is allowed to produce
+    // questions ONLY for the phase whose answer window is still live.
 
-    it('generates ALL phases from EARLY_H1 through current when discovered at MID_H2', async () => {
-      mockScenarioEngine.determinePhase.mockReturnValue('MID_H2');
-      mockScenarioEngine.onPhaseChange.mockResolvedValue([{ id: 'q-1' }]);
+    describe('R4: catch-up generates ONLY the current phase', () => {
+      it('discovery at minute 65 (MID_H2) generates MID_H2 and no earlier phase', async () => {
+        mockScenarioEngine.determinePhase.mockReturnValue('MID_H2');
+        mockScenarioEngine.onPhaseChange.mockResolvedValue([{ id: 'q-1' }]);
 
-      await service.generateCatchUp(fixtureId, 65, teams, { home: 1, away: 0 }, '2H');
+        await service.generateCatchUp(fixtureId, 65, teams, { home: 1, away: 0 }, '2H');
 
-      // EARLY_H1, MID_H1, LATE_H1, HALF_TIME, EARLY_H2, MID_H2 = 6 phases
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(6);
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(fixtureId, 'EARLY_H1', teams, 65, { home: 1, away: 0 });
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(fixtureId, 'MID_H1', teams, 65, { home: 1, away: 0 });
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(fixtureId, 'LATE_H1', teams, 65, { home: 1, away: 0 });
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(fixtureId, 'HALF_TIME', teams, 65, { home: 1, away: 0 });
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(fixtureId, 'EARLY_H2', teams, 65, { home: 1, away: 0 });
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(fixtureId, 'MID_H2', teams, 65, { home: 1, away: 0 });
+        // Exactly one onPhaseChange call, and it's for the current phase.
+        expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(1);
+        expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(
+          fixtureId, 'MID_H2', teams, 65, { home: 1, away: 0 },
+        );
+      });
+
+      it('discovery at minute 80 (LATE_H2) generates LATE_H2 only', async () => {
+        mockScenarioEngine.determinePhase.mockReturnValue('LATE_H2');
+        mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
+
+        await service.generateCatchUp(fixtureId, 80, teams);
+
+        expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(1);
+        expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(
+          fixtureId, 'LATE_H2', teams, 80, undefined,
+        );
+      });
+
+      it('discovery at minute 5 (EARLY_H1) still generates EARLY_H1 — the current phase IS the first', async () => {
+        // Guard against the opposite regression: my fix only suppresses
+        // STRICTLY EARLIER phases, not the current one.
+        mockScenarioEngine.determinePhase.mockReturnValue('EARLY_H1');
+        mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
+
+        await service.generateCatchUp(fixtureId, 5, teams);
+
+        expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(1);
+        expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(
+          fixtureId, 'EARLY_H1', teams, 5, undefined,
+        );
+      });
+
+      it('PRE_MATCH is never called retroactively when discovery happens after kickoff', async () => {
+        mockScenarioEngine.determinePhase.mockReturnValue('MID_H1');
+        mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
+
+        await service.generateCatchUp(fixtureId, 25, teams);
+
+        expect(mockScenarioEngine.onPhaseChange).not.toHaveBeenCalledWith(
+          fixtureId, 'PRE_MATCH', expect.anything(), expect.anything(), expect.anything(),
+        );
+      });
     });
 
-    it('generates ALL phases through LATE_H2 when discovered at minute 80', async () => {
-      mockScenarioEngine.determinePhase.mockReturnValue('LATE_H2');
-      mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
+    describe('R5: skipped past phases are sealed so no later tick re-fires them', () => {
+      it('catch-up at MID_H2 marks EARLY_H1..EARLY_H2 as already-generated', async () => {
+        // Without this, a later poll (or a server-wake after Render sleeps)
+        // would see those phases un-generated and belatedly try to create
+        // their questions — reproducing the exact "same template at +17min"
+        // pattern visible in pre-fix production data.
+        mockScenarioEngine.determinePhase.mockReturnValue('MID_H2');
+        mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
 
-      await service.generateCatchUp(fixtureId, 80, teams);
+        await service.generateCatchUp(fixtureId, 65, teams, undefined, '2H');
 
-      // EARLY_H1, MID_H1, LATE_H1, HALF_TIME, EARLY_H2, MID_H2, LATE_H2 = 7 phases
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(7);
-    });
+        const sealed = mockScenarioEngine.markPhaseGenerated.mock.calls.map(
+          (c) => c[1],
+        );
+        expect(sealed).toEqual([
+          'EARLY_H1', 'MID_H1', 'LATE_H1', 'HALF_TIME', 'EARLY_H2',
+        ]);
+        // Sanity: the current phase is NOT sealed by us — `onPhaseChange`
+        // handles that internally (seal + generate), and the FUTURE phase
+        // LATE_H2 must stay unsealed so it can generate when its time comes.
+        expect(sealed).not.toContain('MID_H2');
+        expect(sealed).not.toContain('LATE_H2');
+      });
 
-    it('generates only EARLY_H1 when discovered at minute 5 (early in match)', async () => {
-      mockScenarioEngine.determinePhase.mockReturnValue('EARLY_H1');
-      mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
+      it('at minute 5 (EARLY_H1) nothing is sealed — there are no past phases to skip', async () => {
+        mockScenarioEngine.determinePhase.mockReturnValue('EARLY_H1');
+        mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
 
-      await service.generateCatchUp(fixtureId, 5, teams);
+        await service.generateCatchUp(fixtureId, 5, teams);
 
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(1);
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(fixtureId, 'EARLY_H1', teams, 5, undefined);
+        expect(mockScenarioEngine.markPhaseGenerated).not.toHaveBeenCalled();
+      });
     });
 
     it('generates only PRE_MATCH when match has not started', async () => {
+      // PRE_MATCH path: nothing to seal, nothing before it.
       mockScenarioEngine.determinePhase.mockReturnValue('PRE_MATCH');
       mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
 
       await service.generateCatchUp(fixtureId, 0, teams);
 
-      // PRE_MATCH only — no other phases retroactively
       expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(1);
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(fixtureId, 'PRE_MATCH', teams, 0, undefined);
-    });
-
-    it('skips PRE_MATCH when discovered after kickoff (started match)', async () => {
-      mockScenarioEngine.determinePhase.mockReturnValue('MID_H1');
-      mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
-
-      await service.generateCatchUp(fixtureId, 25, teams);
-
-      // PRE_MATCH should NOT be called
-      expect(mockScenarioEngine.onPhaseChange).not.toHaveBeenCalledWith(
-        fixtureId, 'PRE_MATCH', expect.anything(), expect.anything(), expect.anything(),
+      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(
+        fixtureId, 'PRE_MATCH', teams, 0, undefined,
       );
-      // Should call EARLY_H1 and MID_H1
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(2);
-    });
-
-    it('generates LATE_H1 + HALF_TIME when joining at HT', async () => {
-      mockScenarioEngine.determinePhase.mockReturnValue('HALF_TIME');
-      mockScenarioEngine.onPhaseChange.mockResolvedValue([]);
-
-      await service.generateCatchUp(fixtureId, 45, teams, undefined, 'HT');
-
-      // EARLY_H1, MID_H1, LATE_H1, HALF_TIME = 4 phases
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledTimes(4);
-      expect(mockScenarioEngine.onPhaseChange).toHaveBeenCalledWith(fixtureId, 'HALF_TIME', teams, 45, undefined);
+      expect(mockScenarioEngine.markPhaseGenerated).not.toHaveBeenCalled();
     });
   });
 

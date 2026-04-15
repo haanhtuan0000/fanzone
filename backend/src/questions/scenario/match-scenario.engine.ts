@@ -312,6 +312,24 @@ export class MatchScenarioEngine {
     this.logger.log(`[${fixtureId}] Scenario state cleaned up`);
   }
 
+  /**
+   * Seal a phase as "already generated" WITHOUT creating any questions.
+   *
+   * Used by catch-up to suppress phases whose window is fully in the past —
+   * their answer windows (30-60s per template) would close instantly, so
+   * generating them just creates LOCKED-on-birth rows that users can't
+   * answer. Marking them here prevents any later tick or server restart
+   * from re-firing them.
+   *
+   * Mirrors the sadd + TTL pattern used inside `onPhaseChange` so state
+   * survives a Redis flush with the same 4h TTL.
+   */
+  async markPhaseGenerated(fixtureId: number, phase: MatchPhase): Promise<void> {
+    const phaseKey = this.generatedPhasesKey(fixtureId);
+    await this.redis.sadd(phaseKey, phase);
+    await this.redis.expire(phaseKey, 14400);
+  }
+
   // ──────────────────────────────────────────────
   //  Question spacing
   // ──────────────────────────────────────────────
