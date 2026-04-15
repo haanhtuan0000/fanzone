@@ -64,15 +64,35 @@ describe('ScheduleTracker', () => {
       expect(result).toBeLessThan(21);
     });
 
-    it('skips already-live matches', async () => {
+    it('returns 0 when a match is currently live (1H)', async () => {
       const now = Date.now();
       redis.getJson.mockResolvedValue([
         fixture(now - 30 * 60_000, '1H'), // playing
         fixture(now + 15 * 60_000, 'NS'), // 15 min away
       ]);
-      const result = await tracker.minutesUntilNextKickoff();
-      expect(result).toBeGreaterThan(14);
-      expect(result).toBeLessThan(16);
+      // Live match should return 0 so pollFixtures() runs and discovers it
+      expect(await tracker.minutesUntilNextKickoff()).toBe(0);
+    });
+
+    it('returns 0 when a match is at half-time (HT)', async () => {
+      redis.getJson.mockResolvedValue([
+        fixture(Date.now() - 50 * 60_000, 'HT'),
+      ]);
+      expect(await tracker.minutesUntilNextKickoff()).toBe(0);
+    });
+
+    it('returns 0 when a match is in second half (2H)', async () => {
+      redis.getJson.mockResolvedValue([
+        fixture(Date.now() - 60 * 60_000, '2H'),
+      ]);
+      expect(await tracker.minutesUntilNextKickoff()).toBe(0);
+    });
+
+    it('returns 0 when a match is in extra time (ET)', async () => {
+      redis.getJson.mockResolvedValue([
+        fixture(Date.now() - 100 * 60_000, 'ET'),
+      ]);
+      expect(await tracker.minutesUntilNextKickoff()).toBe(0);
     });
 
     // NEW BEHAVIOR: API-Football data lag
@@ -92,6 +112,27 @@ describe('ScheduleTracker', () => {
         fixture(now + 60 * 60_000, 'NS'),   // 60 min away
       ]);
       // The late match should make us poll now, ignoring the future one
+      expect(await tracker.minutesUntilNextKickoff()).toBe(0);
+    });
+
+    it('returns Infinity when all matches are finished', async () => {
+      const now = Date.now();
+      redis.getJson.mockResolvedValue([
+        fixture(now - 120 * 60_000, 'FT'),
+        fixture(now - 90 * 60_000, 'FT'),
+        fixture(now - 60 * 60_000, 'AET'),
+      ]);
+      expect(await tracker.minutesUntilNextKickoff()).toBe(Infinity);
+    });
+
+    it('cold-start during live match: returns 0 even when all other matches are FT', async () => {
+      const now = Date.now();
+      redis.getJson.mockResolvedValue([
+        fixture(now - 120 * 60_000, 'FT'),   // finished
+        fixture(now - 90 * 60_000, 'FT'),    // finished
+        fixture(now - 60 * 60_000, '2H'),    // still playing!
+      ]);
+      // The one live match should cause pollFixtures to run
       expect(await tracker.minutesUntilNextKickoff()).toBe(0);
     });
 

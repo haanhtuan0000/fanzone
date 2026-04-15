@@ -40,11 +40,13 @@ export class ScheduleTracker {
 
   /**
    * Returns minutes until the next kickoff from today's cached fixtures.
-   * Returns Infinity if no upcoming matches.
+   * Returns Infinity if no upcoming or live matches.
    *
-   * IMPORTANT: returns 0 (or negative as 0) if a match's kickoff time has
-   * passed but it's still marked NS — API-Football may be delayed in
-   * marking the match as live. We treat this as "should poll now".
+   * Returns 0 when:
+   * - A match is currently live (1H, 2H, HT, ET) — so the server stays
+   *   awake and pollFixtures() can discover/track it.
+   * - A match's kickoff time has passed but it's still marked NS —
+   *   API-Football may be delayed in marking it as live.
    */
   async minutesUntilNextKickoff(): Promise<number> {
     const fixtures = await this.redis.getJson<any[]>('cache:fixtures:today');
@@ -55,8 +57,16 @@ export class ScheduleTracker {
 
     for (const f of fixtures) {
       const status = f?.fixture?.status?.short;
-      // Skip matches that are already live or finished
-      if (['1H', '2H', 'HT', 'ET', 'FT', 'AET', 'PEN'].includes(status)) continue;
+
+      // Live matches → poll immediately so pollFixtures() can discover them.
+      // Without this, a server restart during a live match would go straight
+      // to sleep (matchStates is empty, no upcoming NS matches).
+      if (['1H', '2H', 'HT', 'ET', 'BT', 'P'].includes(status)) {
+        return 0;
+      }
+
+      // Skip finished matches — nothing to poll for
+      if (['FT', 'AET', 'PEN'].includes(status)) continue;
 
       const dateStr = f?.fixture?.date;
       if (!dateStr) continue;
