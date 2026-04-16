@@ -32,16 +32,22 @@ class LiveScreen extends ConsumerWidget {
     final predictState = ref.watch(predictStateProvider);
     final coins = ref.watch(userCoinsProvider);
 
-    // One-shot coin refresh per session. The attempted-flag must be flipped
-    // SYNCHRONOUSLY (before awaiting) — otherwise any rebuild that happens
-    // while the first request is still in flight would start another one,
-    // producing a fetch storm against /profile/me and starving other calls.
+    // One-shot coin refresh per session. The attempted-flag is flipped
+    // SYNCHRONOUSLY (before awaiting) so rebuilds during an in-flight
+    // request don't start another one — that would storm /profile/me.
+    // On failure (fetched == null) we RELEASE the flag so a subsequent
+    // rebuild, lifecycle resume, or socket tick can retry; otherwise a
+    // single cold-start failure would leave coins stuck at 0 until the
+    // user manually pulls to refresh.
     if (!ref.read(coinsFetchAttemptedProvider)) {
       ref.read(coinsFetchAttemptedProvider.notifier).state = true;
       Future.microtask(() async {
         final fetched = await ref.read(authStateProvider.notifier).fetchCoins();
         ref.read(userCoinsProvider.notifier).state =
             applyFetchedCoins(ref.read(userCoinsProvider), fetched);
+        if (fetched == null) {
+          ref.read(coinsFetchAttemptedProvider.notifier).state = false;
+        }
       });
     }
 

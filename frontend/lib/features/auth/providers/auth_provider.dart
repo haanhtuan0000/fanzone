@@ -142,25 +142,43 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Returns:
   ///   * a non-negative integer — the server's authoritative balance
   ///     (including `0` — the user genuinely has zero coins);
-  ///   * `null` — the call could not be completed (no token, network error,
-  ///     timeout, non-2xx, parse error). The caller MUST treat `null` as
+  ///   * `null` — the call could not be completed (no token, permanent auth
+  ///     failure, or all retries exhausted). The caller MUST treat `null` as
   ///     "unknown" and preserve any previously-known balance, never overwrite
-  ///     it with zero. Collapsing errors to `0` makes a transient outage look
-  ///     identical to a legitimately empty wallet — that is the bug this
-  ///     signature prevents.
+  ///     it with zero.
+  ///
+  /// Retries transient failures up to 3 times with a 2s / 4s backoff — the
+  /// Render free-tier backend can take ~30s to wake from sleep, which made
+  /// the previous single-shot call time out silently on cold app launches.
+  /// Permanent auth failures (401/403) short-circuit with `null` immediately.
   Future<int?> fetchCoins() async {
     final token = await _storage.getAccessToken();
     if (token == null) return null;
-    try {
-      final response = await Dio().get(
-        '${ApiEndpoints.baseUrl}${ApiEndpoints.profileMe}',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-      final data = response.data as Map<String, dynamic>;
-      return data['coins'] as int?;
-    } catch (_) {
-      return null;
+    const maxAttempts = 3;
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
+    ));
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        final response = await dio.get(
+          '${ApiEndpoints.baseUrl}${ApiEndpoints.profileMe}',
+          options: Options(headers: {'Authorization': 'Bearer $token'}),
+        );
+        final data = response.data as Map<String, dynamic>;
+        return data['coins'] as int?;
+      } on DioException catch (e) {
+        // Don't retry on permanent auth failures — retry won't help.
+        final status = e.response?.statusCode;
+        if (status == 401 || status == 403) return null;
+        if (attempt == maxAttempts - 1) return null;
+      } catch (_) {
+        if (attempt == maxAttempts - 1) return null;
+      }
+      // Backoff: 2s, 4s between attempts (total wait ≈ 6s).
+      await Future.delayed(Duration(seconds: 2 * (attempt + 1)));
     }
+    return null;
   }
 
   Future<void> register(String email, String password, {String? displayName}) async {

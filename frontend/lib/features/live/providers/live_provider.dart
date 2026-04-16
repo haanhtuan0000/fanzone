@@ -3,6 +3,7 @@ import '../../../core/models/match.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../services/match_service.dart';
+import '../stale_match_filter.dart';
 
 class LiveState {
   final List<MatchData> matches;
@@ -76,9 +77,18 @@ class LiveNotifier extends StateNotifier<LiveState> {
       final todayMatches = results[1];
 
       final allMatches = [...matches, ...todayMatches];
-      // Remove duplicates by fixtureId
+      // Remove duplicates by fixtureId, AND drop fixtures that are past their
+      // scheduled kickoff but still reported as NS/TBD by the feed — those
+      // are postponed/cancelled matches whose upstream status never updated
+      // (see stale_match_filter.dart). Without this, the Today list keeps
+      // showing them for hours and tapping leads to a misleading
+      // "Match in progress" banner.
+      final now = DateTime.now();
       final seen = <int>{};
-      final uniqueMatches = allMatches.where((m) => seen.add(m.fixtureId)).toList();
+      final uniqueMatches = allMatches
+          .where((m) => seen.add(m.fixtureId))
+          .where((m) => !isStaleScheduledMatch(m, now: now))
+          .toList();
 
       // Preserve user's match selection if it still exists in the list
       final currentId = state.activeMatch?.fixtureId;

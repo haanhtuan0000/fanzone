@@ -116,6 +116,17 @@ class NotificationService {
     await _plugin.cancel(fixtureId);
   }
 
+  /// Returns `true` if a match reminder for [fixtureId] is currently scheduled
+  /// with the OS. The notification plugin stores pending alarms across process
+  /// restarts, so this is the real source of truth — use it when a screen
+  /// needs to render the right button state after being re-opened (otherwise
+  /// a transient `bool` defaults to `false` and the UI forgets the reminder).
+  static Future<bool> isReminderScheduled(int fixtureId) async {
+    await init();
+    final pending = await _plugin.pendingNotificationRequests();
+    return pending.any((r) => r.id == fixtureId);
+  }
+
   /// Show a notification immediately (for testing).
   static Future<void> showTestNotification() async {
     await init();

@@ -9,6 +9,7 @@ import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/match.dart';
 import '../providers/fan_vote_provider.dart';
 import '../../../core/notifications/notification_service.dart';
+import '../post_kickoff_banner.dart';
 
 class MatchInfoScreen extends ConsumerStatefulWidget {
   final int fixtureId;
@@ -33,6 +34,16 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
     // Load fan votes
     Future.microtask(() {
       ref.read(fanVoteProvider.notifier).load(widget.fixtureId);
+    });
+    // Hydrate reminder state from the OS. `_reminderSet` is local widget
+    // state and defaults to false each time this screen mounts — without
+    // this lookup the button would show "Set reminder" even for fixtures
+    // the user already scheduled a notification for.
+    Future.microtask(() async {
+      final alreadyScheduled = await NotificationService.isReminderScheduled(widget.fixtureId);
+      if (mounted && alreadyScheduled) {
+        setState(() => _reminderSet = true);
+      }
     });
   }
 
@@ -99,11 +110,10 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
                   if (m.kickoffTime != null && _remaining.inSeconds > 0)
                     SizedBox(height: s(context, 12)),
 
-                  // Post-kickoff banner
-                  if (m.kickoffTime != null && _remaining.inSeconds <= 0)
-                    _postKickoffBanner(context, str),
-                  if (m.kickoffTime != null && _remaining.inSeconds <= 0)
-                    SizedBox(height: s(context, 12)),
+                  // Post-countdown banner — branches on ACTUAL status so a
+                  // postponed/cancelled/finished match doesn't masquerade as
+                  // "in progress" the way it used to (see post_kickoff_banner.dart).
+                  ..._buildPostKickoffBanner(context, m),
 
                   // Info pills
                   _infoPills(context, m),
@@ -268,7 +278,29 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
 
   // ─── Post-Kickoff Banner ───
 
-  Widget _postKickoffBanner(BuildContext context, dynamic str) {
+  /// Builds the slice of children (banner + spacing) for the post-countdown
+  /// state, returning [] when no banner applies. Spread into the Column with
+  /// `...` so the layout flows naturally.
+  List<Widget> _buildPostKickoffBanner(BuildContext context, MatchData m) {
+    final kind = postKickoffBannerFor(m, _remaining);
+    final Widget banner;
+    switch (kind) {
+      case PostKickoffBannerKind.none:
+        return const [];
+      case PostKickoffBannerKind.liveInProgress:
+        banner = _liveInProgressBanner(context);
+        break;
+      case PostKickoffBannerKind.finished:
+        banner = _finishedBanner(context);
+        break;
+      case PostKickoffBannerKind.notYetStarted:
+        banner = _delayedBanner(context);
+        break;
+    }
+    return [banner, SizedBox(height: s(context, 12))];
+  }
+
+  Widget _liveInProgressBanner(BuildContext context) {
     return GestureDetector(
       onTap: () => context.go('/live'),
       child: Container(
@@ -290,6 +322,47 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
                 fontWeight: FontWeight.w700, color: AppColors.neonGreen, letterSpacing: 0.5)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _finishedBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: sa(context, 12),
+      decoration: BoxDecoration(
+        color: AppColors.textSecondary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: AppColors.textSecondary.withOpacity(0.22)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Match finished',
+            style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 13),
+              fontWeight: FontWeight.w700, color: AppColors.textSecondary, letterSpacing: 0.5)),
+        ],
+      ),
+    );
+  }
+
+  Widget _delayedBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: sa(context, 12),
+      decoration: BoxDecoration(
+        color: AppColors.amber.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: AppColors.amber.withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Kickoff time passed — match may be delayed or postponed',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 13),
+              fontWeight: FontWeight.w700, color: AppColors.amber, letterSpacing: 0.5)),
+        ],
       ),
     );
   }
@@ -459,9 +532,15 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
     final isSelected = vote.myVote == choice;
     final pct = vote.pct(choice);
     final pctColor = isSelected ? AppColors.neonGreen : color;
+    // Spinner on the tapped button; grey-out / disable the others while any
+    // vote is in flight so a second tap can't produce out-of-order POSTs.
+    final isPending = vote.pendingChoice == choice;
+    final isDisabled = vote.pendingChoice != null && !isPending;
 
     return GestureDetector(
-      onTap: () => ref.read(fanVoteProvider.notifier).vote(widget.fixtureId, choice),
+      onTap: isDisabled
+          ? null
+          : () => ref.read(fanVoteProvider.notifier).vote(widget.fixtureId, choice),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: sp(context, v: 12, h: 8),
@@ -472,11 +551,29 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
             color: isSelected ? AppColors.neonGreen.withOpacity(0.45) : AppColors.divider,
           ),
         ),
-        child: Column(
+        child: Opacity(
+          opacity: isDisabled ? 0.4 : 1.0,
+          child: Column(
           children: [
-            Text('${pct}%',
-              style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 26),
-                color: pctColor, height: 1)),
+            // Swap the % number for a spinner while the vote is being posted,
+            // keeping the same vertical footprint so the layout doesn't jump.
+            SizedBox(
+              height: sf(context, 26),
+              child: isPending
+                  ? Center(
+                      child: SizedBox(
+                        width: sf(context, 18),
+                        height: sf(context, 18),
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.neonGreen,
+                        ),
+                      ),
+                    )
+                  : Text('${pct}%',
+                      style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 26),
+                        color: pctColor, height: 1)),
+            ),
             SizedBox(height: s(context, 4)),
             Text(choice == 'draw' ? label : '$label wins',
               textAlign: TextAlign.center,
@@ -506,6 +603,7 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
