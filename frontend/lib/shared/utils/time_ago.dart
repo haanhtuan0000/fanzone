@@ -10,5 +10,6 @@ String timeAgo(DateTime dateTime) {
   if (diff.inMinutes < 60) return s.minutesAgo(diff.inMinutes);
   if (diff.inHours < 24) return s.hoursAgo(diff.inHours);
   if (diff.inDays < 7) return s.daysAgo(diff.inDays);
-  return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+  final local = dateTime.toLocal();
+  return '${local.day}/${local.month}/${local.year}';
 }

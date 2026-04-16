@@ -57,7 +57,7 @@ class BadgeDetailModal extends StatelessWidget {
           const SizedBox(height: 16),
           if (achievement.earned && achievement.earnedAt != null)
             Text(
-              AppStrings.current.earnedOn(achievement.earnedAt!.day, achievement.earnedAt!.month, achievement.earnedAt!.year),
+              AppStrings.current.earnedOn(achievement.earnedAt!.toLocal().day, achievement.earnedAt!.toLocal().month, achievement.earnedAt!.toLocal().year),
               style: const TextStyle(color: AppColors.neonGreen, fontSize: 13),
             )
           else ...[

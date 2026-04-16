@@ -125,7 +125,7 @@ class ProfileHero extends StatelessWidget {
         if (joinDate != null) ...[
           const SizedBox(height: 4),
           Text(
-            AppStrings.current.memberSince(joinDate!.month, joinDate!.year),
+            AppStrings.current.memberSince(joinDate!.toLocal().month, joinDate!.toLocal().year),
             style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: sf(context, 12),

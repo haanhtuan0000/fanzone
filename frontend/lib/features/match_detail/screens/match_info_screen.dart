@@ -360,15 +360,10 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
         borderRadius: BorderRadius.circular(11),
         border: Border.all(color: AppColors.amber.withOpacity(0.25)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text('Kickoff time passed — match may be delayed or postponed',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 13),
-              fontWeight: FontWeight.w700, color: AppColors.amber, letterSpacing: 0.5)),
-        ],
-      ),
+      child: Text('Kickoff time passed — match may be delayed or postponed',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontFamily: AppFonts.barlowCondensed, fontSize: sf(context, 13),
+          fontWeight: FontWeight.w700, color: AppColors.amber, letterSpacing: 0.5)),
     );
   }
 
@@ -657,6 +652,7 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
   }
 
   String _formatTime(DateTime dt) {
-    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    final local = dt.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   }
 }
