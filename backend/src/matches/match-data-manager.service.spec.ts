@@ -576,6 +576,56 @@ describe('MatchDataManager', () => {
       expect((manager as any).matchStates.has(111)).toBe(true);
     });
 
+    it('does NOT trigger stale FT when period=1H + elapsed=45 (HT break with feed stuck on 1H)', async () => {
+      // Regression pin for fixture 1499235 (Guastatoya vs Antigua GFC).
+      // API-Football kept period='1H' throughout the HT break, elapsed stuck
+      // at 45, stale detection fired at wall+5min → onFullTime(..., '1H') →
+      // H2_DEPENDENT questions (Q008/Q030) prematurely VOIDED. The exemption
+      // for 1H/45 treats this as a legitimate HT pause rather than a dead match.
+      const tenMinAgo = Date.now() - 10 * 60_000;
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '1H', elapsed: 45, lastPhase: 'LATE_H1',
+        teams: { home: 'Guastatoya', away: 'Antigua GFC' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(),
+        lastElapsedChange: tenMinAgo,
+      });
+
+      const fixture = makeFixture(111, '1H', 45, 'Guastatoya', 'Antigua GFC');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('HALF_TIME');
+
+      await (manager as any).pollFixtures();
+
+      expect(questionResolver.onFullTime).not.toHaveBeenCalled();
+      expect((manager as any).matchStates.has(111)).toBe(true);
+    });
+
+    it('DOES trigger stale FT when period=1H + elapsed=40 stuck 10 min (real mid-H1 stall)', async () => {
+      // The exemption is SPECIFIC to 1H/45. A match that really stalls in
+      // the middle of the first half should still be treated as dead — this
+      // test pins the tight scope so a future "just exempt all of 1H" fix
+      // would fail loudly.
+      const tenMinAgo = Date.now() - 10 * 60_000;
+      (manager as any).matchStates.set(111, {
+        fixtureId: 111, period: '1H', elapsed: 40, lastPhase: 'LATE_H1',
+        teams: { home: 'A', away: 'B' }, score: { home: 0, away: 0 },
+        lineupsLoaded: false, lineupRetries: 0, hasActiveQuestions: true,
+        lastEventPoll: 0, lastStatsPoll: 0, eventsLastCount: 0,
+        lastSeenInApi: Date.now(),
+        lastElapsedChange: tenMinAgo,
+      });
+
+      const fixture = makeFixture(111, '1H', 40, 'A', 'B');
+      apiFootball.getLiveFixtures.mockResolvedValue([fixture]);
+      questionGenerator.determinePhase.mockReturnValue('LATE_H1');
+
+      await (manager as any).pollFixtures();
+
+      expect(questionResolver.onFullTime).toHaveBeenCalled();
+    });
+
     it('rejects elapsed going backwards within same period (clock cannot decrease)', async () => {
       // Match is at 90', API returns 84' (impossible — clock can't go back)
       (manager as any).matchStates.set(111, {

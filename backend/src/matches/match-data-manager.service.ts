@@ -356,9 +356,16 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
       // → API has frozen on this match; treat as finished
       // EXCEPT during HT (half-time) where no clock progress is normal (15 min break)
       // EXCEPT during BT (break time) and P (penalty shootout) where clock can stop
+      // EXCEPT when period='1H' + elapsed=45 — some feeds (API-Football on lower-tier
+      //   leagues) keep reporting period='1H' through the entire HT break instead of
+      //   flipping to 'HT'. That traps us into calling onFullTime(..., '1H') ~5 min
+      //   into HT, which then VOIDs legit H2-dependent questions because h2Played=false.
+      //   Real "stuck at 1H/45" (game abandoned mid-first-half) is still swept by the
+      //   disappeared-from-API path below.
       const STALE_THRESHOLD_MS = 5 * 60_000;
       const PLAYING_STATUSES = new Set(['1H', '2H', 'ET']);
-      if (PLAYING_STATUSES.has(period) && Date.now() - state.lastElapsedChange > STALE_THRESHOLD_MS) {
+      const inHalfTimeTrap = period === '1H' && elapsed === 45;
+      if (PLAYING_STATUSES.has(period) && !inHalfTimeTrap && Date.now() - state.lastElapsedChange > STALE_THRESHOLD_MS) {
         this.logger.warn(`Fixture ${id}: elapsed stuck at ${elapsed}' (period=${period}) for ${Math.round((Date.now() - state.lastElapsedChange) / 1000)}s — treating as finished`);
         try {
           // Forward the LAST KNOWN period rather than 'FT' so the resolver's completeness
