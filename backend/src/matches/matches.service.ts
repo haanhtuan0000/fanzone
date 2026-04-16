@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { RedisService } from '../common/redis/redis.service';
 import { ApiFootballService } from '../common/api-football/api-football.service';
 import { TRACKED_LEAGUE_IDS } from './leagues.config';
 
 @Injectable()
 export class MatchesService {
+  private readonly logger = new Logger(MatchesService.name);
+
   constructor(
     private redis: RedisService,
     private apiFootball: ApiFootballService,
@@ -58,18 +60,31 @@ export class MatchesService {
     let finalEvents = events;
     let finalStats = stats;
 
+    // On fetch failure we deliberately do NOT write `[]` to the cache. A
+    // downstream reader (question-resolver) needs to tell "cache empty
+    // because fetch failed" from "cache empty because no events occurred" —
+    // conflating the two would cause a "did a goal happen?" question to
+    // silently resolve "No" when reality is "unknown". Leave the Redis
+    // key at whatever it was (likely null, occasionally prior events).
+    // The HTTP response still uses `[]` so the UI keeps rendering.
     if ((!finalEvents || finalEvents.length === 0) && !this.apiFootball.isRateLimited()) {
       try {
         finalEvents = await this.apiFootball.getFixtureEvents(fixtureId) as any[];
         await this.redis.setJson(`cache:fixture:${fixtureId}:events`, finalEvents, 120);
-      } catch (_) { finalEvents = []; }
+      } catch (e) {
+        this.logger.warn(`getFixtureEvents failed fixture=${fixtureId}: ${e}`);
+        finalEvents = events ?? [];
+      }
     }
 
     if ((!finalStats || finalStats.length === 0) && !this.apiFootball.isRateLimited()) {
       try {
         finalStats = await this.apiFootball.getFixtureStatistics(fixtureId) as any[];
         await this.redis.setJson(`cache:fixture:${fixtureId}:stats`, finalStats, 300);
-      } catch (_) { finalStats = []; }
+      } catch (e) {
+        this.logger.warn(`getFixtureStatistics failed fixture=${fixtureId}: ${e}`);
+        finalStats = stats ?? [];
+      }
     }
 
     return { fixtureId, score, events: finalEvents, statistics: finalStats };

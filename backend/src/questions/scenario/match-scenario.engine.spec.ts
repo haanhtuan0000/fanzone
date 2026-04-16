@@ -19,6 +19,20 @@ describe('MatchScenarioEngine', () => {
 
   beforeEach(async () => {
     redis = createMockRedis();
+    // By default, pretend lineups ARE loaded for the current fixture so the
+    // engine's lineup-dependent filter (see match-scenario.engine.ts around the
+    // `fixture:${id}:lineup` read) is a no-op for existing tests that use
+    // createMockTemplate() — which contains `{home_striker}` placeholders.
+    // Tests in the R-lineup describe below override this to return null.
+    redis.getJson.mockImplementation(async (key: string) => {
+      if (key.includes(':lineup')) {
+        return {
+          home: { strikers: ['Home ST'], midfielders: ['Home MF'], goalkeeper: 'Home GK' },
+          away: { strikers: ['Away ST'], midfielders: ['Away MF'], goalkeeper: 'Away GK' },
+        };
+      }
+      return null;
+    });
     questionsService = {
       hasOpenQuestion: jest.fn().mockResolvedValue(false),
       hasPendingQuestion: jest.fn().mockResolvedValue(false),
@@ -455,6 +469,85 @@ describe('MatchScenarioEngine', () => {
       await engine.onPhaseChange(fixtureId, 'EARLY_H1', teams, 5, score);
 
       expect(redis.sadd).toHaveBeenCalledWith(`fixture:${fixtureId}:used-templates`, 'tpl-abc');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════
+  //  R-lineup: skip lineup-dependent templates when no lineup cached
+  //
+  //  Regression pin for fixture 1416163 (Mutondo Stars vs Green Eagles,
+  //  Zambia Super League). Q001 "Who will score next?" was being persisted
+  //  with option names like "Mutondo Stars striker" because the resolver
+  //  silently falls back to "{team} striker" when no lineup is cached.
+  //  The engine now filters those templates out before creation.
+  // ═══════════════════════════════════════════════════════════════
+
+  describe('R-lineup: lineup-dependent templates are skipped when lineup missing', () => {
+    const q001 = {
+      id: 'tpl-q001',
+      code: 'Q001',
+      category: 'GOAL',
+      difficulty: 'MEDIUM',
+      trigger: 'SCHEDULED',
+      phases: ['EARLY_H1'],
+      textEn: 'Who will score next?',
+      textVi: 'Ai sẽ ghi bàn tiếp theo?',
+      rewardCoins: 150,
+      answerWindowSec: 40,
+      options: [
+        { nameEn: '{home_striker}', nameVi: '{home_striker}', emoji: '⚽', defaultPct: 42 },
+        { nameEn: '{away_striker}', nameVi: '{away_striker}', emoji: '⚽', defaultPct: 30 },
+        { nameEn: 'Other player',   nameVi: 'Cầu thủ khác',  emoji: '⚽', defaultPct: 28 },
+      ],
+      resolutionStrategy: 'AUTO',
+      weight: 100,
+      isActive: true,
+    };
+    const q038 = {
+      id: 'tpl-q038',
+      code: 'Q038',
+      category: 'CARD',
+      difficulty: 'EASY',
+      trigger: 'SCHEDULED',
+      phases: ['EARLY_H1'],
+      textEn: '{home_team} or {away_team} gets more cards?',
+      textVi: '{home_team} hay {away_team} nhận nhiều thẻ hơn?',
+      rewardCoins: 60,
+      answerWindowSec: 40,
+      options: [
+        { nameEn: '{home_team} gets more', nameVi: '{home_team} nhiều hơn', emoji: '🟨', defaultPct: 40 },
+        { nameEn: '{away_team} gets more', nameVi: '{away_team} nhiều hơn', emoji: '🟨', defaultPct: 40 },
+        { nameEn: 'Equal',                 nameVi: 'Bằng nhau',             emoji: '🟨', defaultPct: 20 },
+      ],
+      resolutionStrategy: 'AUTO',
+      weight: 100,
+      isActive: true,
+    };
+
+    it('no lineup cached → Q001-style template is filtered; Q038-style passes through', async () => {
+      // Override the default lineup mock for this test only. Every other
+      // Redis key keeps the default null behavior.
+      redis.getJson.mockImplementation(async (key: string) => {
+        if (key.includes(':lineup')) return null;
+        return null;
+      });
+      templateService.selectForPhaseWithCategories.mockResolvedValue([q001, q038]);
+
+      await engine.onPhaseChange(fixtureId, 'EARLY_H1', teams, 5, score);
+
+      // Exactly one question created, and it's the lineup-free one.
+      expect(questionsService.createQuestion).toHaveBeenCalledTimes(1);
+      expect(questionsService.createQuestion.mock.calls[0][0].templateId).toBe('tpl-q038');
+    });
+
+    it('lineup cached with strikers → both templates pass through (no over-filtering)', async () => {
+      // Default mock already returns a lineup — leave it. Confirms the filter
+      // is strictly opt-in on missing data.
+      templateService.selectForPhaseWithCategories.mockResolvedValue([q001, q038]);
+
+      await engine.onPhaseChange(fixtureId, 'EARLY_H1', teams, 5, score);
+
+      expect(questionsService.createQuestion).toHaveBeenCalledTimes(2);
     });
   });
 

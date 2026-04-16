@@ -177,6 +177,63 @@ describe('QuestionResolverService', () => {
     });
   });
 
+  // ═══════════════════════════════════════════════════════════════
+  //  R-B: HT resolution defers rather than mis-resolve on unknown data
+  //
+  //  Before the fix, `events = []` was the default path when both cache
+  //  and API had no answer — and HT resolution proceeded as if no goal
+  //  had occurred. A "did a goal happen in H1?" question would then
+  //  silently resolve "No" when reality was "we can't tell yet."
+  //  The fix: if cache is null AND API is rate limited (or throws),
+  //  return early and let the next poll retry.
+  // ═══════════════════════════════════════════════════════════════
+
+  describe('R-B: HT resolution defers when event data is unknown', () => {
+    it('defers: cache is null AND API rate-limited → no question is resolved', async () => {
+      // Cache lookup returns null.
+      redis.getJson.mockResolvedValue(null);
+      // API refuses the lookup — we have no signal either way.
+      apiFootball.isRateLimited.mockReturnValue(true);
+
+      await service.onHalfTime(fixtureId, teams, score);
+
+      // The defer short-circuits BEFORE the resolve loop runs, so the
+      // question set is never even queried.
+      expect(prisma.question.findMany).not.toHaveBeenCalled();
+      // And we didn't fall through to API either.
+      expect(apiFootball.getFixtureEvents).not.toHaveBeenCalled();
+    });
+
+    it('proceeds: cache has events → resolves normally', async () => {
+      redis.getJson.mockResolvedValue([{ type: 'Goal', time: { elapsed: 20 } }]);
+      apiFootball.isRateLimited.mockReturnValue(true); // even if API is down
+      prisma.question.findMany.mockResolvedValue([]);
+
+      await service.onHalfTime(fixtureId, teams, score);
+
+      // Resolution proceeded — we had enough data.
+      expect(prisma.question.findMany).toHaveBeenCalled();
+      // No wasted API call because cache answered.
+      expect(apiFootball.getFixtureEvents).not.toHaveBeenCalled();
+    });
+
+    it('proceeds: cache null but API returns [] → treat as "known empty", not "unknown"', async () => {
+      // The whole point of Part B: distinguish cache-null-and-cannot-fetch
+      // (unknown) from cache-null-but-api-answered-empty (known empty).
+      // If API answers, we know — even if the answer is no events.
+      redis.getJson.mockResolvedValue(null);
+      apiFootball.isRateLimited.mockReturnValue(false);
+      apiFootball.getFixtureEvents.mockResolvedValue([]);
+      prisma.question.findMany.mockResolvedValue([]);
+
+      await service.onHalfTime(fixtureId, teams, score);
+
+      // Resolution proceeded because API gave a definitive answer.
+      expect(prisma.question.findMany).toHaveBeenCalled();
+      expect(apiFootball.getFixtureEvents).toHaveBeenCalled();
+    });
+  });
+
   // ═══ Q008 — H2 questions must not resolve before H2 plays ═══
 
   describe('resolveAtFullTime — Q008 (Who scores first in 2H?)', () => {

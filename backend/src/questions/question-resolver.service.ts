@@ -92,8 +92,13 @@ export class QuestionResolverService {
       }
     }
 
-    // Fetch events for HT resolution (prefer cache, skip API if rate limited)
-    let events: MatchEvent[] = [];
+    // Fetch events for HT resolution (prefer cache, fall back to API).
+    // IMPORTANT: `events` starts as `null` — meaning "we don't know yet".
+    // Only switch to `[]` after we've proven either the cache or the API
+    // says so. Without this, a rate-limited API plus an empty cache caused
+    // "did a goal happen?" questions to silently resolve "No" when reality
+    // was "unknown" — the same silent-fallback class as the striker bug.
+    let events: MatchEvent[] | null = null;
     try {
       const cachedEvents = await this.redis.getJson<any[]>(`cache:fixture:${fixtureId}:events`);
       if (cachedEvents) {
@@ -101,8 +106,16 @@ export class QuestionResolverService {
       } else if (!this.apiFootball.isRateLimited()) {
         events = await this.apiFootball.getFixtureEvents(fixtureId) as MatchEvent[];
       }
+      // else: cache null AND rate-limited — stay null, defer below.
     } catch (e) {
       this.logger.warn(`Failed to fetch events for ${fixtureId}: ${e}`);
+    }
+    if (events === null) {
+      this.logger.warn(
+        `[${fixtureId}] Deferring HT resolution — event cache empty and API unavailable; ` +
+          `will retry on next poll rather than mis-resolve on no-data.`,
+      );
+      return;
     }
 
     // Resolve OPEN/LOCKED + close PENDING 1H questions (don't let them leak into 2H)
@@ -158,7 +171,11 @@ export class QuestionResolverService {
       }
     }
 
-    // Fetch match events (prefer cache, skip API if rate limited)
+    // Fetch match events (prefer cache, skip API if rate limited).
+    // Unlike HT resolution (which defers when data is unknown), FT MUST
+    // close out — the match is done, leaving questions in limbo is worse
+    // than resolving on "what we have." But we log loudly when events are
+    // UNKNOWN (cache null + API unavailable) so ops can spot the case.
     let events: MatchEvent[] = [];
     try {
       const cachedEvents = await this.redis.getJson<any[]>(`cache:fixture:${fixtureId}:events`);
@@ -166,6 +183,11 @@ export class QuestionResolverService {
         events = cachedEvents as MatchEvent[];
       } else if (!this.apiFootball.isRateLimited()) {
         events = await this.apiFootball.getFixtureEvents(fixtureId) as MatchEvent[];
+      } else {
+        this.logger.warn(
+          `[${fixtureId}] FT resolution proceeding with UNKNOWN events ` +
+            `(cache empty + API rate-limited) — resolutions may be conservative.`,
+        );
       }
     } catch (e) {
       this.logger.warn(`Failed to fetch events for ${fixtureId}: ${e}`);

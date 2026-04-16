@@ -2,6 +2,22 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
 
+/**
+ * Matches a template placeholder like `{home_striker}`: left brace, at least
+ * one ASCII letter/underscore/digit, right brace. Deliberately strict so
+ * unrelated brace-containing UI text (emoji sequences, translations that use
+ * curly quotes, score formats like "1-0") never false-positives.
+ */
+const UNRESOLVED_PLACEHOLDER = /\{[A-Za-z_][A-Za-z0-9_]*\}/;
+
+function assertNoUnresolvedPlaceholder(field: string, value: string): void {
+  if (UNRESOLVED_PLACEHOLDER.test(value)) {
+    throw new Error(
+      `createQuestion: unresolved placeholder in ${field}: ${value}`,
+    );
+  }
+}
+
 @Injectable()
 export class QuestionsService {
   private readonly logger = new Logger(QuestionsService.name);
@@ -150,6 +166,19 @@ export class QuestionsService {
     metadata?: any;
     options: Array<{ name: string; emoji?: string; info?: string; multiplier?: number }>;
   }) {
+    // Post-resolution contract: any `{placeholder}` left in the text or an
+    // option name / info means the variable resolver failed to substitute it
+    // (missing context key, template typo, or a fallback that silently
+    // produced raw `{...}` like the Mutondo Stars "striker" bug). Refuse to
+    // persist. The engine's createFromTemplate catches this and skips the
+    // template; the error surfaces in logs rather than in the UI.
+    assertNoUnresolvedPlaceholder('text', data.text);
+    for (let i = 0; i < data.options.length; i++) {
+      const opt = data.options[i];
+      assertNoUnresolvedPlaceholder(`options[${i}].name`, opt.name);
+      if (opt.info) assertNoUnresolvedPlaceholder(`options[${i}].info`, opt.info);
+    }
+
     const question = await this.prisma.question.create({
       data: {
         fixtureId: data.fixtureId,

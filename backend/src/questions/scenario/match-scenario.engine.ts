@@ -4,6 +4,7 @@ import { RedisService } from '../../common/redis/redis.service';
 import { QuestionsService } from '../questions.service';
 import { TemplateService } from '../templates/template.service';
 import { VariableResolverService, MatchContext } from '../templates/variable-resolver.service';
+import { templateNeedsLineup, TemplateLike } from '../templates/lineup-dependency';
 
 /** Match event from the live feed / API-Football */
 export interface MatchEvent {
@@ -155,6 +156,31 @@ export class MatchScenarioEngine {
         config.difficulty,
         count,
       );
+    }
+
+    // Skip lineup-dependent templates when no lineup is cached for this
+    // fixture. Without this gate, `VariableResolver.buildMatchContext` silently
+    // falls back to "{team} striker" / "{team} midfielder" strings, which get
+    // persisted as option names — observed in prod on fixture 1416163
+    // (Mutondo Stars vs Green Eagles, no lineup published by API-Football).
+    // See `LINEUP_DEPENDENT_PLACEHOLDERS` for the exhaustive list. Uses the
+    // same Redis key as the resolver (variable-resolver.service.ts:55).
+    const cachedLineup = await this.redis.getJson<{
+      home?: { strikers?: string[] };
+      away?: { strikers?: string[] };
+    }>(`fixture:${fixtureId}:lineup`);
+    const lineupReady = !!(
+      cachedLineup?.home?.strikers?.length || cachedLineup?.away?.strikers?.length
+    );
+    if (!lineupReady) {
+      const before = templates.length;
+      templates = templates.filter((t) => !templateNeedsLineup(t as TemplateLike));
+      if (templates.length < before) {
+        this.logger.log(
+          `[${fixtureId}] ${before - templates.length} lineup-dependent ` +
+            `template(s) skipped for ${newPhase} — lineup not loaded yet`,
+        );
+      }
     }
 
     // Safety: enforce count limit in case template service returns more
@@ -449,13 +475,17 @@ export class MatchScenarioEngine {
       // Player-specific templates use fallback names (e.g. "Spokane Velocity ST")
       // when lineup data is not available — no longer skipped
 
-      // Resolve text (default to Vietnamese)
-      // Resolve text in both languages, store as JSON in metadata
-      const textVi = this.variableResolver.resolveText(tpl.textVi, context);
-      const textEn = this.variableResolver.resolveText(tpl.textEn, context);
+      // Resolve text in both languages, store as JSON in metadata.
+      // Strict mode: throw if any `{var}` is unresolved — caught by the outer
+      // try/catch and surfaced as a skipped template. Prevents the Mutondo
+      // Stars class of bug where resolveText silently leaked `{home_striker}`
+      // into persisted option names.
+      const strict = { strict: true };
+      const textVi = this.variableResolver.resolveText(tpl.textVi, context, strict);
+      const textEn = this.variableResolver.resolveText(tpl.textEn, context, strict);
       const text = textEn; // Default to English as stored text
-      const optionsEn = this.variableResolver.resolveOptions(tpl.options as any, context, 'en');
-      const optionsVi = this.variableResolver.resolveOptions(tpl.options as any, context, 'vi');
+      const optionsEn = this.variableResolver.resolveOptions(tpl.options as any, context, 'en', strict);
+      const optionsVi = this.variableResolver.resolveOptions(tpl.options as any, context, 'vi', strict);
       let options = optionsEn;
       // Store translations in metadata for server-side language selection
       const translations = {
