@@ -20,7 +20,7 @@ export class QuestionsController {
   ) {
     const result = await this.questionsService.getActiveQuestions(parseInt(fixtureId));
     // Apply language translations if available
-    const locale = lang?.startsWith('vi') ? 'vi' : 'en';
+    const locale = lang?.startsWith('zh') ? 'zh' : lang?.startsWith('vi') ? 'vi' : 'en';
     return this.applyTranslations(result, locale);
   }
 

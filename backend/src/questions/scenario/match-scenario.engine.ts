@@ -483,14 +483,17 @@ export class MatchScenarioEngine {
       const strict = { strict: true };
       const textVi = this.variableResolver.resolveText(tpl.textVi, context, strict);
       const textEn = this.variableResolver.resolveText(tpl.textEn, context, strict);
+      const textZh = tpl.textZh ? this.variableResolver.resolveText(tpl.textZh, context, strict) : textEn;
       const text = textEn; // Default to English as stored text
       const optionsEn = this.variableResolver.resolveOptions(tpl.options as any, context, 'en', strict);
       const optionsVi = this.variableResolver.resolveOptions(tpl.options as any, context, 'vi', strict);
+      const optionsZh = this.variableResolver.resolveOptions(tpl.options as any, context, 'zh', strict);
       let options = optionsEn;
       // Store translations in metadata for server-side language selection
       const translations = {
         en: { text: textEn, options: optionsEn.map(o => o.name) },
         vi: { text: textVi, options: optionsVi.map(o => o.name) },
+        zh: { text: textZh, options: optionsZh.map(o => o.name) },
       };
 
       // Filter out time-range options that are already in the past

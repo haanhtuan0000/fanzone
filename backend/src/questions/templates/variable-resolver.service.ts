@@ -137,13 +137,13 @@ export class VariableResolverService {
    * Returns resolved option objects with name, emoji, and computed multiplier.
    */
   resolveOptions(
-    optionTemplates: Array<{ nameVi: string; nameEn: string; emoji: string; defaultPct: number }>,
+    optionTemplates: Array<{ nameVi: string; nameEn: string; nameZh?: string; emoji: string; defaultPct: number }>,
     context: MatchContext,
-    lang: 'vi' | 'en' = 'vi',
+    lang: 'vi' | 'en' | 'zh' = 'vi',
     opts: { strict?: boolean } = {},
   ): Array<{ name: string; emoji: string; info?: string; multiplier: number }> {
     const resolved = optionTemplates.map((opt) => {
-      const rawName = lang === 'vi' ? opt.nameVi : opt.nameEn;
+      const rawName = lang === 'zh' ? (opt.nameZh ?? opt.nameEn) : lang === 'vi' ? opt.nameVi : opt.nameEn;
       const name = this.resolveText(rawName, context, opts);
       // Compute multiplier from defaultPct: higher pct = lower multiplier
       const multiplier = opt.defaultPct > 0
