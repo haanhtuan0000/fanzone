@@ -1,46 +1,66 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:flutter_timezone/flutter_timezone.dart';
 
+import 'notification_service_logic.dart';
+
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
-  static bool _initialized = false;
 
-  /// Initialize the notification plugin. Call once on app start.
-  static Future<void> init() async {
-    if (_initialized) return;
+  /// Serialized init: concurrent callers await the same future instead of
+  /// racing and double-initializing the plugin. On failure the future is
+  /// cleared so a subsequent call can retry.
+  static Future<void>? _initFuture;
 
-    // Initialize timezone database AND set local timezone from device
+  /// Tracks whether `tz.local` was successfully set to the device's local
+  /// timezone. If this is `false`, `tz.local` defaults to UTC and every
+  /// `zonedSchedule` call would fire at the wrong wall-clock time — so we
+  /// refuse to schedule. Gated by [canSafelyScheduleAt].
+  static bool _timezoneReady = false;
+
+  /// Initialize the notification plugin. Safe to call concurrently; the
+  /// first call performs the work, the rest await its completion.
+  static Future<void> init() {
+    return _initFuture ??= _doInit().catchError((Object e, StackTrace st) {
+      debugPrint('[NotificationService] init failed: $e\n$st');
+      _initFuture = null; // allow a future caller to retry
+      throw e;
+    });
+  }
+
+  static Future<void> _doInit() async {
+    // Initialize timezone database AND set local timezone from device.
     tzdata.initializeTimeZones();
     try {
       final localTz = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(localTz));
-    } catch (_) {
-      // Fallback: stays at UTC default — better than crash
+      _timezoneReady = true;
+    } catch (e, st) {
+      // Leave _timezoneReady = false — scheduleMatchReminder will refuse
+      // to create an alarm rather than fire it at the wrong wall-clock.
+      debugPrint('[NotificationService] timezone init failed, reminders disabled: $e\n$st');
+      _timezoneReady = false;
     }
 
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidSettings);
+    await _plugin.initialize(const InitializationSettings(android: androidSettings));
 
-    await _plugin.initialize(initSettings);
-
-    // Create the Android notification channel explicitly (required on Android 8+)
+    // Create the Android notification channel explicitly (required on Android 8+).
     final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    if (android != null) {
-      await android.createNotificationChannel(const AndroidNotificationChannel(
-        'match_reminder',
-        'Match Reminders',
-        description: 'Notifications for upcoming match reminders',
-        importance: Importance.high,
-      ));
-    }
-
-    _initialized = true;
+    await android?.createNotificationChannel(const AndroidNotificationChannel(
+      'match_reminder',
+      'Match Reminders',
+      description: 'Notifications for upcoming match reminders',
+      importance: Importance.high,
+    ));
   }
 
   /// Schedule a match reminder notification 15 minutes before kickoff.
-  /// Returns true if scheduled successfully.
+  /// Returns `true` if scheduled successfully, `false` on any refusal or
+  /// failure (permission denied, timezone unknown, reminder already past,
+  /// plugin exception — the exact reason is logged via `debugPrint`).
   static Future<bool> scheduleMatchReminder({
     required int fixtureId,
     required String homeTeam,
@@ -49,26 +69,44 @@ class NotificationService {
   }) async {
     await init();
 
-    // Request notification permission (Android 13+)
+    // Permission requests (Android). Permission state determines whether
+    // we can schedule at all and which AlarmManager mode we're allowed to use.
     final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    bool? exactGranted;
     if (android != null) {
       final granted = await android.requestNotificationsPermission();
-      if (granted == false) return false;
-
-      // Request exact alarm permission (Android 12+)
-      await android.requestExactAlarmsPermission();
+      if (granted == false) {
+        debugPrint('[NotificationService] POST_NOTIFICATIONS denied for fixture=$fixtureId');
+        return false;
+      }
+      // Returns null on API < 31, true/false on API >= 31.
+      exactGranted = await android.requestExactAlarmsPermission();
     }
 
     final reminderTime = kickoffTime.subtract(const Duration(minutes: 15));
-
-    // Don't schedule if reminder time is in the past
-    if (reminderTime.isBefore(DateTime.now())) return false;
+    final now = DateTime.now();
+    if (!canSafelyScheduleAt(
+      timezoneReady: _timezoneReady,
+      reminderTime: reminderTime,
+      now: now,
+    )) {
+      debugPrint(
+        '[NotificationService] refusing to schedule fixture=$fixtureId — '
+        'timezoneReady=$_timezoneReady reminderTime=$reminderTime now=$now',
+      );
+      return false;
+    }
 
     final scheduledDate = tz.TZDateTime.from(reminderTime, tz.local);
+    final decision = pickScheduleMode(exactAlarmsPermissionGranted: exactGranted);
+    final mode = switch (decision) {
+      ScheduleModeDecision.exact => AndroidScheduleMode.exactAllowWhileIdle,
+      ScheduleModeDecision.inexact => AndroidScheduleMode.inexactAllowWhileIdle,
+    };
 
     try {
       await _plugin.zonedSchedule(
-        fixtureId, // Use fixtureId as notification ID (unique per match)
+        fixtureId, // notification ID — unique per match
         'FanZone',
         '$homeTeam vs $awayTeam starts in 15 minutes! Predict now \u2192',
         scheduledDate,
@@ -81,32 +119,14 @@ class NotificationService {
             priority: Priority.high,
           ),
         ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: mode,
       );
       return true;
-    } catch (e) {
-      // Fallback to inexact if exact alarms are denied
-      try {
-        await _plugin.zonedSchedule(
-          fixtureId,
-          'FanZone',
-          '$homeTeam vs $awayTeam starts in 15 minutes! Predict now \u2192',
-          scheduledDate,
-          const NotificationDetails(
-            android: AndroidNotificationDetails(
-              'match_reminder',
-              'Match Reminders',
-              channelDescription: 'Notifications for upcoming match reminders',
-              importance: Importance.high,
-              priority: Priority.high,
-            ),
-          ),
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        );
-        return true;
-      } catch (_) {
-        return false;
-      }
+    } catch (e, st) {
+      debugPrint(
+        '[NotificationService] zonedSchedule failed fixture=$fixtureId mode=$mode: $e\n$st',
+      );
+      return false;
     }
   }
 

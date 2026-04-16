@@ -25,6 +25,10 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
   Timer? _countdownTimer;
   Duration _remaining = Duration.zero;
   bool _reminderSet = false;
+  /// Set once the user taps the reminder button. Prevents a slow
+  /// `isReminderScheduled` hydration from landing after Set/Cancel and
+  /// clobbering the user's choice with a stale value.
+  bool _userTouchedReminder = false;
 
   @override
   void initState() {
@@ -38,10 +42,11 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
     // Hydrate reminder state from the OS. `_reminderSet` is local widget
     // state and defaults to false each time this screen mounts — without
     // this lookup the button would show "Set reminder" even for fixtures
-    // the user already scheduled a notification for.
+    // the user already scheduled a notification for. The `_userTouchedReminder`
+    // guard stops a slow microtask from overriding an in-flight tap.
     Future.microtask(() async {
       final alreadyScheduled = await NotificationService.isReminderScheduled(widget.fixtureId);
-      if (mounted && alreadyScheduled) {
+      if (mounted && !_userTouchedReminder && alreadyScheduled) {
         setState(() => _reminderSet = true);
       }
     });
@@ -375,6 +380,9 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
       width: double.infinity,
       child: ElevatedButton(
         onPressed: isPostKickoff ? null : () async {
+          // Freeze the hydration microtask so a late `isReminderScheduled`
+          // can't override this tap's resulting state.
+          _userTouchedReminder = true;
           final m = widget.match!;
           if (!_reminderSet) {
             // Schedule notification

@@ -9,6 +9,11 @@ class FanVoteState {
   final int total;
   final String? myVote;
   final bool isLoading;
+  /// The choice the user just tapped and whose POST is still in flight.
+  /// When non-null the UI should show a spinner on that option and ignore
+  /// further taps — this also protects against a stale `load()` response
+  /// overwriting the optimistic myVote with the server's previous value.
+  final String? pendingChoice;
 
   const FanVoteState({
     this.home = 0,
@@ -17,6 +22,7 @@ class FanVoteState {
     this.total = 0,
     this.myVote,
     this.isLoading = false,
+    this.pendingChoice,
   });
 
   FanVoteState copyWith({
@@ -27,6 +33,8 @@ class FanVoteState {
     String? myVote,
     bool clearMyVote = false,
     bool? isLoading,
+    String? pendingChoice,
+    bool clearPendingChoice = false,
   }) {
     return FanVoteState(
       home: home ?? this.home,
@@ -35,6 +43,7 @@ class FanVoteState {
       total: total ?? this.total,
       myVote: clearMyVote ? null : (myVote ?? this.myVote),
       isLoading: isLoading ?? this.isLoading,
+      pendingChoice: clearPendingChoice ? null : (pendingChoice ?? this.pendingChoice),
     );
   }
 
@@ -55,17 +64,23 @@ class FanVoteNotifier extends StateNotifier<FanVoteState> {
   FanVoteNotifier(this._apiClient) : super(const FanVoteState());
 
   Future<void> load(int fixtureId) async {
-    // Clear old state immediately so previous match data doesn't flash
-    state = const FanVoteState(isLoading: true);
+    // Clear old state immediately so previous match data doesn't flash.
+    // Preserve any in-flight vote choice so a slow initial load can't roll
+    // back the user's optimistic selection.
+    state = FanVoteState(isLoading: true, pendingChoice: state.pendingChoice);
     try {
       final response = await _apiClient.get(ApiEndpoints.fanVote(fixtureId));
       final data = response.data as Map<String, dynamic>;
+      // If the user has tapped during load, keep their optimistic myVote;
+      // otherwise adopt the server value.
+      final incomingMyVote = data['myVote'] as String?;
       state = FanVoteState(
         home: data['home'] as int? ?? 0,
         draw: data['draw'] as int? ?? 0,
         away: data['away'] as int? ?? 0,
         total: data['total'] as int? ?? 0,
-        myVote: data['myVote'] as String?,
+        myVote: state.pendingChoice ?? incomingMyVote,
+        pendingChoice: state.pendingChoice,
       );
     } catch (_) {
       state = state.copyWith(isLoading: false);
@@ -73,7 +88,12 @@ class FanVoteNotifier extends StateNotifier<FanVoteState> {
   }
 
   Future<void> vote(int fixtureId, String choice) async {
-    if (state.myVote == choice) return; // Same vote — no change
+    // Same vote — no change.
+    if (state.myVote == choice) return;
+    // Already processing a vote — ignore re-taps. Prevents the UI flicker
+    // that happens when rapid taps produce out-of-order POST responses,
+    // and lets the single in-flight spinner do its job.
+    if (state.pendingChoice != null) return;
 
     // Optimistic update
     final oldVote = state.myVote;
@@ -93,6 +113,7 @@ class FanVoteNotifier extends StateNotifier<FanVoteState> {
       home: h, draw: d, away: a,
       total: h + d + a,
       myVote: choice,
+      pendingChoice: choice,
     );
 
     try {
@@ -107,12 +128,14 @@ class FanVoteNotifier extends StateNotifier<FanVoteState> {
         away: data['away'] as int? ?? a,
         total: data['total'] as int? ?? (h + d + a),
         myVote: data['myVote'] as String? ?? choice,
+        // pendingChoice cleared — request settled successfully.
       );
     } catch (_) {
       // Revert on failure
       state = FanVoteState(
         home: state.home, draw: state.draw, away: state.away,
         total: state.total, myVote: oldVote,
+        // pendingChoice cleared — request settled (with failure).
       );
     }
   }
