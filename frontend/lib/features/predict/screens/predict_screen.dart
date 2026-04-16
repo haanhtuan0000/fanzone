@@ -11,6 +11,7 @@ import '../widgets/progress_strip.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../widgets/answered_card.dart';
 import '../widgets/next_question_strip.dart';
+import '../widgets/match_info_strip.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/models/question.dart';
 
@@ -143,7 +144,13 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: Column(
+        children: [
+          // Match Info Strip — fixed above scrollable questions (Design v4.0)
+          if (activeMatch != null)
+            MatchInfoStrip(match: activeMatch),
+          Expanded(
+            child: RefreshIndicator(
         onRefresh: () async {
           final match = ref.read(liveStateProvider).activeMatch;
           if (match != null) {
@@ -290,6 +297,9 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
           ],
         ),
       ),
+          ), // Expanded
+        ], // Column children
+      ), // Column (body)
     );
   }
 

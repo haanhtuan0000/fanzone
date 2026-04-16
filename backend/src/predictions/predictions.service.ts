@@ -106,4 +106,44 @@ export class PredictionsService {
       skip,
     });
   }
+
+  /**
+   * Per-fixture prediction summary for today's finished matches the user
+   * participated in. One row per fixture with correct/wrong counts and
+   * total coins earned. Used by the Live screen's "Đã trả lời" category.
+   */
+  async getTodaySummary(userId: string) {
+    // "Today" in UTC — covers the full server-side day boundary.
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+
+    const predictions = await this.prisma.prediction.findMany({
+      where: {
+        userId,
+        predictedAt: { gte: todayStart },
+        question: { status: { in: ['RESOLVED', 'VOIDED'] } },
+      },
+      select: {
+        isCorrect: true,
+        coinsResult: true,
+        question: { select: { fixtureId: true } },
+      },
+    });
+
+    // Group by fixtureId
+    const byFixture = new Map<number, { correct: number; wrong: number; coinsEarned: number }>();
+    for (const p of predictions) {
+      const fid = p.question.fixtureId;
+      const entry = byFixture.get(fid) ?? { correct: 0, wrong: 0, coinsEarned: 0 };
+      if (p.isCorrect === true) entry.correct++;
+      else if (p.isCorrect === false) entry.wrong++;
+      if (p.coinsResult != null && p.coinsResult > 0) entry.coinsEarned += p.coinsResult;
+      byFixture.set(fid, entry);
+    }
+
+    return Array.from(byFixture.entries()).map(([fixtureId, stats]) => ({
+      fixtureId,
+      ...stats,
+    }));
+  }
 }

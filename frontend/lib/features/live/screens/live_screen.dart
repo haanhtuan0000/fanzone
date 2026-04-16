@@ -172,8 +172,11 @@ class LiveScreen extends ConsumerWidget {
                 ),
               ),
 
-            // Match list card — single card containing both sections
-            if (liveState.liveMatches.isNotEmpty || liveState.upcomingMatches.isNotEmpty)
+            // ── 3 CATEGORY SECTIONS (Design v4.0) ──
+            // Each category is its own card container with distinct color and behavior.
+
+            // ── CATEGORY 1: ĐANG DIỄN RA (LIVE) — red ──
+            if (liveState.liveMatches.isNotEmpty)
               SliverToBoxAdapter(
                 child: Container(
                   margin: r.sLTRB(context, 12, 12, 12, 0),
@@ -184,75 +187,110 @@ class LiveScreen extends ConsumerWidget {
                   ),
                   child: Column(
                     children: [
-                      // ── SECTION 1: ĐANG DIỄN RA ──
-                      if (liveState.liveMatches.isNotEmpty) ...[
-                        _matchSectionHeader(
+                      _matchSectionHeader(
+                        context: context,
+                        dotColor: AppColors.red,
+                        dotAnimated: true,
+                        label: s.liveMatches,
+                        count: liveState.liveMatches.length,
+                        isExpanded: liveState.liveExpanded,
+                        showButton: liveState.liveMatches.length > 4,
+                        buttonColor: AppColors.neonGreen,
+                        onToggle: () => ref.read(liveStateProvider.notifier).toggleLiveExpanded(),
+                        s: s,
+                      ),
+                      Padding(
+                        padding: r.sLTRB(context, 12, 0, 12, 12),
+                        child: _groupedMatchList(
                           context: context,
-                          dotColor: AppColors.red,
-                          dotAnimated: true,
-                          label: s.liveMatches,
-                          count: liveState.liveMatches.length,
-                          isExpanded: liveState.liveExpanded,
-                          showButton: liveState.liveMatches.length > 8,
-                          buttonColor: AppColors.neonGreen,
-                          onToggle: () => ref.read(liveStateProvider.notifier).toggleLiveExpanded(),
-                          s: s,
+                          matches: liveState.displayedLiveMatches,
+                          selectedId: liveState.activeMatch?.fixtureId,
+                          onTap: (match) => ref.read(liveStateProvider.notifier).selectMatch(match),
+                          onPredictTap: (match) {
+                            ref.read(liveStateProvider.notifier).selectMatch(match);
+                            context.go('/predict');
+                          },
                         ),
-                        Padding(
-                          padding: r.sLTRB(context, 12, 0, 12, 12),
-                          child: _groupedMatchList(
-                            context: context,
-                            matches: liveState.displayedLiveMatches,
-                            selectedId: liveState.activeMatch?.fixtureId,
-                            onTap: (match) => ref.read(liveStateProvider.notifier).selectMatch(match),
-                            onPredictTap: (match) {
-                              // Switch active match BEFORE navigating so predict screen shows correct match
-                              ref.read(liveStateProvider.notifier).selectMatch(match);
-                              context.go('/predict');
-                            },
-                          ),
-                        ),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
-                      // Divider between sections
-                      if (liveState.liveMatches.isNotEmpty && liveState.upcomingMatches.isNotEmpty)
-                        Container(
-                          margin: r.sp(context, h: 12),
-                          height: 1,
-                          color: AppColors.divider.withOpacity(0.3),
-                        ),
-
-                      // ── SECTION 2: HÔM NAY ──
-                      if (liveState.upcomingMatches.isNotEmpty) ...[
-                        _matchSectionHeader(
+            // ── CATEGORY 2: ĐÃ TRẢ LỜI (Answered FT) — neon ──
+            if (liveState.answeredMatches.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: r.sLTRB(context, 12, 12, 12, 0),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.neonGreen.withOpacity(0.15)),
+                  ),
+                  child: Column(
+                    children: [
+                      _matchSectionHeader(
+                        context: context,
+                        dotColor: AppColors.neonGreen,
+                        dotAnimated: false,
+                        label: 'ANSWERED',
+                        count: liveState.answeredMatches.length,
+                        isExpanded: liveState.answeredExpanded,
+                        showButton: liveState.answeredMatches.length > 2,
+                        buttonColor: AppColors.neonGreen,
+                        onToggle: () => ref.read(liveStateProvider.notifier).toggleAnsweredExpanded(),
+                        s: s,
+                      ),
+                      Padding(
+                        padding: r.sLTRB(context, 12, 0, 12, 12),
+                        child: _groupedMatchList(
                           context: context,
-                          dotColor: AppColors.blue,
-                          dotAnimated: false,
-                          label: s.todayMatches,
-                          count: liveState.upcomingMatches.length,
-                          isExpanded: liveState.todayExpanded,
-                          showButton: liveState.upcomingMatches.length > 8,
-                          buttonColor: AppColors.blue,
-                          onToggle: () => ref.read(liveStateProvider.notifier).toggleTodayExpanded(),
-                          s: s,
+                          matches: liveState.displayedAnsweredMatches,
+                          onTap: (match) {
+                            context.push('/match/${match.fixtureId}', extra: match);
+                          },
+                          predictionSummaries: liveState.predictionSummaries,
                         ),
-                        Padding(
-                          padding: r.sLTRB(context, 12, 0, 12, 12),
-                          child: _groupedMatchList(
-                            context: context,
-                            matches: liveState.displayedTodayMatches,
-                            onTap: (match) {
-                              final isFt = match.status == 'FT' || match.status == 'AET' || match.status == 'PEN';
-                              if (isFt) {
-                                context.push('/match/${match.fixtureId}', extra: match);
-                              } else if (match.status == 'NS' || match.status == 'TBD') {
-                                context.push('/match-info/${match.fixtureId}', extra: match);
-                              }
-                            },
-                            dimFinished: true,
-                          ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // ── CATEGORY 3: CHƯA ĐÁ (Not Started) — amber ──
+            if (liveState.notStartedMatches.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: r.sLTRB(context, 12, 12, 12, 0),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: Column(
+                    children: [
+                      _matchSectionHeader(
+                        context: context,
+                        dotColor: AppColors.amber,
+                        dotAnimated: false,
+                        label: s.todayMatches,
+                        count: liveState.notStartedMatches.length,
+                        isExpanded: liveState.notStartedExpanded,
+                        showButton: liveState.notStartedMatches.length > 2,
+                        buttonColor: AppColors.amber,
+                        onToggle: () => ref.read(liveStateProvider.notifier).toggleNotStartedExpanded(),
+                        s: s,
+                      ),
+                      Padding(
+                        padding: r.sLTRB(context, 12, 0, 12, 12),
+                        child: _groupedMatchList(
+                          context: context,
+                          matches: liveState.displayedNotStartedMatches,
+                          onTap: (match) {
+                            context.push('/match-info/${match.fixtureId}', extra: match);
+                          },
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
@@ -380,6 +418,7 @@ class LiveScreen extends ConsumerWidget {
     required void Function(MatchData) onTap,
     void Function(MatchData)? onPredictTap,
     bool dimFinished = false,
+    Map<int, PredictionSummary>? predictionSummaries,
   }) {
     // Group by league name, preserve order
     final groups = <String, List<MatchData>>{};
@@ -425,6 +464,7 @@ class LiveScreen extends ConsumerWidget {
       // Matches in this league
       for (final match in entry.value) {
         final isFt = match.status == 'FT' || match.status == 'AET' || match.status == 'PEN';
+        final summary = predictionSummaries?[match.fixtureId];
         children.add(Padding(
           padding: const EdgeInsets.only(bottom: 7),
           child: Opacity(
@@ -434,6 +474,7 @@ class LiveScreen extends ConsumerWidget {
               isSelected: match.fixtureId == selectedId,
               onTap: () => onTap(match),
               onPredictTap: onPredictTap == null ? null : () => onPredictTap(match),
+              predictionSummary: summary,
             ),
           ),
         ));

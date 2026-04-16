@@ -5,14 +5,43 @@ import '../../../core/network/api_endpoints.dart';
 import '../services/match_service.dart';
 import '../stale_match_filter.dart';
 
+/// Per-fixture prediction summary from GET /predictions/today-summary.
+class PredictionSummary {
+  final int fixtureId;
+  final int correct;
+  final int wrong;
+  final int coinsEarned;
+
+  const PredictionSummary({
+    required this.fixtureId,
+    this.correct = 0,
+    this.wrong = 0,
+    this.coinsEarned = 0,
+  });
+
+  factory PredictionSummary.fromJson(Map<String, dynamic> json) {
+    return PredictionSummary(
+      fixtureId: json['fixtureId'] as int,
+      correct: json['correct'] as int? ?? 0,
+      wrong: json['wrong'] as int? ?? 0,
+      coinsEarned: json['coinsEarned'] as int? ?? 0,
+    );
+  }
+}
+
 class LiveState {
   final List<MatchData> matches;
   final MatchData? activeMatch;
   final bool isLoading;
   final String? error;
   final bool liveExpanded;
-  final bool todayExpanded;
+  final bool answeredExpanded;
+  final bool notStartedExpanded;
   final bool isRefreshing;
+  /// Per-fixture prediction summary for FT matches the user answered.
+  final Map<int, PredictionSummary> predictionSummaries;
+
+  static const _finishedStatuses = {'FT', 'AET', 'PEN'};
 
   const LiveState({
     this.matches = const [],
@@ -20,22 +49,45 @@ class LiveState {
     this.isLoading = false,
     this.error,
     this.liveExpanded = false,
-    this.todayExpanded = false,
+    this.answeredExpanded = false,
+    this.notStartedExpanded = false,
     this.isRefreshing = false,
+    this.predictionSummaries = const {},
   });
 
+  // ── Category 1: LIVE matches ──
   List<MatchData> get liveMatches => matches.where((m) => m.isLive).toList();
-  List<MatchData> get upcomingMatches => matches.where((m) => !m.isLive).toList();
 
+  // ── Category 2: FT matches the user answered (has prediction summary) ──
+  List<MatchData> get answeredMatches => matches
+      .where((m) => _finishedStatuses.contains(m.status) && predictionSummaries.containsKey(m.fixtureId))
+      .toList();
+
+  // ── Category 3: Not started ──
+  List<MatchData> get notStartedMatches => matches
+      .where((m) => m.status == 'NS' || m.status == 'TBD')
+      .toList();
+
+  // Display limits per design v4.0
   List<MatchData> get displayedLiveMatches {
     final live = liveMatches;
-    return liveExpanded ? live : live.take(8).toList();
+    return liveExpanded ? live : live.take(4).toList();
   }
 
-  List<MatchData> get displayedTodayMatches {
-    final today = upcomingMatches;
-    return todayExpanded ? today : today.take(8).toList();
+  List<MatchData> get displayedAnsweredMatches {
+    final answered = answeredMatches;
+    return answeredExpanded ? answered : answered.take(2).toList();
   }
+
+  List<MatchData> get displayedNotStartedMatches {
+    final ns = notStartedMatches;
+    return notStartedExpanded ? ns : ns.take(2).toList();
+  }
+
+  // Legacy getter — kept for backwards compatibility with existing callers
+  List<MatchData> get upcomingMatches => notStartedMatches;
+  List<MatchData> get displayedTodayMatches => displayedNotStartedMatches;
+  bool get todayExpanded => notStartedExpanded;
 
   LiveState copyWith({
     List<MatchData>? matches,
@@ -43,8 +95,10 @@ class LiveState {
     bool? isLoading,
     String? error,
     bool? liveExpanded,
-    bool? todayExpanded,
+    bool? answeredExpanded,
+    bool? notStartedExpanded,
     bool? isRefreshing,
+    Map<int, PredictionSummary>? predictionSummaries,
   }) {
     return LiveState(
       matches: matches ?? this.matches,
@@ -52,8 +106,10 @@ class LiveState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       liveExpanded: liveExpanded ?? this.liveExpanded,
-      todayExpanded: todayExpanded ?? this.todayExpanded,
+      answeredExpanded: answeredExpanded ?? this.answeredExpanded,
+      notStartedExpanded: notStartedExpanded ?? this.notStartedExpanded,
       isRefreshing: isRefreshing ?? this.isRefreshing,
+      predictionSummaries: predictionSummaries ?? this.predictionSummaries,
     );
   }
 }
@@ -108,6 +164,9 @@ class LiveNotifier extends StateNotifier<LiveState> {
       if (activeMatch != null && _apiClient != null) {
         _fetchStatsForMatch(activeMatch.fixtureId);
       }
+
+      // Fetch prediction summary for the "Answered" category (async, non-blocking)
+      _fetchPredictionSummary();
     } catch (e) {
       state = state.copyWith(isLoading: false, isRefreshing: false, error: e.toString());
     }
@@ -147,8 +206,33 @@ class LiveNotifier extends StateNotifier<LiveState> {
     state = state.copyWith(liveExpanded: !state.liveExpanded);
   }
 
-  void toggleTodayExpanded() {
-    state = state.copyWith(todayExpanded: !state.todayExpanded);
+  void toggleAnsweredExpanded() {
+    state = state.copyWith(answeredExpanded: !state.answeredExpanded);
+  }
+
+  void toggleNotStartedExpanded() {
+    state = state.copyWith(notStartedExpanded: !state.notStartedExpanded);
+  }
+
+  // Legacy alias
+  void toggleTodayExpanded() => toggleNotStartedExpanded();
+
+  /// Fetch per-fixture prediction summary for the "Answered" category.
+  Future<void> _fetchPredictionSummary() async {
+    if (_apiClient == null) return;
+    try {
+      final response = await _apiClient!.get(ApiEndpoints.predictionsTodaySummary);
+      final data = response.data as List<dynamic>;
+      final summaries = <int, PredictionSummary>{};
+      for (final item in data) {
+        final s = PredictionSummary.fromJson(item as Map<String, dynamic>);
+        summaries[s.fixtureId] = s;
+      }
+      if (!mounted) return;
+      state = state.copyWith(predictionSummaries: summaries);
+    } catch (_) {
+      // Non-critical — "Answered" category just won't show if this fails.
+    }
   }
 
   void updateMatchScore(int fixtureId, int homeScore, int awayScore, int? elapsed) {

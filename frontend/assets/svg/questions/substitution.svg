@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" width="56" height="56">
+  <rect width="56" height="56" rx="14" fill="#0F0A1A"/>
+  <rect width="56" height="56" rx="14" fill="none" stroke="#BF5AF2" stroke-width="1.5"/>
+  <!-- Arrow down (player out) - red -->
+  <path d="M20 12 L20 36 L12 28 M20 36 L28 28"
+        fill="none" stroke="#FF3B30" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Arrow up (player in) - green -->
+  <path d="M36 44 L36 20 L28 28 M36 20 L44 28"
+        fill="none" stroke="#39FF14" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Jersey hint -->
+  <path d="M16 44 Q12 42 12 48 L24 48 L24 44 Q20 46 16 44Z" fill="#FF3B30" opacity="0.5"/>
+  <path d="M40 12 Q36 10 36 16 L48 16 L48 12 Q44 14 40 12Z" fill="#39FF14" opacity="0.5"/>
+</svg>

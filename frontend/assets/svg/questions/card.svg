@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" width="56" height="56">
+  <rect width="56" height="56" rx="14" fill="#1A0500"/>
+  <rect width="56" height="56" rx="14" fill="none" stroke="#FF3B30" stroke-width="1.5"/>
+  <!-- Red card (main) -->
+  <rect x="22" y="10" width="22" height="30" rx="3" fill="#FF3B30"/>
+  <!-- Yellow card (behind) -->
+  <rect x="12" y="16" width="22" height="30" rx="3" fill="#FFD600" opacity="0.85"/>
+  <!-- Card shine -->
+  <rect x="13" y="17" width="4" height="28" rx="2" fill="white" opacity="0.15"/>
+  <rect x="23" y="11" width="4" height="28" rx="2" fill="white" opacity="0.15"/>
+  <!-- Player silhouette hint -->
+  <text x="33" y="30" text-anchor="middle" font-size="14" fill="white" opacity="0.4">!</text>
+  <!-- Whistle -->
+  <rect x="10" y="48" width="16" height="4" rx="2" fill="#FF3B30" opacity="0.7"/>
+  <circle cx="26" cy="50" r="3" fill="#FF3B30" opacity="0.7"/>
+  <rect x="26" y="48" width="6" height="2" rx="1" fill="#FF3B30" opacity="0.5"/>
+</svg>

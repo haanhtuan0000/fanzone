@@ -22,4 +22,16 @@ export class PredictionsController {
   ) {
     return this.predictionsService.getHistory(req.user.id, parseInt(page));
   }
+
+  /**
+   * Returns a per-fixture prediction summary for today's finished matches
+   * that the user participated in. Used by the Live screen's "Đã trả lời"
+   * (Answered) category to show N✓ · N✗ · +Nxu on each card.
+   *
+   * Returns: [{ fixtureId, correct, wrong, coinsEarned }]
+   */
+  @Get('today-summary')
+  async getTodaySummary(@Request() req: any) {
+    return this.predictionsService.getTodaySummary(req.user.id);
+  }
 }

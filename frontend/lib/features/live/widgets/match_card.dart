@@ -4,15 +4,16 @@ import '../../../app/constants.dart';
 import '../../../app/responsive.dart';
 import '../../../core/models/match.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../providers/live_provider.dart';
 
 class MatchCard extends StatelessWidget {
   final MatchData match;
   final bool isSelected;
   final VoidCallback onTap;
-  /// Optional callback for when the "Predicting" fan bar is tapped.
-  /// If provided, takes precedence over the default predict navigation
-  /// so callers can switch active match before navigating.
   final VoidCallback? onPredictTap;
+  /// If provided, renders Row 3 with prediction summary (Design v4.0
+  /// "Đã trả lời" category). Shows N✓ · N✗ · +Nxu.
+  final PredictionSummary? predictionSummary;
 
   const MatchCard({
     super.key,
@@ -20,26 +21,37 @@ class MatchCard extends StatelessWidget {
     this.isSelected = false,
     required this.onTap,
     this.onPredictTap,
+    this.predictionSummary,
   });
 
   @override
   Widget build(BuildContext context) {
     final loc = AppStrings.current;
+    final hasAnsweredRow = predictionSummary != null && !match.isLive;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: sa(context, 14),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.neonGreen.withOpacity(0.06) : AppColors.cardSurface,
+          color: isSelected
+              ? AppColors.neonGreen.withOpacity(0.06)
+              : hasAnsweredRow
+                  ? AppColors.neonGreen.withOpacity(0.03)
+                  : AppColors.cardSurface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? AppColors.neonGreen.withOpacity(0.4) : AppColors.divider,
+            color: isSelected
+                ? AppColors.neonGreen.withOpacity(0.4)
+                : hasAnsweredRow
+                    ? AppColors.neonGreen.withOpacity(0.18)
+                    : AppColors.divider,
             width: isSelected ? 1.5 : 1,
           ),
         ),
         child: Column(
           children: [
-            // Top row: league + live badge / kickoff time
+            // Row 1: league + live badge / kickoff time
             Row(
               children: [
                 if (match.leagueLogoUrl != null)
@@ -72,10 +84,10 @@ class MatchCard extends StatelessWidget {
               ],
             ),
             SizedBox(height: s(context, 10)),
-            // Main row: home ● — score/vs — ● away
+
+            // Row 2: home ● — score/vs — ● away
             Row(
               children: [
-                // Home team + dot
                 Expanded(
                   child: Row(
                     children: [
@@ -102,7 +114,6 @@ class MatchCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Score or VS
                 Padding(
                   padding: sp(context, h: 12),
                   child: match.isLive || match.status == 'FT' || match.status == 'HT'
@@ -123,7 +134,6 @@ class MatchCard extends StatelessWidget {
                           ),
                         ),
                 ),
-                // Away team + dot
                 Expanded(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -154,14 +164,14 @@ class MatchCard extends StatelessWidget {
                 ),
               ],
             ),
-            // Row 3: Fan bar — ALL live cards (v3.0), with stopPropagation → navigate predict
+
+            // ── Row 3 variants (Design v4.0) ──
+
+            // LIVE: fan bar with "⚡ Predicting — N fan"
             if (match.isLive) ...[
               SizedBox(height: s(context, 8)),
               GestureDetector(
                 onTap: () {
-                  // stopPropagation: don't trigger card's onTap.
-                  // If onPredictTap provided, caller handles match-switch + navigate.
-                  // Otherwise just navigate (legacy fallback).
                   if (onPredictTap != null) {
                     onPredictTap!();
                   } else {
@@ -199,6 +209,67 @@ class MatchCard extends StatelessWidget {
                 ),
               ),
             ],
+
+            // ANSWERED (FT + user participated): prediction summary row
+            if (hasAnsweredRow) ...[
+              SizedBox(height: s(context, 8)),
+              Container(
+                width: double.infinity,
+                padding: sp(context, v: 7, h: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.neonGreen.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      'My predictions',
+                      style: TextStyle(
+                        fontFamily: AppFonts.barlowCondensed,
+                        color: AppColors.textSecondary,
+                        fontSize: sf(context, 11),
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${predictionSummary!.correct}✓',
+                      style: TextStyle(
+                        fontFamily: AppFonts.barlowCondensed,
+                        color: AppColors.neonGreen,
+                        fontSize: sf(context, 12),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      ' · ${predictionSummary!.wrong}✗',
+                      style: TextStyle(
+                        fontFamily: AppFonts.barlowCondensed,
+                        color: AppColors.red,
+                        fontSize: sf(context, 12),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      ' · +${predictionSummary!.coinsEarned}',
+                      style: TextStyle(
+                        fontFamily: AppFonts.barlowCondensed,
+                        color: AppColors.amber,
+                        fontSize: sf(context, 12),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      '🪙',
+                      style: TextStyle(fontSize: sf(context, 10)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // NS: no Row 3
           ],
         ),
       ),

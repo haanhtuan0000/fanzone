@@ -23,6 +23,7 @@ class ApiEndpoints {
   // Predictions
   static const String submitPrediction = '/predictions';
   static const String predictionHistory = '/predictions/history';
+  static const String predictionsTodaySummary = '/predictions/today-summary';
 
   // Leaderboard
   static const String leaderboard = '/leaderboard';

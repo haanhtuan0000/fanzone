@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/constants.dart';
 import '../../app/responsive.dart';
@@ -57,31 +58,36 @@ class ScaffoldWithNav extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(
-                  icon: Icons.live_tv,
+                  activeSvg: 'assets/svg/tabs/live_active.svg',
+                  inactiveSvg: 'assets/svg/tabs/live_inactive.svg',
                   label: str.navLive,
                   isActive: currentIndex == 0,
                   onTap: () => _onTap(context, 0),
                 ),
                 _NavItem(
-                  icon: Icons.bolt,
+                  activeSvg: 'assets/svg/tabs/predict_active.svg',
+                  inactiveSvg: 'assets/svg/tabs/predict_inactive.svg',
                   label: str.navPredict,
                   isActive: currentIndex == 1,
                   onTap: () => _onTap(context, 1),
                 ),
                 _NavItem(
-                  icon: Icons.emoji_events,
+                  activeSvg: 'assets/svg/tabs/leaderboard_active.svg',
+                  inactiveSvg: 'assets/svg/tabs/leaderboard_inactive.svg',
                   label: str.navLeaderboard,
                   isActive: currentIndex == 2,
                   onTap: () => _onTap(context, 2),
                 ),
                 _NavItem(
-                  icon: Icons.local_fire_department,
+                  activeSvg: 'assets/svg/tabs/feed_active.svg',
+                  inactiveSvg: 'assets/svg/tabs/feed_inactive.svg',
                   label: str.navFeed,
                   isActive: currentIndex == 3,
                   onTap: () => _onTap(context, 3),
                 ),
                 _NavItem(
-                  icon: Icons.person,
+                  activeSvg: 'assets/svg/tabs/profile_active.svg',
+                  inactiveSvg: 'assets/svg/tabs/profile_inactive.svg',
                   label: str.navProfile,
                   isActive: currentIndex == 4,
                   onTap: () => _onTap(context, 4),
@@ -97,13 +103,15 @@ class ScaffoldWithNav extends StatelessWidget {
 }
 
 class _NavItem extends StatelessWidget {
-  final IconData icon;
+  final String activeSvg;
+  final String inactiveSvg;
   final String label;
   final bool isActive;
   final VoidCallback onTap;
 
   const _NavItem({
-    required this.icon,
+    required this.activeSvg,
+    required this.inactiveSvg,
     required this.label,
     required this.isActive,
     required this.onTap,
@@ -119,10 +127,14 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: isActive ? AppColors.neonGreen : AppColors.textSecondary,
-              size: s(context, 26),
+            SvgPicture.asset(
+              isActive ? activeSvg : inactiveSvg,
+              width: s(context, 24),
+              height: s(context, 24),
+              colorFilter: ColorFilter.mode(
+                isActive ? AppColors.neonGreen : AppColors.textSecondary,
+                BlendMode.srcIn,
+              ),
             ),
             const SizedBox(height: 4),
             Text(

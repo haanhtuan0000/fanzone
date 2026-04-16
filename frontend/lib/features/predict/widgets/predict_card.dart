@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../../app/constants.dart';
 import '../../../app/responsive.dart';
 import '../../../core/l10n/app_strings.dart';
@@ -28,15 +29,19 @@ class PredictCard extends StatelessWidget {
     }
   }
 
-  IconData get _categoryIcon {
+  String get _categorySvgPath {
     switch (question.category) {
-      case 'GOAL': return Icons.sports_soccer;
-      case 'CARD': return Icons.square;
-      case 'CORNER': return Icons.flag;
-      case 'VAR': return Icons.videocam;
-      case 'HALFTIME': return Icons.timer;
-      case 'SUBSTITUTION': return Icons.swap_horiz;
-      default: return Icons.help;
+      case 'GOAL': return 'assets/svg/questions/goal.svg';
+      case 'CARD': return 'assets/svg/questions/card.svg';
+      case 'CORNER': return 'assets/svg/questions/corner.svg';
+      case 'VAR': return 'assets/svg/questions/var.svg';
+      case 'SUB':
+      case 'SUBSTITUTION': return 'assets/svg/questions/substitution.svg';
+      case 'TIME':
+      case 'HALFTIME': return 'assets/svg/questions/time.svg';
+      case 'MOMENTUM': return 'assets/svg/questions/goal.svg';
+      case 'STAT': return 'assets/svg/questions/goal.svg';
+      default: return 'assets/svg/questions/goal.svg';
     }
   }
 
@@ -63,7 +68,8 @@ class PredictCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(_categoryIcon, color: _categoryColor, size: 16),
+                    SvgPicture.asset(_categorySvgPath, width: 16, height: 16,
+                      colorFilter: ColorFilter.mode(_categoryColor, BlendMode.srcIn)),
                     const SizedBox(width: 4),
                     Text(
                       question.category,
