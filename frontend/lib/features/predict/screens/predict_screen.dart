@@ -99,7 +99,9 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
       appBar: AppBar(
         title: activeMatch != null
             ? Text(
-                '${activeMatch.homeTeam} vs ${activeMatch.awayTeam}${activeMatch.elapsed != null ? ' · ${activeMatch.status == "HT" ? "HT" : "${activeMatch.elapsed}\'"}' : ''}',
+                '${_abbreviate(activeMatch.homeTeam)} vs ${_abbreviate(activeMatch.awayTeam)} · ${activeMatch.status == "HT" ? "HT" : "${activeMatch.elapsed ?? ""}\'"}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontFamily: AppFonts.barlowCondensed,
                   fontSize: sf(context, 12),
@@ -174,9 +176,14 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                 (answered.isNotEmpty || predictState.upcomingQuestions.isNotEmpty || activeMatch != null))
               SliverToBoxAdapter(
                 child: NextQuestionStrip(
+                  // Only count down to REAL pending questions — never use
+                  // nextEstimatedAt (a guess from phase boundaries). The
+                  // estimate can promise "5s" when no question has been
+                  // generated yet, producing the "5s → Loading → 13 min"
+                  // whiplash observed on fixture 1416165.
                   nextOpensAt: predictState.upcomingQuestions.isNotEmpty
                       ? predictState.upcomingQuestions.first.opensAt
-                      : predictState.nextEstimatedAt,
+                      : null,
                   onReady: () {
                     final match = ref.read(liveStateProvider).activeMatch;
                     if (match != null) {
@@ -437,4 +444,15 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
     );
   }
 
+  /// Abbreviate team name for the compact AppBar title. The Match Info Strip
+  /// below shows the full names; the AppBar just needs enough context so the
+  /// user knows which match they're on without the minute being cut off.
+  String _abbreviate(String name) {
+    // If short enough, keep as-is
+    if (name.length <= 10) return name;
+    // Try first word (e.g. "Kansanshi Dynamos" → "Kansanshi")
+    final firstWord = name.split(' ').first;
+    if (firstWord.length >= 3) return firstWord;
+    return name.substring(0, 10);
+  }
 }
