@@ -97,17 +97,24 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: activeMatch != null
-            ? Text(
-                '${_abbreviate(activeMatch.homeTeam)} vs ${_abbreviate(activeMatch.awayTeam)} · ${activeMatch.status == "HT" ? "HT" : "${activeMatch.elapsed ?? ""}\'"}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: AppFonts.barlowCondensed,
-                  fontSize: sf(context, 12),
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                  color: AppColors.textSecondary,
+        title: activeMatch != null && activeMatch.isLive
+            ? Container(
+                padding: EdgeInsets.symmetric(horizontal: s(context, 10), vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.red.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(width: 6, height: 6,
+                      decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.red)),
+                    const SizedBox(width: 5),
+                    Text('LIVE',
+                      style: TextStyle(fontFamily: AppFonts.bebasNeue, fontSize: sf(context, 13),
+                        color: AppColors.red, letterSpacing: 1)),
+                  ],
                 ),
               )
             : null,
@@ -150,7 +157,7 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
         children: [
           // Match Info Strip — fixed above scrollable questions (Design v4.0)
           if (activeMatch != null)
-            MatchInfoStrip(match: activeMatch),
+            MatchInfoStrip(match: activeMatch, coinsEarned: predictState.totalCoinsEarned),
           Expanded(
             child: RefreshIndicator(
         onRefresh: () async {
@@ -193,55 +200,51 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
                 ),
               ),
 
-            // Active question section (only if not expired)
+            // Active question section — all content in one card per design v4.0 (#9)
             if (question != null && !predictState.isExpired) ...[
-              // Section divider
               SliverToBoxAdapter(
                 child: _sectionDivider(context, str.activeQuestion),
               ),
-
-              // Countdown (below divider, directly above question card)
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: sLTRB(context, 16, 0, 16, 8),
-                  child: CountdownStrip(
-                    closesAt: question.closesAt,
-                    opensAt: question.opensAt,
-                    onExpired: () {
-                      ref.read(predictStateProvider.notifier).expireQuestion();
-                    },
+                child: Container(
+                  margin: sp(context, h: 16),
+                  padding: sa(context, 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardSurface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.divider),
                   ),
-                ),
-              ),
-
-              // Question card
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: sp(context, h: 16),
-                  child: PredictCard(question: question),
-                ),
-              ),
-
-              // Options
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final option = question.options[index];
-                    return Padding(
-                      padding: sLTRB(context, 16, 0, 16, 8),
-                      child: OptionButton(
-                        option: option,
-                        isSelected: predictState.selectedOptionId == option.id,
-                        isLocked: predictState.isLocked,
-                        onTap: () {
-                          if (!predictState.isLocked && !predictState.isExpired) {
-                            ref.read(predictStateProvider.notifier).selectOption(option.id);
-                          }
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Countdown
+                      CountdownStrip(
+                        closesAt: question.closesAt,
+                        opensAt: question.opensAt,
+                        onExpired: () {
+                          ref.read(predictStateProvider.notifier).expireQuestion();
                         },
                       ),
-                    );
-                  },
-                  childCount: question.options.length,
+                      SizedBox(height: s(context, 12)),
+                      // Question card
+                      PredictCard(question: question),
+                      SizedBox(height: s(context, 12)),
+                      // Options
+                      ...question.options.map((option) => Padding(
+                        padding: EdgeInsets.only(bottom: s(context, 8)),
+                        child: OptionButton(
+                          option: option,
+                          isSelected: predictState.selectedOptionId == option.id,
+                          isLocked: predictState.isLocked,
+                          onTap: () {
+                            if (!predictState.isLocked && !predictState.isExpired) {
+                              ref.read(predictStateProvider.notifier).selectOption(option.id);
+                            }
+                          },
+                        ),
+                      )),
+                    ],
+                  ),
                 ),
               ),
 
@@ -444,15 +447,5 @@ class _PredictScreenState extends ConsumerState<PredictScreen> {
     );
   }
 
-  /// Abbreviate team name for the compact AppBar title. The Match Info Strip
-  /// below shows the full names; the AppBar just needs enough context so the
-  /// user knows which match they're on without the minute being cut off.
-  String _abbreviate(String name) {
-    // If short enough, keep as-is
-    if (name.length <= 10) return name;
-    // Try first word (e.g. "Kansanshi Dynamos" → "Kansanshi")
-    final firstWord = name.split(' ').first;
-    if (firstWord.length >= 3) return firstWord;
-    return name.substring(0, 10);
-  }
+  // _abbreviate removed — AppBar now shows LIVE badge instead of team names (issue 1604 #7)
 }

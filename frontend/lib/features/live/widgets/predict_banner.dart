@@ -151,10 +151,7 @@ class _PredictBannerState extends State<PredictBanner> {
                       ),
                     ],
                     const Spacer(),
-                    Text(
-                      '${s.goPredict} →',
-                      style: const TextStyle(fontSize: 12, color: AppColors.neonGreen, fontWeight: FontWeight.w500),
-                    ),
+                    Icon(Icons.arrow_forward_ios, color: AppColors.neonGreen, size: 16),
                   ],
                 ),
               ),

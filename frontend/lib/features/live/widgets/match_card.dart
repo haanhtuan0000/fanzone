@@ -38,7 +38,7 @@ class MatchCard extends StatelessWidget {
               ? AppColors.neonGreen.withOpacity(0.06)
               : hasAnsweredRow
                   ? AppColors.neonGreen.withOpacity(0.03)
-                  : AppColors.cardSurface,
+                  : const Color(0xFF1A1F2E), // darker than list bg per issue 1604 #5
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected

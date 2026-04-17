@@ -8,15 +8,14 @@ import '../../../core/models/match.dart';
 /// Design v4.0: smaller than the Live scoreboard, no tap/expand, fixed position.
 class MatchInfoStrip extends StatelessWidget {
   final MatchData match;
-  const MatchInfoStrip({super.key, required this.match});
+  /// Coins earned this match — shown in top-right instead of LIVE badge
+  /// per design v4.0 (issue 1604 #8).
+  final int coinsEarned;
+  const MatchInfoStrip({super.key, required this.match, this.coinsEarned = 0});
 
   @override
   Widget build(BuildContext context) {
-    final isHT = match.status == 'HT';
-    final badgeColor = isHT ? AppColors.amber : AppColors.red;
-    final badgeText = isHT
-        ? 'HT'
-        : match.elapsed != null ? 'LIVE ${match.elapsed}\'' : 'LIVE';
+    // badge variables removed — LIVE badge replaced by coins display (issue 1604 #8)
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: s(context, 14), vertical: s(context, 10)),
@@ -55,32 +54,15 @@ class MatchInfoStrip extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: s(context, 8), vertical: 2),
-                decoration: BoxDecoration(
-                  color: badgeColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: badgeColor.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 5, height: 5,
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: badgeColor),
-                    ),
-                    SizedBox(width: s(context, 4)),
-                    Text(
-                      badgeText,
-                      style: TextStyle(
-                        fontFamily: AppFonts.barlowCondensed,
-                        fontSize: sf(context, 9),
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                        color: badgeColor,
-                      ),
-                    ),
-                  ],
+              // Match coins earned (design v4.0 — replaces LIVE badge)
+              Text(
+                '+$coinsEarned 🪙',
+                style: TextStyle(
+                  fontFamily: AppFonts.barlowCondensed,
+                  fontSize: sf(context, 12),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                  color: AppColors.neonGreen,
                 ),
               ),
             ],

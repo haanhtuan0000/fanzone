@@ -306,11 +306,13 @@ class _ScoreboardState extends State<Scoreboard> {
       padding: sp(context, h: 8),
       child: Column(
         children: [
+          // Score — bold and prominent per design v4.0
           Text(
             '${match.homeScore}–${match.awayScore}',
             style: TextStyle(
               fontFamily: AppFonts.bebasNeue,
-              fontSize: sf(context, AppSizes.scoreFontSize),
+              fontSize: sf(context, AppSizes.scoreFontSize + 8),
+              fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
               letterSpacing: 2,
             ),
@@ -335,11 +337,7 @@ class _ScoreboardState extends State<Scoreboard> {
                 ),
               ],
             ),
-          if (match.homeHtScore != null && match.awayHtScore != null)
-            Text(
-              'HT: ${match.homeHtScore}–${match.awayHtScore}',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: sf(context, 11)),
-            ),
+          // HT score line removed per issue 1604 #1
         ],
       ),
     );

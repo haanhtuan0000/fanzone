@@ -124,15 +124,7 @@ class LiveScreen extends ConsumerWidget {
                     ),
                   )
                 else ...[
-                  SliverToBoxAdapter(
-                    child: _sectionHeader(
-                      context: context,
-                      icon: Icons.sports_soccer,
-                      title: s.predictThisMatch,
-                      trailing: s.goPredict,
-                      color: AppColors.amber,
-                    ),
-                  ),
+                  // "PREDICT THIS MATCH" header removed per issue 1604 #3
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: r.sLTRB(context, 16, 0, 16, 0),
@@ -429,37 +421,8 @@ class LiveScreen extends ConsumerWidget {
 
     final children = <Widget>[];
     for (final entry in groups.entries) {
-      // League header
-      final firstMatch = entry.value.first;
-      children.add(Padding(
-        padding: const EdgeInsets.only(top: 4, bottom: 6),
-        child: Row(
-          children: [
-            if (firstMatch.leagueLogoUrl != null) ...[
-              CachedNetworkImage(
-                imageUrl: firstMatch.leagueLogoUrl!,
-                width: r.s(context, 16),
-                height: r.s(context, 16),
-                errorWidget: (_, __, ___) => Icon(Icons.emoji_events, size: r.s(context, 14), color: AppColors.textSecondary),
-              ),
-              const SizedBox(width: 6),
-            ],
-            Expanded(
-              child: Text(
-                '${entry.key}${firstMatch.leagueRound != null ? ' \u00b7 ${firstMatch.leagueRound}' : ''}',
-                style: TextStyle(
-                  fontFamily: AppFonts.barlowCondensed,
-                  fontSize: r.sf(context, 10),
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                  color: AppColors.textSecondary.withOpacity(0.6),
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ));
+      // League group header removed per issue 1604 #6 — each card already
+      // shows the league name in its top row, so the group header was redundant.
 
       // Matches in this league
       for (final match in entry.value) {
