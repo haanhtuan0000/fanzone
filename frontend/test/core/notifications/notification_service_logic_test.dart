@@ -92,4 +92,43 @@ void main() {
       );
     });
   });
+
+  group('alarmsFor — picks which of {15-min reminder, at-kickoff} to schedule', () {
+    final now = DateTime.utc(2026, 4, 16, 10, 0, 0);
+
+    test('kickoff already passed → neither (no point in either alarm)', () {
+      expect(
+        alarmsFor(now: now, kickoff: now.subtract(const Duration(minutes: 1))),
+        AlarmSet.neither,
+      );
+    });
+
+    test('kickoff == now → neither (kickoff slot has also passed)', () {
+      expect(
+        alarmsFor(now: now, kickoff: now),
+        AlarmSet.neither,
+      );
+    });
+
+    test('kickoff in 14 min → kickoffOnly (15-min slot already missed)', () {
+      expect(
+        alarmsFor(now: now, kickoff: now.add(const Duration(minutes: 14))),
+        AlarmSet.kickoffOnly,
+      );
+    });
+
+    test('kickoff in exactly 15 min → both (boundary: 15 mins is not <15)', () {
+      expect(
+        alarmsFor(now: now, kickoff: now.add(const Duration(minutes: 15))),
+        AlarmSet.both,
+      );
+    });
+
+    test('kickoff in 2 hours → both (normal case)', () {
+      expect(
+        alarmsFor(now: now, kickoff: now.add(const Duration(hours: 2))),
+        AlarmSet.both,
+      );
+    });
+  });
 }

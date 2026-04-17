@@ -380,31 +380,46 @@ class _MatchInfoScreenState extends ConsumerState<MatchInfoScreen> {
           _userTouchedReminder = true;
           final m = widget.match!;
           if (!_reminderSet) {
-            // Schedule notification
-            final ok = await NotificationService.scheduleMatchReminder(
+            // Schedule both alarms (15-min reminder + at-kickoff).
+            final result = await NotificationService.scheduleMatchAlarms(
               fixtureId: widget.fixtureId,
               homeTeam: m.homeTeam,
               awayTeam: m.awayTeam,
               kickoffTime: m.kickoffTime!,
             );
-            if (!ok && mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not set reminder (permission denied or match too soon)')),
-              );
+            if (!result.reminder && !result.kickoff) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Could not set reminder (permission denied or match too soon)')),
+                );
+              }
               return;
             }
+            setState(() => _reminderSet = true);
+            if (mounted) {
+              final text = result.reminder
+                  ? '🔔 ${str.reminderSet}'
+                  : '🔔 ${str.reminderKickoffOnly}';
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(text),
+                  backgroundColor: AppColors.amber.withOpacity(0.9),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
           } else {
-            await NotificationService.cancelMatchReminder(widget.fixtureId);
-          }
-          setState(() => _reminderSet = !_reminderSet);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(_reminderSet ? '🔔 ${str.reminderSet}' : '🔕 Reminder cancelled'),
-                backgroundColor: AppColors.amber.withOpacity(0.9),
-                duration: const Duration(seconds: 2),
-              ),
-            );
+            await NotificationService.cancelMatchAlarms(widget.fixtureId);
+            setState(() => _reminderSet = false);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('🔕 Reminder cancelled'),
+                  backgroundColor: AppColors.amber.withOpacity(0.9),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
           }
         },
         style: ElevatedButton.styleFrom(

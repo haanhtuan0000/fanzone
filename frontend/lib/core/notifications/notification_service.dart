@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:go_router/go_router.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:flutter_timezone/flutter_timezone.dart';
 
+import '../../app/router.dart';
+import '../l10n/app_strings.dart';
+import 'notification_ids.dart';
 import 'notification_service_logic.dart';
 
 class NotificationService {
@@ -45,7 +50,10 @@ class NotificationService {
     }
 
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    await _plugin.initialize(const InitializationSettings(android: androidSettings));
+    await _plugin.initialize(
+      const InitializationSettings(android: androidSettings),
+      onDidReceiveNotificationResponse: _onTap,
+    );
 
     // Create the Android notification channel explicitly (required on Android 8+).
     final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
@@ -55,6 +63,37 @@ class NotificationService {
       description: 'Notifications for upcoming match reminders',
       importance: Importance.high,
     ));
+  }
+
+  /// Called by the plugin when the user taps a local notification whose
+  /// `payload` contains a `route` key. Uses the shared [rootNavigatorKey]
+  /// exposed by `router.dart` so navigation works even when the tap
+  /// happens from a terminated-app state (the notification plugin
+  /// re-launches the app and then delivers this callback).
+  static void _onTap(NotificationResponse response) {
+    final raw = response.payload;
+    if (raw == null || raw.isEmpty) return;
+    String? route;
+    try {
+      final parsed = jsonDecode(raw);
+      if (parsed is Map && parsed['route'] is String) {
+        route = parsed['route'] as String;
+      }
+    } catch (e) {
+      debugPrint('[NotificationService] bad payload: $raw');
+      return;
+    }
+    if (route == null) return;
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null) {
+      debugPrint('[NotificationService] tap but no nav context — route=$route');
+      return;
+    }
+    try {
+      ctx.go(route);
+    } catch (e) {
+      debugPrint('[NotificationService] tap nav failed for route=$route: $e');
+    }
   }
 
   /// Schedule a match reminder notification 15 minutes before kickoff.
@@ -67,37 +106,102 @@ class NotificationService {
     required String awayTeam,
     required DateTime kickoffTime,
   }) async {
+    return _scheduleOne(
+      id: matchReminderId(fixtureId),
+      scheduledAt: kickoffTime.subtract(const Duration(minutes: 15)),
+      title: AppStrings.current.notifTitle,
+      body: AppStrings.current.notifReminder15(homeTeam, awayTeam),
+      route: '/match-info/$fixtureId',
+    );
+  }
+
+  /// Schedule a "match is starting now" notification at exact kickoff time.
+  /// Deep-links straight to the Predict tab so the user can start
+  /// answering immediately. Used together with [scheduleMatchReminder] —
+  /// see [scheduleMatchAlarms] for the one-shot convenience wrapper.
+  static Future<bool> scheduleMatchKickoff({
+    required int fixtureId,
+    required String homeTeam,
+    required String awayTeam,
+    required DateTime kickoffTime,
+  }) async {
+    return _scheduleOne(
+      id: matchKickoffId(fixtureId),
+      scheduledAt: kickoffTime,
+      title: AppStrings.current.notifTitle,
+      body: AppStrings.current.notifKickoff(homeTeam, awayTeam),
+      route: '/predict',
+    );
+  }
+
+  /// Schedule both the 15-min reminder and the at-kickoff notification.
+  /// Returns a record of which alarms were actually scheduled — callers
+  /// use this to decide the snackbar text (e.g. if the match is <15 min
+  /// away we skip the 15-min reminder but still want the kickoff one).
+  static Future<({bool reminder, bool kickoff})> scheduleMatchAlarms({
+    required int fixtureId,
+    required String homeTeam,
+    required String awayTeam,
+    required DateTime kickoffTime,
+  }) async {
+    final decision = alarmsFor(now: DateTime.now(), kickoff: kickoffTime);
+    bool reminder = false;
+    bool kickoff = false;
+    if (decision == AlarmSet.both) {
+      reminder = await scheduleMatchReminder(
+        fixtureId: fixtureId,
+        homeTeam: homeTeam,
+        awayTeam: awayTeam,
+        kickoffTime: kickoffTime,
+      );
+    }
+    if (decision == AlarmSet.both || decision == AlarmSet.kickoffOnly) {
+      kickoff = await scheduleMatchKickoff(
+        fixtureId: fixtureId,
+        homeTeam: homeTeam,
+        awayTeam: awayTeam,
+        kickoffTime: kickoffTime,
+      );
+    }
+    return (reminder: reminder, kickoff: kickoff);
+  }
+
+  /// Shared scheduling code used by both reminder + kickoff. Factored out
+  /// so payload, channel, and safety-gate logic stay in one place.
+  static Future<bool> _scheduleOne({
+    required int id,
+    required DateTime scheduledAt,
+    required String title,
+    required String body,
+    required String route,
+  }) async {
     await init();
 
-    // Permission requests (Android). Permission state determines whether
-    // we can schedule at all and which AlarmManager mode we're allowed to use.
     final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     bool? exactGranted;
     if (android != null) {
       final granted = await android.requestNotificationsPermission();
       if (granted == false) {
-        debugPrint('[NotificationService] POST_NOTIFICATIONS denied for fixture=$fixtureId');
+        debugPrint('[NotificationService] POST_NOTIFICATIONS denied for id=$id');
         return false;
       }
-      // Returns null on API < 31, true/false on API >= 31.
       exactGranted = await android.requestExactAlarmsPermission();
     }
 
-    final reminderTime = kickoffTime.subtract(const Duration(minutes: 15));
     final now = DateTime.now();
     if (!canSafelyScheduleAt(
       timezoneReady: _timezoneReady,
-      reminderTime: reminderTime,
+      reminderTime: scheduledAt,
       now: now,
     )) {
       debugPrint(
-        '[NotificationService] refusing to schedule fixture=$fixtureId — '
-        'timezoneReady=$_timezoneReady reminderTime=$reminderTime now=$now',
+        '[NotificationService] refusing to schedule id=$id — '
+        'timezoneReady=$_timezoneReady at=$scheduledAt now=$now',
       );
       return false;
     }
 
-    final scheduledDate = tz.TZDateTime.from(reminderTime, tz.local);
+    final scheduledDate = tz.TZDateTime.from(scheduledAt, tz.local);
     final decision = pickScheduleMode(exactAlarmsPermissionGranted: exactGranted);
     final mode = switch (decision) {
       ScheduleModeDecision.exact => AndroidScheduleMode.exactAllowWhileIdle,
@@ -106,9 +210,9 @@ class NotificationService {
 
     try {
       await _plugin.zonedSchedule(
-        fixtureId, // notification ID — unique per match
-        'FanZone',
-        '$homeTeam vs $awayTeam starts in 15 minutes! Predict now \u2192',
+        id,
+        title,
+        body,
         scheduledDate,
         const NotificationDetails(
           android: AndroidNotificationDetails(
@@ -120,31 +224,36 @@ class NotificationService {
           ),
         ),
         androidScheduleMode: mode,
+        payload: jsonEncode({'route': route}),
       );
       return true;
     } catch (e, st) {
       debugPrint(
-        '[NotificationService] zonedSchedule failed fixture=$fixtureId mode=$mode: $e\n$st',
+        '[NotificationService] zonedSchedule failed id=$id mode=$mode: $e\n$st',
       );
       return false;
     }
   }
 
-  /// Cancel a scheduled match reminder.
-  static Future<void> cancelMatchReminder(int fixtureId) async {
+  /// Cancel both alarms (15-min reminder + at-kickoff) for a given match.
+  static Future<void> cancelMatchAlarms(int fixtureId) async {
     await init();
-    await _plugin.cancel(fixtureId);
+    await _plugin.cancel(matchReminderId(fixtureId));
+    await _plugin.cancel(matchKickoffId(fixtureId));
   }
 
-  /// Returns `true` if a match reminder for [fixtureId] is currently scheduled
-  /// with the OS. The notification plugin stores pending alarms across process
-  /// restarts, so this is the real source of truth — use it when a screen
-  /// needs to render the right button state after being re-opened (otherwise
-  /// a transient `bool` defaults to `false` and the UI forgets the reminder).
+  /// Back-compat wrapper — older call sites still call `cancelMatchReminder`.
+  static Future<void> cancelMatchReminder(int fixtureId) => cancelMatchAlarms(fixtureId);
+
+  /// Returns `true` if EITHER alarm (15-min reminder OR at-kickoff) is
+  /// currently scheduled with the OS. Used by the reminder button on
+  /// Screen 7 to hydrate its toggle state after a remount.
   static Future<bool> isReminderScheduled(int fixtureId) async {
     await init();
     final pending = await _plugin.pendingNotificationRequests();
-    return pending.any((r) => r.id == fixtureId);
+    final reminder = matchReminderId(fixtureId);
+    final kickoff = matchKickoffId(fixtureId);
+    return pending.any((r) => r.id == reminder || r.id == kickoff);
   }
 
   /// Show a notification immediately (for testing).

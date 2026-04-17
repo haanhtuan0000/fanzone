@@ -206,6 +206,13 @@ class _Vi {
   String get matchInfo => 'THÔNG TIN TRẬN ĐẤU';
   String get setReminder => 'Đặt nhắc nhở cho trận này';
   String get reminderSet => 'Đã đặt nhắc nhở!';
+  String get reminderKickoffOnly =>
+      'Chỉ còn giờ bắt đầu được đặt — trận sắp diễn ra';
+  String get notifTitle => 'FanZone';
+  String notifReminder15(String home, String away) =>
+      '$home vs $away bắt đầu sau 15 phút! Vào dự đoán ngay →';
+  String notifKickoff(String home, String away) =>
+      '$home vs $away đang diễn ra! Dự đoán ngay để kiếm xu';
   String get statOnTarget => 'Sút trúng đích';
   String get statFouls => 'Lỗi';
   String get statOffsides => 'Việt vị';
@@ -420,6 +427,13 @@ class _En {
   String get matchInfo => 'MATCH INFO';
   String get setReminder => 'Set reminder for this match';
   String get reminderSet => 'Reminder set!';
+  String get reminderKickoffOnly =>
+      'Only kickoff alert was set — match too soon for a 15-min reminder';
+  String get notifTitle => 'FanZone';
+  String notifReminder15(String home, String away) =>
+      '$home vs $away starts in 15 minutes! Predict now →';
+  String notifKickoff(String home, String away) =>
+      '$home vs $away is live! Predict now to earn coins';
   String get statOnTarget => 'On Target';
   String get statFouls => 'Fouls';
   String get statOffsides => 'Offsides';
