@@ -19,7 +19,10 @@ import '../features/match_detail/screens/match_info_screen.dart';
 import '../core/models/match.dart';
 import '../shared/widgets/bottom_nav_bar.dart';
 
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
+/// Root navigator key, exposed so background handlers (e.g. FCM tap
+/// handler, local-notification tap handler) can navigate via the
+/// router from outside the widget tree.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Listenable that notifies GoRouter when auth state changes
@@ -47,7 +50,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   });
 
   return GoRouter(
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/welcome',
     refreshListenable: authListenable,
     redirect: (context, state) {

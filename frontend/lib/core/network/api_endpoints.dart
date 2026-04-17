@@ -37,4 +37,7 @@ class ApiEndpoints {
 
   // Feed
   static String feed(int fixtureId) => '/feed/$fixtureId';
+
+  // Notifications (FCM device registration)
+  static const String registerDevice = '/notifications/device';
 }

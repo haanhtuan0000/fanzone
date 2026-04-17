@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "136980232261",
+    "project_id": "fanzone-b9cb1",
+    "storage_bucket": "fanzone-b9cb1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:136980232261:android:d60bc39e1fffc2b6290b2c",
+        "android_client_info": {
+          "package_name": "com.uni.fanzone"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "136980232261-qjva0j0mp1m3p5ig5a8po5ddsuf2bvgn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.uni.fanzone",
+            "certificate_hash": "15f7ce3bca0f8ec41d1caa8c629ce8e1ed0c41ac"
+          }
+        },
+        {
+          "client_id": "136980232261-pqk71omcq8bc9fdt7igpq17at1hp4qk4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBKC6I13t0CGDrzxjN7izC2qYK6q-sNPz4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "136980232261-pqk71omcq8bc9fdt7igpq17at1hp4qk4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

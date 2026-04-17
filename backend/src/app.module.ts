@@ -11,6 +11,7 @@ import { WebsocketModule } from './websocket/websocket.module';
 import { CommonModule } from './common/common.module';
 import { MockModule } from './mock/mock.module';
 import { AdminModule } from './admin/admin.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AdminModule } from './admin/admin.module';
     WebsocketModule,
     MockModule,
     AdminModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

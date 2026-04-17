@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart' as gsi;
 import '../../../core/models/user.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/notifications/fcm_service.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../services/auth_service.dart';
@@ -99,6 +100,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     // Token exists — authenticate and finish initializing
     state = state.copyWith(isAuthenticated: true, isOnboarded: onboarded, isInitializing: false);
+    _registerDeviceInBackground();
 
     // Try to refresh the token proactively in background (don't block UI)
     if (refreshToken != null) {
@@ -196,6 +198,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isOnboarded: false,
         isLoading: false,
       );
+      _registerDeviceInBackground();
     } catch (e) {
       final _s = AppStrings.current;
       String error = _s.errorConnection;
@@ -230,6 +233,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isOnboarded: true,
         isLoading: false,
       );
+      _registerDeviceInBackground();
     } catch (e) {
       final _s = AppStrings.current;
       String error = _s.errorConnection;
@@ -271,6 +275,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isOnboarded: true,
         isLoading: false,
       );
+      _registerDeviceInBackground();
     } catch (e, st) {
       // Show actual error for debugging — remove in production
       print('Google Sign-In error: $e');
@@ -291,8 +296,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    await FcmService.instance.unregisterRefreshSubscription();
     await _storage.clearTokens();
     state = const AuthState();
+  }
+
+  /// Ask for push permission and register this device's FCM token with the
+  /// backend so the server can deliver push notifications. Non-blocking —
+  /// failures are logged; the user can still use the app without push.
+  void _registerDeviceInBackground() {
+    final api = _apiClient;
+    if (api == null) return;
+    () async {
+      try {
+        await FcmService.instance.requestPermission();
+        await FcmService.instance.registerWithBackend(api);
+      } catch (_) {
+        // Already logged inside FcmService; swallow here so auth flow
+        // never breaks because of a push-registration hiccup.
+      }
+    }();
   }
 }
 

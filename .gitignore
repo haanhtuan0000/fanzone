@@ -7,3 +7,7 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 .packages
+
+# Firebase admin SDK private key — NEVER commit (contains private_key)
+backend/firebase-service-account.json
+**/firebase-service-account*.json
