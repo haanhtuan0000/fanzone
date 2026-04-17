@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotificationsService } from './notifications.service';
 import { PrismaService } from '../common/prisma.service';
+import { RedisService } from '../common/redis/redis.service';
 
 // Mock firebase-admin module surface so we never touch the network or
 // require a service-account file in unit tests.
@@ -14,6 +15,7 @@ jest.mock('./firebase-admin', () => ({
 describe('NotificationsService', () => {
   let service: NotificationsService;
   let prisma: any;
+  let redis: any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -27,12 +29,31 @@ describe('NotificationsService', () => {
       prediction: {
         findMany: jest.fn(),
       },
+      user: {
+        findMany: jest.fn(),
+      },
+    };
+
+    // Fake Redis that allows up to `limit=3` INCRs per key before blocking.
+    // Shared counter map keeps state across calls in a single test.
+    const counters = new Map<string, number>();
+    redis = {
+      getClient: () => ({
+        incr: jest.fn(async (key: string) => {
+          const n = (counters.get(key) ?? 0) + 1;
+          counters.set(key, n);
+          return n;
+        }),
+      }),
+      expire: jest.fn(async () => {}),
+      __counters: counters,
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: RedisService, useValue: redis },
       ],
     }).compile();
 
@@ -132,6 +153,130 @@ describe('NotificationsService', () => {
         create: { userId: 'u1', fcmToken: 'tok', platform: 'ANDROID' },
         update: { platform: 'ANDROID' },
       });
+    });
+  });
+
+  describe('pushNewQuestion', () => {
+    const question = {
+      id: 'q1',
+      text: 'Who scores next?',
+      fixtureId: 42,
+      rewardCoins: 50,
+      closesAt: new Date(Date.now() + 90_000), // 90s from now
+    };
+
+    it('fans out to distinct users who predicted on the fixture', async () => {
+      prisma.prediction.findMany.mockResolvedValue([
+        { userId: 'u1' },
+        { userId: 'u2' },
+      ]);
+      prisma.userDevice.findMany.mockResolvedValue([{ fcmToken: 'tok' }]);
+      mockSendEachForMulticast.mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      });
+
+      await service.pushNewQuestion(42, question);
+
+      expect(prisma.prediction.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { question: { fixtureId: 42 } },
+          distinct: ['userId'],
+        }),
+      );
+      // Each of u1, u2 triggers one multicast call.
+      expect(mockSendEachForMulticast).toHaveBeenCalledTimes(2);
+    });
+
+    it('skips users who exceeded per-match quota of 3 pushes', async () => {
+      // 1 user, but pre-seed quota at 3 so the INCR to 4 fails the gate.
+      redis.__counters.set('fcm:q:u:u1:f:42', 3);
+      prisma.prediction.findMany.mockResolvedValue([{ userId: 'u1' }]);
+
+      await service.pushNewQuestion(42, question);
+
+      expect(mockSendEachForMulticast).not.toHaveBeenCalled();
+    });
+
+    it('no-op when zero users are watching the fixture', async () => {
+      prisma.prediction.findMany.mockResolvedValue([]);
+      await service.pushNewQuestion(42, question);
+      expect(mockSendEachForMulticast).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('pushPredictionResult', () => {
+    const question = { id: 'q1', text: 'Who scores?', fixtureId: 42 };
+
+    it('sends correct-type payload when isCorrect=true', async () => {
+      prisma.userDevice.findMany.mockResolvedValue([{ fcmToken: 'tok' }]);
+      mockSendEachForMulticast.mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      });
+
+      await service.pushPredictionResult('u1', question, true, 100, 1500);
+
+      expect(mockSendEachForMulticast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: 'correct',
+            coins: '100',
+            dailyTotal: '1500',
+            route: '/predict',
+          }),
+        }),
+      );
+    });
+
+    it('sends wrong-type payload when isCorrect=false', async () => {
+      prisma.userDevice.findMany.mockResolvedValue([{ fcmToken: 'tok' }]);
+      mockSendEachForMulticast.mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      });
+
+      await service.pushPredictionResult('u1', question, false, 50, 1200);
+
+      expect(mockSendEachForMulticast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ type: 'wrong', coins: '50' }),
+        }),
+      );
+    });
+  });
+
+  describe('pushQuestionTimeout', () => {
+    it('targets users who watched fixture but did NOT answer this question', async () => {
+      const question = {
+        id: 'q2',
+        text: 'VAR called?',
+        fixtureId: 42,
+        rewardCoins: 50,
+        closesAt: new Date(),
+      };
+      prisma.user.findMany.mockResolvedValue([{ id: 'u3' }]);
+      prisma.userDevice.findMany.mockResolvedValue([{ fcmToken: 'tok' }]);
+      mockSendEachForMulticast.mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      });
+
+      await service.pushQuestionTimeout(42, question);
+
+      expect(prisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            predictions: { some: { question: { fixtureId: 42 } } },
+            NOT: { predictions: { some: { questionId: 'q2' } } },
+          }),
+        }),
+      );
+      expect(mockSendEachForMulticast).toHaveBeenCalledTimes(1);
     });
   });
 });

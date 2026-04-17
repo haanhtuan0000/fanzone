@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/router.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
+import 'in_app_toast.dart';
 
 /// Thin wrapper around [FirebaseMessaging.instance] that keeps the
 /// platform-channel surface small and mockable. Stage 1 only exposes
@@ -49,12 +50,12 @@ class FcmService {
   /// on reinstall, app-data clear, or server-side invalidation).
   Stream<String> tokenRefreshes() => FirebaseMessaging.instance.onTokenRefresh;
 
-  /// Hook foreground messages (app is open). In Stage 1 we just log;
-  /// Stages 3–4 will dispatch typed in-app toasts here.
+  /// Hook foreground messages (app is open). FCM suppresses the tray
+  /// entry while the app is foreground, so we render an in-app toast
+  /// based on `data.type`. A malformed payload is logged and ignored —
+  /// a future backend type we don't recognise must never crash the app.
   void startListening() {
-    _foregroundSub ??= FirebaseMessaging.onMessage.listen((msg) {
-      debugPrint('[FCM] foreground: ${msg.notification?.title} — data=${msg.data}');
-    });
+    _foregroundSub ??= FirebaseMessaging.onMessage.listen(_handleForeground);
 
     // App opened from a background-state notification tap
     _tapSub ??= FirebaseMessaging.onMessageOpenedApp.listen(_handleTap);
@@ -63,6 +64,42 @@ class FcmService {
     FirebaseMessaging.instance.getInitialMessage().then((m) {
       if (m != null) _handleTap(m);
     });
+  }
+
+  void _handleForeground(RemoteMessage msg) {
+    final data = msg.data;
+    final type = data['type'];
+    try {
+      switch (type) {
+        case 'new_question':
+          InAppToast.newQuestion(
+            questionText: data['questionText'] ?? '',
+            seconds: int.tryParse(data['seconds'] ?? '') ?? 0,
+            reward: int.tryParse(data['rewardCoins'] ?? '') ?? 0,
+          );
+          break;
+        case 'correct':
+          InAppToast.correct(
+            questionText: data['questionText'] ?? '',
+            coins: int.tryParse(data['coins'] ?? '') ?? 0,
+            dailyTotal: int.tryParse(data['dailyTotal'] ?? '') ?? 0,
+          );
+          break;
+        case 'wrong':
+          InAppToast.wrong(
+            questionText: data['questionText'] ?? '',
+            coins: int.tryParse(data['coins'] ?? '') ?? 0,
+          );
+          break;
+        case 'timeout':
+          InAppToast.timeout(questionText: data['questionText'] ?? '');
+          break;
+        default:
+          debugPrint('[FCM] foreground: unknown type=$type data=$data');
+      }
+    } catch (e) {
+      debugPrint('[FCM] foreground dispatch failed for type=$type: $e');
+    }
   }
 
   void stopListening() {

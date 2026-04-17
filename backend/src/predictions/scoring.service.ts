@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
 import { UsersService } from '../users/users.service';
 import { AchievementService } from '../users/achievement.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ScoringService {
@@ -13,6 +14,7 @@ export class ScoringService {
     private redis: RedisService,
     private usersService: UsersService,
     private achievementService: AchievementService,
+    private notifications: NotificationsService,
   ) {}
 
   async scoreQuestion(questionId: string, correctOptionId: string) {
@@ -141,6 +143,19 @@ export class ScoringService {
             coinsDelta: coinsResult,
           },
         });
+      }
+
+      // Group 2 push (spec §9.2): "correct" or "wrong" notification to the
+      // user whose prediction was just scored. Fire-and-forget so FCM
+      // latency doesn't hold up the scoring loop.
+      if (question) {
+        void this.notifications.pushPredictionResult(
+          prediction.userId,
+          { id: question.id, text: question.text, fixtureId: question.fixtureId },
+          isCorrect,
+          Math.abs(coinsResult),
+          user.coins,
+        );
       }
 
       results.push({ userId: prediction.userId, isCorrect, coinsResult, xpEarned });

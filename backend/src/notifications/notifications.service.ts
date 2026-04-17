@@ -1,14 +1,34 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { RedisService } from '../common/redis/redis.service';
 import { getFirebaseAdmin } from './firebase-admin';
+import { tryIncrementQuestionQuota } from './notification-quota';
+import {
+  correctText,
+  newQuestionText,
+  timeoutText,
+  wrongText,
+} from './notification-templates';
 
 type SendResult = { sent: number; failed: number };
+
+/** Minimal question shape needed for push text/payload. */
+interface PushableQuestion {
+  id: string;
+  text: string;
+  fixtureId: number;
+  rewardCoins: number;
+  closesAt: Date;
+}
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private redis: RedisService,
+  ) {}
 
   /**
    * Push a notification to every device registered to [userId]. Returns
@@ -95,6 +115,123 @@ export class NotificationsService {
     await this.prisma.userDevice.deleteMany({
       where: { userId, fcmToken },
     });
+  }
+
+  // ── Group 2: question-lifecycle pushes (spec §9.2) ────────────────────────
+  //
+  // All three methods are fire-and-forget from the caller's POV — failures
+  // are logged but never thrown, so a bad push can't abort scoring or
+  // question-open transactions. Per §9.5, each recipient is gated by
+  // `tryIncrementQuestionQuota` so no user gets more than 3 question-event
+  // pushes per match (Stage 5 adds per-group opt-outs).
+
+  /** Broadcast "new question" to every user who has predicted on [fixtureId]. */
+  async pushNewQuestion(fixtureId: number, question: PushableQuestion): Promise<void> {
+    try {
+      const seconds = Math.max(0, Math.floor((question.closesAt.getTime() - Date.now()) / 1000));
+      const { title, body } = newQuestionText(question.text, seconds, question.rewardCoins);
+      const data = this.questionData('new_question', fixtureId, question, {
+        seconds: String(seconds),
+        rewardCoins: String(question.rewardCoins),
+      });
+
+      const watchers = await this.prisma.prediction.findMany({
+        where: { question: { fixtureId } },
+        select: { userId: true },
+        distinct: ['userId'],
+      });
+
+      await this.sendFanOutWithQuota(watchers.map((w) => w.userId), fixtureId, title, body, data);
+    } catch (e) {
+      this.logger.error(`pushNewQuestion failed fixture=${fixtureId}: ${(e as Error).message}`);
+    }
+  }
+
+  /** Targeted push: one user, the result of one of their predictions. */
+  async pushPredictionResult(
+    userId: string,
+    question: { id: string; text: string; fixtureId: number },
+    isCorrect: boolean,
+    coinsDelta: number,
+    dailyTotal: number,
+  ): Promise<void> {
+    try {
+      const { title, body } = isCorrect
+        ? correctText(question.text, coinsDelta, dailyTotal)
+        : wrongText(question.text, coinsDelta);
+      const data = this.questionData(
+        isCorrect ? 'correct' : 'wrong',
+        question.fixtureId,
+        { id: question.id, text: question.text },
+        { coins: String(coinsDelta), dailyTotal: String(dailyTotal) },
+      );
+
+      const gate = await tryIncrementQuestionQuota(this.redis, userId, question.fixtureId);
+      if (!gate.allowed) {
+        this.logger.log(`push blocked (quota) user=${userId} fixture=${question.fixtureId} n=${gate.current}`);
+        return;
+      }
+      await this.sendToUser(userId, title, body, data);
+    } catch (e) {
+      this.logger.error(`pushPredictionResult failed user=${userId} q=${question.id}: ${(e as Error).message}`);
+    }
+  }
+
+  /** Fan-out "time's up" to users who watched the fixture but skipped this question. */
+  async pushQuestionTimeout(fixtureId: number, question: PushableQuestion): Promise<void> {
+    try {
+      const { title, body } = timeoutText(question.text);
+      const data = this.questionData('timeout', fixtureId, question);
+
+      // Users who had >=1 prediction on this fixture but NONE on this question.
+      const users = await this.prisma.user.findMany({
+        where: {
+          predictions: { some: { question: { fixtureId } } },
+          NOT: { predictions: { some: { questionId: question.id } } },
+        },
+        select: { id: true },
+      });
+
+      await this.sendFanOutWithQuota(users.map((u) => u.id), fixtureId, title, body, data);
+    } catch (e) {
+      this.logger.error(`pushQuestionTimeout failed fixture=${fixtureId}: ${(e as Error).message}`);
+    }
+  }
+
+  /** Shared fan-out with per-(user,fixture) quota gate. Skipped users are logged. */
+  private async sendFanOutWithQuota(
+    userIds: string[],
+    fixtureId: number,
+    title: string,
+    body: string,
+    data: Record<string, string>,
+  ): Promise<void> {
+    for (const userId of userIds) {
+      const gate = await tryIncrementQuestionQuota(this.redis, userId, fixtureId);
+      if (!gate.allowed) {
+        this.logger.log(`push blocked (quota) user=${userId} fixture=${fixtureId} n=${gate.current}`);
+        continue;
+      }
+      await this.sendToUser(userId, title, body, data);
+    }
+  }
+
+  /** Build the `data` payload shared by every question-event push. All values
+   *  must be strings per the FCM HTTP v1 spec. */
+  private questionData(
+    type: 'new_question' | 'correct' | 'wrong' | 'timeout',
+    fixtureId: number,
+    question: { id: string; text: string },
+    extra: Record<string, string> = {},
+  ): Record<string, string> {
+    return {
+      type,
+      route: '/predict',
+      fixtureId: String(fixtureId),
+      questionId: question.id,
+      questionText: question.text,
+      ...extra,
+    };
   }
 }
 

@@ -7,6 +7,7 @@ import { WebsocketGateway } from '../websocket/websocket.gateway';
 import { QuestionResolverService } from '../questions/question-resolver.service';
 import { QuestionGeneratorService } from '../questions/question-generator.service';
 import { QuestionsService } from '../questions/questions.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ScheduleTracker } from './schedule-tracker';
 import { PollBudgetService } from './poll-budget.service';
 import { TRACKED_LEAGUE_IDS, PRIORITY_LEAGUE_IDS } from './leagues.config';
@@ -55,6 +56,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
     private questionResolver: QuestionResolverService,
     private questionGenerator: QuestionGeneratorService,
     private questionsService: QuestionsService,
+    private notifications: NotificationsService,
     private scheduleTracker: ScheduleTracker,
     private budget: PollBudgetService,
     private config: ConfigService,
@@ -522,6 +524,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
             text: opened.text,
             category: opened.category,
           });
+          void this.notifications.pushNewQuestion(id, opened);
         }
       }
     }
@@ -598,6 +601,7 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
                 text: question.text,
                 category: question.category,
               });
+              void this.notifications.pushNewQuestion(id, question);
             }
           }
         }
@@ -636,6 +640,11 @@ export class MatchDataManager implements OnModuleInit, OnModuleDestroy {
         await this.questionResolver.resolveTimedOut(
           question.fixtureId, question, correctOptionId,
         );
+
+        // Group 2 push (spec §9.2 "Hết giờ chưa chọn"): notify users who were
+        // watching this fixture but did NOT submit a prediction on this
+        // specific question. Fire-and-forget.
+        void this.notifications.pushQuestionTimeout(question.fixtureId, question);
 
         // Refresh hasActiveQuestions since resolveQuestion may have opened a new PENDING
         const state = this.matchStates.get(question.fixtureId);
