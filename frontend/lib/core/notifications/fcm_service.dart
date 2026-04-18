@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -147,11 +147,28 @@ class FcmService {
     try {
       await api.post(
         ApiEndpoints.registerDevice,
-        data: {'fcmToken': token, 'platform': 'ANDROID'},
+        data: {
+          'fcmToken': token,
+          'platform': 'ANDROID',
+          'locale': _currentLocale(),
+        },
       );
       debugPrint('[FcmService] registered device with backend');
     } catch (e) {
       debugPrint('[FcmService] device registration failed: $e');
+    }
+  }
+
+  /// Two-valued locale for push rendering. Mirrors the VI/EN branches
+  /// the server-side template bank supports; any device whose system
+  /// language isn't Vietnamese gets the English body (safer than a
+  /// third language the server would silently fall back to VI on).
+  String _currentLocale() {
+    try {
+      final code = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+      return code == 'vi' ? 'vi' : 'en';
+    } catch (_) {
+      return 'vi';
     }
   }
 }

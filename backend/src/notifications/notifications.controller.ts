@@ -10,7 +10,7 @@ export class NotificationsController {
 
   @Post('device')
   async register(@Request() req: any, @Body() dto: RegisterDeviceDto) {
-    return this.svc.registerDevice(req.user.id, dto.fcmToken, dto.platform);
+    return this.svc.registerDevice(req.user.id, dto.fcmToken, dto.platform, dto.locale);
   }
 
   @Delete('device')

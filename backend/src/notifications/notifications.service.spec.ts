@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotificationsService } from './notifications.service';
+import { NotificationsService, NotifKind } from './notifications.service';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
 
@@ -11,6 +11,8 @@ jest.mock('./firebase-admin', () => ({
     messaging: () => ({ sendEachForMulticast: mockSendEachForMulticast }),
   }),
 }));
+
+const rawHello: NotifKind = { type: 'raw', title: 'hello', body: 'world' };
 
 describe('NotificationsService', () => {
   let service: NotificationsService;
@@ -63,15 +65,15 @@ describe('NotificationsService', () => {
   describe('sendToUser', () => {
     it('returns {sent:0,failed:0} when user has no devices', async () => {
       prisma.userDevice.findMany.mockResolvedValue([]);
-      const res = await service.sendToUser('u1', 't', 'b');
+      const res = await service.sendToUser('u1', rawHello);
       expect(res).toEqual({ sent: 0, failed: 0 });
       expect(mockSendEachForMulticast).not.toHaveBeenCalled();
     });
 
-    it('forwards title+body+data to multicast and returns counts', async () => {
+    it('forwards a raw notif to multicast and returns counts', async () => {
       prisma.userDevice.findMany.mockResolvedValue([
-        { fcmToken: 'tok1' },
-        { fcmToken: 'tok2' },
+        { fcmToken: 'tok1', locale: 'vi' },
+        { fcmToken: 'tok2', locale: 'vi' },
       ]);
       mockSendEachForMulticast.mockResolvedValue({
         successCount: 2,
@@ -79,7 +81,7 @@ describe('NotificationsService', () => {
         responses: [{ success: true }, { success: true }],
       });
 
-      const res = await service.sendToUser('u1', 'hello', 'world', { route: '/x' });
+      const res = await service.sendToUser('u1', rawHello, { route: '/x' });
 
       expect(mockSendEachForMulticast).toHaveBeenCalledWith({
         tokens: ['tok1', 'tok2'],
@@ -91,8 +93,8 @@ describe('NotificationsService', () => {
 
     it('prunes tokens that FCM marks as permanently unregistered', async () => {
       prisma.userDevice.findMany.mockResolvedValue([
-        { fcmToken: 'good' },
-        { fcmToken: 'dead' },
+        { fcmToken: 'good', locale: 'vi' },
+        { fcmToken: 'dead', locale: 'vi' },
       ]);
       mockSendEachForMulticast.mockResolvedValue({
         successCount: 1,
@@ -106,7 +108,7 @@ describe('NotificationsService', () => {
         ],
       });
 
-      await service.sendToUser('u1', 't', 'b');
+      await service.sendToUser('u1', rawHello);
 
       expect(prisma.userDevice.deleteMany).toHaveBeenCalledWith({
         where: { fcmToken: { in: ['dead'] } },
@@ -114,7 +116,9 @@ describe('NotificationsService', () => {
     });
 
     it('does NOT prune on transient/unknown error codes', async () => {
-      prisma.userDevice.findMany.mockResolvedValue([{ fcmToken: 'tok' }]);
+      prisma.userDevice.findMany.mockResolvedValue([
+        { fcmToken: 'tok', locale: 'vi' },
+      ]);
       mockSendEachForMulticast.mockResolvedValue({
         successCount: 0,
         failureCount: 1,
@@ -126,33 +130,68 @@ describe('NotificationsService', () => {
         ],
       });
 
-      await service.sendToUser('u1', 't', 'b');
+      await service.sendToUser('u1', rawHello);
 
       expect(prisma.userDevice.deleteMany).not.toHaveBeenCalled();
     });
 
     it('swallows FCM exceptions and reports all as failed', async () => {
       prisma.userDevice.findMany.mockResolvedValue([
-        { fcmToken: 'tok1' },
-        { fcmToken: 'tok2' },
+        { fcmToken: 'tok1', locale: 'vi' },
+        { fcmToken: 'tok2', locale: 'vi' },
       ]);
       mockSendEachForMulticast.mockRejectedValue(new Error('network down'));
 
-      const res = await service.sendToUser('u1', 't', 'b');
+      const res = await service.sendToUser('u1', rawHello);
 
       expect(res).toEqual({ sent: 0, failed: 2 });
+    });
+
+    it('splits into one multicast per device locale (mixed VI+EN)', async () => {
+      // Two devices on same user — different system languages.
+      prisma.userDevice.findMany.mockResolvedValue([
+        { fcmToken: 'phone_vi', locale: 'vi' },
+        { fcmToken: 'tablet_en', locale: 'en' },
+      ]);
+      mockSendEachForMulticast.mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      });
+
+      await service.sendToUser(
+        'u1',
+        { type: 'correct', text: 'VAR?', coins: 100, dailyTotal: 1500 },
+      );
+
+      expect(mockSendEachForMulticast).toHaveBeenCalledTimes(2);
+      const calls = mockSendEachForMulticast.mock.calls;
+      const bodies = calls.map((c) => c[0].notification.body);
+      expect(bodies.some((b) => b.includes('Chính xác'))).toBe(true);
+      expect(bodies.some((b) => b.includes('Correct!'))).toBe(true);
     });
   });
 
   describe('registerDevice', () => {
-    it('upserts on (userId, fcmToken) with the given platform', async () => {
+    it('upserts with the given platform + normalised locale', async () => {
       prisma.userDevice.upsert.mockResolvedValue({});
-      await service.registerDevice('u1', 'tok', 'ANDROID');
+      await service.registerDevice('u1', 'tok', 'ANDROID', 'en');
       expect(prisma.userDevice.upsert).toHaveBeenCalledWith({
         where: { userId_fcmToken: { userId: 'u1', fcmToken: 'tok' } },
-        create: { userId: 'u1', fcmToken: 'tok', platform: 'ANDROID' },
-        update: { platform: 'ANDROID' },
+        create: { userId: 'u1', fcmToken: 'tok', platform: 'ANDROID', locale: 'en' },
+        update: { platform: 'ANDROID', locale: 'en' },
       });
+    });
+
+    it('falls back to vi when no locale is supplied (older clients)', async () => {
+      prisma.userDevice.upsert.mockResolvedValue({});
+      await service.registerDevice('u1', 'tok', 'ANDROID');
+      expect(prisma.userDevice.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ locale: 'vi' }),
+          update: expect.objectContaining({ locale: 'vi' }),
+        }),
+      );
     });
   });
 
@@ -170,7 +209,9 @@ describe('NotificationsService', () => {
         { userId: 'u1' },
         { userId: 'u2' },
       ]);
-      prisma.userDevice.findMany.mockResolvedValue([{ fcmToken: 'tok' }]);
+      prisma.userDevice.findMany.mockResolvedValue([
+        { fcmToken: 'tok', locale: 'vi' },
+      ]);
       mockSendEachForMulticast.mockResolvedValue({
         successCount: 1,
         failureCount: 0,
@@ -190,7 +231,6 @@ describe('NotificationsService', () => {
     });
 
     it('skips users who exceeded per-match quota of 3 pushes', async () => {
-      // 1 user, but pre-seed quota at 3 so the INCR to 4 fails the gate.
       redis.__counters.set('fcm:q:u:u1:f:42', 3);
       prisma.prediction.findMany.mockResolvedValue([{ userId: 'u1' }]);
 
@@ -210,7 +250,9 @@ describe('NotificationsService', () => {
     const question = { id: 'q1', text: 'Who scores?', fixtureId: 42 };
 
     it('sends correct-type payload when isCorrect=true', async () => {
-      prisma.userDevice.findMany.mockResolvedValue([{ fcmToken: 'tok' }]);
+      prisma.userDevice.findMany.mockResolvedValue([
+        { fcmToken: 'tok', locale: 'vi' },
+      ]);
       mockSendEachForMulticast.mockResolvedValue({
         successCount: 1,
         failureCount: 0,
@@ -232,7 +274,9 @@ describe('NotificationsService', () => {
     });
 
     it('sends wrong-type payload when isCorrect=false', async () => {
-      prisma.userDevice.findMany.mockResolvedValue([{ fcmToken: 'tok' }]);
+      prisma.userDevice.findMany.mockResolvedValue([
+        { fcmToken: 'tok', locale: 'vi' },
+      ]);
       mockSendEachForMulticast.mockResolvedValue({
         successCount: 1,
         failureCount: 0,
@@ -259,7 +303,9 @@ describe('NotificationsService', () => {
         closesAt: new Date(),
       };
       prisma.user.findMany.mockResolvedValue([{ id: 'u3' }]);
-      prisma.userDevice.findMany.mockResolvedValue([{ fcmToken: 'tok' }]);
+      prisma.userDevice.findMany.mockResolvedValue([
+        { fcmToken: 'tok', locale: 'vi' },
+      ]);
       mockSendEachForMulticast.mockResolvedValue({
         successCount: 1,
         failureCount: 0,

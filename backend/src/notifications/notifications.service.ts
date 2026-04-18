@@ -5,7 +5,10 @@ import { getFirebaseAdmin } from './firebase-admin';
 import { tryIncrementQuestionQuota } from './notification-quota';
 import {
   correctText,
+  Locale,
   newQuestionText,
+  NotifText,
+  pickLocale,
   timeoutText,
   wrongText,
 } from './notification-templates';
@@ -21,6 +24,19 @@ interface PushableQuestion {
   closesAt: Date;
 }
 
+/**
+ * Tagged union describing a push to send. The dispatcher picks the
+ * right template per recipient's device locale, so callers stay
+ * locale-agnostic. `raw` is an escape hatch for ad-hoc pushes (e.g.
+ * from admin tools) that don't need localisation.
+ */
+export type NotifKind =
+  | { type: 'new_question'; text: string; seconds: number; reward: number }
+  | { type: 'correct'; text: string; coins: number; dailyTotal: number }
+  | { type: 'wrong'; text: string; coins: number }
+  | { type: 'timeout'; text: string }
+  | { type: 'raw'; title: string; body: string };
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -31,60 +47,76 @@ export class NotificationsService {
   ) {}
 
   /**
-   * Push a notification to every device registered to [userId]. Returns
-   * per-call success/failure counts and silently prunes tokens that FCM
-   * marks as permanently invalid (app uninstalled, token rotated) so the
+   * Push a notification to every device registered to [userId]. The
+   * body is rendered per-device: a user with one VI phone and one EN
+   * phone gets two multicasts, each in the correct language. Silently
+   * prunes tokens that FCM marks as permanently invalid so the
    * `UserDevice` table stays clean without a separate cleanup job.
-   *
-   * Data-only payloads are supported by leaving `title` and/or `body`
-   * empty — FCM will deliver them for the app to render in-foreground.
    */
   async sendToUser(
     userId: string,
-    title: string,
-    body: string,
+    kind: NotifKind,
     data: Record<string, string> = {},
   ): Promise<SendResult> {
     const devices = await this.prisma.userDevice.findMany({ where: { userId } });
     if (devices.length === 0) return { sent: 0, failed: 0 };
 
-    const tokens = devices.map((d) => d.fcmToken);
+    // Group devices by locale so one multicast per language keeps
+    // the body consistent across its recipients.
+    const byLocale = new Map<Locale, string[]>();
+    for (const d of devices) {
+      const locale = pickLocale(d.locale);
+      const arr = byLocale.get(locale);
+      if (arr) arr.push(d.fcmToken);
+      else byLocale.set(locale, [d.fcmToken]);
+    }
+
+    let sent = 0;
+    let failed = 0;
     try {
       const messaging = getFirebaseAdmin().messaging();
-      const res = await messaging.sendEachForMulticast({
-        tokens,
-        notification: { title, body },
-        data,
-      });
+      for (const [locale, tokens] of byLocale) {
+        const text = this.render(kind, locale);
+        const res = await messaging.sendEachForMulticast({
+          tokens,
+          notification: { title: text.title, body: text.body },
+          data,
+        });
 
-      const invalid: string[] = [];
-      res.responses.forEach((r, i) => {
-        if (!r.success && isPermanentTokenError(r.error?.code)) {
-          invalid.push(tokens[i]);
+        const invalid: string[] = [];
+        res.responses.forEach((r, i) => {
+          if (!r.success && isPermanentTokenError(r.error?.code)) {
+            invalid.push(tokens[i]);
+          }
+        });
+        if (invalid.length) {
+          await this.prisma.userDevice.deleteMany({
+            where: { fcmToken: { in: invalid } },
+          });
+          this.logger.log(
+            `Pruned ${invalid.length} dead FCM token(s) for user ${userId}`,
+          );
         }
-      });
-      if (invalid.length) {
-        await this.prisma.userDevice.deleteMany({ where: { fcmToken: { in: invalid } } });
-        this.logger.log(`Pruned ${invalid.length} dead FCM token(s) for user ${userId}`);
-      }
 
-      return { sent: res.successCount, failed: res.failureCount };
+        sent += res.successCount;
+        failed += res.failureCount;
+      }
+      return { sent, failed };
     } catch (e) {
-      this.logger.error(`FCM send failed for user ${userId}: ${(e as Error).message}`);
-      return { sent: 0, failed: tokens.length };
+      this.logger.error(
+        `FCM send failed for user ${userId}: ${(e as Error).message}`,
+      );
+      return { sent: 0, failed: devices.length };
     }
   }
 
   /**
-   * Broadcast to all users who have predicted on [fixtureId]. Useful for
-   * "match kickoff" / "FT summary" / "new question" pushes in later
-   * stages. Uses an in-memory fan-out over [sendToUser] so per-user
-   * pruning stays correct and quota logic (Stage 5) applies.
+   * Broadcast to all users who have predicted on [fixtureId]. Per-user
+   * locale dispatch happens inside `sendToUser`.
    */
   async sendToMatchWatchers(
     fixtureId: number,
-    title: string,
-    body: string,
+    kind: NotifKind,
     data: Record<string, string> = {},
   ): Promise<SendResult> {
     const predictions = await this.prisma.prediction.findMany({
@@ -96,18 +128,24 @@ export class NotificationsService {
     let sent = 0;
     let failed = 0;
     for (const p of predictions) {
-      const r = await this.sendToUser(p.userId, title, body, data);
+      const r = await this.sendToUser(p.userId, kind, data);
       sent += r.sent;
       failed += r.failed;
     }
     return { sent, failed };
   }
 
-  async registerDevice(userId: string, fcmToken: string, platform: 'ANDROID' | 'IOS') {
+  async registerDevice(
+    userId: string,
+    fcmToken: string,
+    platform: 'ANDROID' | 'IOS',
+    locale?: string,
+  ) {
+    const normalised = pickLocale(locale);
     return this.prisma.userDevice.upsert({
       where: { userId_fcmToken: { userId, fcmToken } },
-      create: { userId, fcmToken, platform },
-      update: { platform },
+      create: { userId, fcmToken, platform, locale: normalised },
+      update: { platform, locale: normalised },
     });
   }
 
@@ -128,8 +166,16 @@ export class NotificationsService {
   /** Broadcast "new question" to every user who has predicted on [fixtureId]. */
   async pushNewQuestion(fixtureId: number, question: PushableQuestion): Promise<void> {
     try {
-      const seconds = Math.max(0, Math.floor((question.closesAt.getTime() - Date.now()) / 1000));
-      const { title, body } = newQuestionText(question.text, seconds, question.rewardCoins);
+      const seconds = Math.max(
+        0,
+        Math.floor((question.closesAt.getTime() - Date.now()) / 1000),
+      );
+      const kind: NotifKind = {
+        type: 'new_question',
+        text: question.text,
+        seconds,
+        reward: question.rewardCoins,
+      };
       const data = this.questionData('new_question', fixtureId, question, {
         seconds: String(seconds),
         rewardCoins: String(question.rewardCoins),
@@ -141,9 +187,16 @@ export class NotificationsService {
         distinct: ['userId'],
       });
 
-      await this.sendFanOutWithQuota(watchers.map((w) => w.userId), fixtureId, title, body, data);
+      await this.sendFanOutWithQuota(
+        watchers.map((w) => w.userId),
+        fixtureId,
+        kind,
+        data,
+      );
     } catch (e) {
-      this.logger.error(`pushNewQuestion failed fixture=${fixtureId}: ${(e as Error).message}`);
+      this.logger.error(
+        `pushNewQuestion failed fixture=${fixtureId}: ${(e as Error).message}`,
+      );
     }
   }
 
@@ -156,9 +209,9 @@ export class NotificationsService {
     dailyTotal: number,
   ): Promise<void> {
     try {
-      const { title, body } = isCorrect
-        ? correctText(question.text, coinsDelta, dailyTotal)
-        : wrongText(question.text, coinsDelta);
+      const kind: NotifKind = isCorrect
+        ? { type: 'correct', text: question.text, coins: coinsDelta, dailyTotal }
+        : { type: 'wrong', text: question.text, coins: coinsDelta };
       const data = this.questionData(
         isCorrect ? 'correct' : 'wrong',
         question.fixtureId,
@@ -166,21 +219,32 @@ export class NotificationsService {
         { coins: String(coinsDelta), dailyTotal: String(dailyTotal) },
       );
 
-      const gate = await tryIncrementQuestionQuota(this.redis, userId, question.fixtureId);
+      const gate = await tryIncrementQuestionQuota(
+        this.redis,
+        userId,
+        question.fixtureId,
+      );
       if (!gate.allowed) {
-        this.logger.log(`push blocked (quota) user=${userId} fixture=${question.fixtureId} n=${gate.current}`);
+        this.logger.log(
+          `push blocked (quota) user=${userId} fixture=${question.fixtureId} n=${gate.current}`,
+        );
         return;
       }
-      await this.sendToUser(userId, title, body, data);
+      await this.sendToUser(userId, kind, data);
     } catch (e) {
-      this.logger.error(`pushPredictionResult failed user=${userId} q=${question.id}: ${(e as Error).message}`);
+      this.logger.error(
+        `pushPredictionResult failed user=${userId} q=${question.id}: ${(e as Error).message}`,
+      );
     }
   }
 
   /** Fan-out "time's up" to users who watched the fixture but skipped this question. */
-  async pushQuestionTimeout(fixtureId: number, question: PushableQuestion): Promise<void> {
+  async pushQuestionTimeout(
+    fixtureId: number,
+    question: PushableQuestion,
+  ): Promise<void> {
     try {
-      const { title, body } = timeoutText(question.text);
+      const kind: NotifKind = { type: 'timeout', text: question.text };
       const data = this.questionData('timeout', fixtureId, question);
 
       // Users who had >=1 prediction on this fixture but NONE on this question.
@@ -192,9 +256,16 @@ export class NotificationsService {
         select: { id: true },
       });
 
-      await this.sendFanOutWithQuota(users.map((u) => u.id), fixtureId, title, body, data);
+      await this.sendFanOutWithQuota(
+        users.map((u) => u.id),
+        fixtureId,
+        kind,
+        data,
+      );
     } catch (e) {
-      this.logger.error(`pushQuestionTimeout failed fixture=${fixtureId}: ${(e as Error).message}`);
+      this.logger.error(
+        `pushQuestionTimeout failed fixture=${fixtureId}: ${(e as Error).message}`,
+      );
     }
   }
 
@@ -202,17 +273,18 @@ export class NotificationsService {
   private async sendFanOutWithQuota(
     userIds: string[],
     fixtureId: number,
-    title: string,
-    body: string,
+    kind: NotifKind,
     data: Record<string, string>,
   ): Promise<void> {
     for (const userId of userIds) {
       const gate = await tryIncrementQuestionQuota(this.redis, userId, fixtureId);
       if (!gate.allowed) {
-        this.logger.log(`push blocked (quota) user=${userId} fixture=${fixtureId} n=${gate.current}`);
+        this.logger.log(
+          `push blocked (quota) user=${userId} fixture=${fixtureId} n=${gate.current}`,
+        );
         continue;
       }
-      await this.sendToUser(userId, title, body, data);
+      await this.sendToUser(userId, kind, data);
     }
   }
 
@@ -232,6 +304,21 @@ export class NotificationsService {
       questionText: question.text,
       ...extra,
     };
+  }
+
+  private render(kind: NotifKind, locale: Locale): NotifText {
+    switch (kind.type) {
+      case 'new_question':
+        return newQuestionText(locale, kind.text, kind.seconds, kind.reward);
+      case 'correct':
+        return correctText(locale, kind.text, kind.coins, kind.dailyTotal);
+      case 'wrong':
+        return wrongText(locale, kind.text, kind.coins);
+      case 'timeout':
+        return timeoutText(locale, kind.text);
+      case 'raw':
+        return { title: kind.title, body: kind.body };
+    }
   }
 }
 

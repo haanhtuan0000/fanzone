@@ -1,18 +1,22 @@
 /**
- * Server-side Vietnamese notification text templates (spec §9.2 table 32).
+ * Server-side notification text templates (spec §9.2 table 32).
  *
- * Stage 3 is VN-only — the app's primary audience is Vietnam. Stage 5
- * will add locale-aware dispatch keyed off a (future) User.locale column
- * plus the existing `Accept-Language` detection in QuestionsController.
+ * Locale-aware since Stage 3.5: each top-level function takes a
+ * normalised [Locale] and returns the matching body. The client passes
+ * its device locale on `/notifications/device` registration and the
+ * server stores it on `UserDevice`; dispatch picks the template per
+ * device when fanning out a multicast.
  *
- * Each template returns { title, body } ready for `admin.messaging().send()`
- * and a `type` string for the client-side data.type dispatch. Emojis live
- * in the body (title stays literal "FanZone") so OS notification-tray
- * rendering stays consistent — matches the pattern set by Stage 2 local
- * match-reminder text.
+ * Emoji prefixes live in the body (title stays literal "FanZone") so
+ * OS notification-tray rendering stays consistent — matches the
+ * pattern set by Stage 2 local match-reminder text.
+ *
+ * Adding a new language = add one block to [TEMPLATES] + one arm in
+ * [pickLocale]; the switch above the ternary has no else-if chain.
  */
 
 export type NotifType = 'new_question' | 'correct' | 'wrong' | 'timeout';
+export type Locale = 'vi' | 'en';
 
 export interface NotifText {
   title: string;
@@ -21,30 +25,64 @@ export interface NotifText {
 
 const TITLE = 'FanZone';
 
-export function newQuestionText(text: string, seconds: number, reward: number): NotifText {
-  return {
-    title: TITLE,
-    body: `⚡ Câu hỏi mới: ${text} · ${seconds}s để trả lời · +${reward}🪙`,
-  };
+const TEMPLATES = {
+  vi: {
+    newQuestion: (t: string, s: number, r: number) =>
+      `⚡ Câu hỏi mới: ${t} · ${s}s để trả lời · +${r}🪙`,
+    correct: (t: string, c: number, d: number) =>
+      `🎯 Chính xác! ${t} · +${c}🪙 · Tổng: ${d}🪙 hôm nay`,
+    wrong: (t: string, c: number) =>
+      `❌ Tiếc quá! ${t} · −${c}🪙 · Thử lại câu tiếp`,
+    timeout: (t: string) =>
+      `⏰ Đã hết giờ cho câu: ${t} · Câu tiếp đang chờ!`,
+  },
+  en: {
+    newQuestion: (t: string, s: number, r: number) =>
+      `⚡ New question: ${t} · ${s}s to answer · +${r}🪙`,
+    correct: (t: string, c: number, d: number) =>
+      `🎯 Correct! ${t} · +${c}🪙 · Today: ${d}🪙`,
+    wrong: (t: string, c: number) =>
+      `❌ Tough luck! ${t} · −${c}🪙 · Try the next one`,
+    timeout: (t: string) =>
+      `⏰ Time's up for: ${t} · Next question is coming!`,
+  },
+} as const;
+
+/**
+ * Normalise any raw locale string (user input, header, column value)
+ * to one the template bank knows about. Anything unknown — including
+ * empty string, `'zh'`, mixed-case garbage — collapses to `'vi'` (the
+ * app's primary-audience default). Adding ZH later is one extra arm.
+ */
+export function pickLocale(raw: string | null | undefined): Locale {
+  if (!raw) return 'vi';
+  const lc = raw.toLowerCase();
+  if (lc === 'en') return 'en';
+  return 'vi';
 }
 
-export function correctText(text: string, coins: number, dailyTotal: number): NotifText {
-  return {
-    title: TITLE,
-    body: `🎯 Chính xác! ${text} · +${coins}🪙 · Tổng: ${dailyTotal}🪙 hôm nay`,
-  };
+export function newQuestionText(
+  locale: Locale,
+  text: string,
+  seconds: number,
+  reward: number,
+): NotifText {
+  return { title: TITLE, body: TEMPLATES[locale].newQuestion(text, seconds, reward) };
 }
 
-export function wrongText(text: string, coins: number): NotifText {
-  return {
-    title: TITLE,
-    body: `❌ Tiếc quá! ${text} · −${coins}🪙 · Thử lại câu tiếp`,
-  };
+export function correctText(
+  locale: Locale,
+  text: string,
+  coins: number,
+  dailyTotal: number,
+): NotifText {
+  return { title: TITLE, body: TEMPLATES[locale].correct(text, coins, dailyTotal) };
 }
 
-export function timeoutText(text: string): NotifText {
-  return {
-    title: TITLE,
-    body: `⏰ Đã hết giờ cho câu: ${text} · Câu tiếp đang chờ!`,
-  };
+export function wrongText(locale: Locale, text: string, coins: number): NotifText {
+  return { title: TITLE, body: TEMPLATES[locale].wrong(text, coins) };
+}
+
+export function timeoutText(locale: Locale, text: string): NotifText {
+  return { title: TITLE, body: TEMPLATES[locale].timeout(text) };
 }

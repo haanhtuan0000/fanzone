@@ -254,6 +254,7 @@ model UserDevice {
   userId    String         @map("user_id")
   fcmToken  String         @map("fcm_token")
   platform  DevicePlatform
+  locale    String         @default("vi")
   createdAt DateTime       @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id])
