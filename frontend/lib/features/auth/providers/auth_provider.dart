@@ -22,7 +22,7 @@ class AuthState {
     this.isAuthenticated = false,
     this.isOnboarded = false,
     this.isLoading = false,
-    this.isInitializing = true,
+    this.isInitializing = false,
     this.error,
   });
 
@@ -51,7 +51,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final ApiClient? _apiClient;
   bool _googleInitialized = false;
 
-  AuthNotifier(this._authService, this._storage, [this._apiClient]) : super(const AuthState()) {
+  AuthNotifier(this._authService, this._storage, [this._apiClient])
+      : super(const AuthState(isInitializing: true)) {
     // Wire up force-logout: when ApiClient detects permanent 401, logout here
     _apiClient?.setForceLogoutCallback(() {
       if (mounted) {
