@@ -5,6 +5,7 @@ import '../../../core/models/user.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
 import '../../../core/notifications/fcm_service.dart';
+import '../../../core/notifications/notification_service.dart';
 import '../../../core/storage/secure_storage.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../services/auth_service.dart';
@@ -200,6 +201,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
       _registerDeviceInBackground();
+      _scheduleStreakAtRiskIfNeeded(user);
     } catch (e) {
       final _s = AppStrings.current;
       String error = _s.errorConnection;
@@ -235,6 +237,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
       _registerDeviceInBackground();
+      _scheduleStreakAtRiskIfNeeded(user);
     } catch (e) {
       final _s = AppStrings.current;
       String error = _s.errorConnection;
@@ -277,6 +280,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         isLoading: false,
       );
       _registerDeviceInBackground();
+      _scheduleStreakAtRiskIfNeeded(user);
     } catch (e, st) {
       // Show actual error for debugging — remove in production
       print('Google Sign-In error: $e');
@@ -317,6 +321,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
         // never breaks because of a push-registration hiccup.
       }
     }();
+  }
+
+  /// Stage 4 §9.4: schedule a daily "streak at risk" local alarm for
+  /// 23:00 device-local time. Only when the user currently has an
+  /// active streak (≥1 day). Re-scheduling with the same ID cleanly
+  /// overwrites any previous alarm, so calling this every auth confirm
+  /// is idempotent.
+  void _scheduleStreakAtRiskIfNeeded(User user) {
+    if (user.streakDays <= 0) return;
+    final now = DateTime.now();
+    // 23:00 today; if already past, schedule tomorrow's 23:00 instead.
+    DateTime fire = DateTime(now.year, now.month, now.day, 23, 0, 0);
+    if (!fire.isAfter(now)) {
+      fire = fire.add(const Duration(days: 1));
+    }
+    NotificationService.scheduleStreakAtRiskDaily(
+      currentStreak: user.streakDays,
+      fireAt: fire,
+    );
   }
 }
 

@@ -213,6 +213,12 @@ class _Vi {
       '$home vs $away bắt đầu sau 15 phút! Vào dự đoán ngay →';
   String notifKickoff(String home, String away) =>
       '$home vs $away đang diễn ra! Dự đoán ngay để kiếm xu';
+  String notifFtSummary(String home, String away) =>
+      'Trận kết thúc! Xem kết quả của bạn trong $home vs $away';
+  String notifFavoriteTeamMatch(String team) =>
+      '$team sắp thi đấu · Dự đoán ngay!';
+  String notifStreakAtRisk(int days) =>
+      'Streak $days ngày của bạn sắp bị mất! Dự đoán hôm nay để giữ chuỗi.';
   String get statOnTarget => 'Sút trúng đích';
   String get statFouls => 'Lỗi';
   String get statOffsides => 'Việt vị';
@@ -434,6 +440,12 @@ class _En {
       '$home vs $away starts in 15 minutes! Predict now →';
   String notifKickoff(String home, String away) =>
       '$home vs $away is live! Predict now to earn coins';
+  String notifFtSummary(String home, String away) =>
+      'Full time! See your result from $home vs $away';
+  String notifFavoriteTeamMatch(String team) =>
+      '$team kicks off soon · Predict now!';
+  String notifStreakAtRisk(int days) =>
+      'Your $days-day streak is about to break! Predict today to keep it going.';
   String get statOnTarget => 'On Target';
   String get statFouls => 'Fouls';
   String get statOffsides => 'Offsides';

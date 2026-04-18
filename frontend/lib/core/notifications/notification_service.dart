@@ -166,6 +166,62 @@ class NotificationService {
     return (reminder: reminder, kickoff: kickoff);
   }
 
+  /// Schedule the end-of-match FT summary alarm at `kickoff + 115 min`.
+  /// Stage 4 fires a generic body and lets the user tap through to the
+  /// FT detail screen for real numbers — accurate numbers at schedule
+  /// time would require pre-computing a body we can't trust 2 hours later.
+  static Future<bool> scheduleFtSummary({
+    required int fixtureId,
+    required String homeTeam,
+    required String awayTeam,
+    required DateTime kickoffTime,
+  }) async {
+    return _scheduleOne(
+      id: ftSummaryId(fixtureId),
+      scheduledAt: kickoffTime.add(const Duration(minutes: 115)),
+      title: AppStrings.current.notifTitle,
+      body: AppStrings.current.notifFtSummary(homeTeam, awayTeam),
+      route: '/match/$fixtureId',
+    );
+  }
+
+  /// Reminder that the user's favourite team kicks off in 2 hours.
+  /// Only schedules if `kickoff - now > 2h`; otherwise the alarm would
+  /// be in the past and `_scheduleOne` would refuse.
+  static Future<bool> scheduleFavoriteTeamReminder({
+    required int fixtureId,
+    required String team,
+    required DateTime kickoffTime,
+  }) async {
+    return _scheduleOne(
+      id: favoriteTeamId(fixtureId),
+      scheduledAt: kickoffTime.subtract(const Duration(hours: 2)),
+      title: AppStrings.current.notifTitle,
+      body: AppStrings.current.notifFavoriteTeamMatch(team),
+      route: '/match-info/$fixtureId',
+    );
+  }
+
+  /// Daily "streak at risk" nudge fired at 23:00 device-local time. The
+  /// notification body interpolates the current streak count so a user
+  /// with a 12-day streak sees "12" rather than a generic "your streak".
+  ///
+  /// `fireAt` is computed by the caller (today 23:00, or tomorrow 23:00
+  /// if today's 23:00 already passed). A single fixed alarm ID means
+  /// re-scheduling overwrites the previous alarm cleanly.
+  static Future<bool> scheduleStreakAtRiskDaily({
+    required int currentStreak,
+    required DateTime fireAt,
+  }) async {
+    return _scheduleOne(
+      id: streakAtRiskId(),
+      scheduledAt: fireAt,
+      title: AppStrings.current.notifTitle,
+      body: AppStrings.current.notifStreakAtRisk(currentStreak),
+      route: '/live',
+    );
+  }
+
   /// Shared scheduling code used by both reminder + kickoff. Factored out
   /// so payload, channel, and safety-gate logic stay in one place.
   static Future<bool> _scheduleOne({

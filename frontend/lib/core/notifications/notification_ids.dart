@@ -15,11 +15,13 @@ int matchReminderId(int fixtureId) => fixtureId;
 /// At-kickoff notification. [100M … 130M]
 int matchKickoffId(int fixtureId) => 100000000 + fixtureId;
 
-// Ranges reserved for later stages — documented here so no one picks
-// the same one by accident. These are not functions yet because Stage 2
-// doesn't need them; stages that add them should promote the comment
-// into a helper.
-//
-//   FT summary (Stage 4)         = 200_000_000 + fixtureId
-//   Favourite team 2h (Stage 4)  = 300_000_000 + fixtureId
-//   Streak-at-risk daily         = 999_999_001
+/// End-of-match summary, scheduled at `kickoff + 115 min`. [200M … 230M]
+int ftSummaryId(int fixtureId) => 200000000 + fixtureId;
+
+/// Favourite-team reminder, scheduled at `kickoff - 2h`. [300M … 330M]
+int favoriteTeamId(int fixtureId) => 300000000 + fixtureId;
+
+/// Streak-at-risk daily reminder at 23:00 local time. Not fixture-scoped,
+/// so a single fixed ID is enough — re-scheduling the same ID cleanly
+/// overwrites the previous alarm.
+int streakAtRiskId() => 999999001;

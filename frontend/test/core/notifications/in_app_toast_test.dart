@@ -34,5 +34,24 @@ void main() {
       // share an emoji — otherwise users can't tell them apart at a glance.
       expect(s.emoji, isNot(styleFor(ToastType.newQuestion).emoji));
     });
+
+    test('Stage 4 variants pin colour + emoji (regression against §9.3/§9.4 drift)', () {
+      expect(styleFor(ToastType.rankMilestone).background, AppColors.gold);
+      expect(styleFor(ToastType.rankMilestone).emoji, '🏆');
+
+      expect(styleFor(ToastType.achievement).background, AppColors.purple);
+      expect(styleFor(ToastType.achievement).emoji, '🏅');
+
+      expect(styleFor(ToastType.levelUp).background, AppColors.blue);
+      expect(styleFor(ToastType.levelUp).emoji, '⬆️');
+
+      expect(styleFor(ToastType.streakMilestone).background, AppColors.amber);
+      expect(styleFor(ToastType.streakMilestone).emoji, '🔥');
+    });
+
+    test('every ToastType has a unique emoji (users must tell them apart)', () {
+      final emojis = ToastType.values.map((t) => styleFor(t).emoji).toSet();
+      expect(emojis.length, ToastType.values.length);
+    });
   });
 }

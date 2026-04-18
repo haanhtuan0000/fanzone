@@ -1,14 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { RedisService } from '../common/redis/redis.service';
+import { titleForLevel } from '../users/users.service';
 import { getFirebaseAdmin } from './firebase-admin';
-import { tryIncrementQuestionQuota } from './notification-quota';
 import {
+  tryIncrementDailyQuota,
+  tryIncrementQuestionQuota,
+} from './notification-quota';
+import {
+  achievementText,
   correctText,
+  levelUpText,
   Locale,
   newQuestionText,
   NotifText,
   pickLocale,
+  rankMilestoneText,
+  streakMilestoneText,
   timeoutText,
   wrongText,
 } from './notification-templates';
@@ -35,6 +43,10 @@ export type NotifKind =
   | { type: 'correct'; text: string; coins: number; dailyTotal: number }
   | { type: 'wrong'; text: string; coins: number }
   | { type: 'timeout'; text: string }
+  | { type: 'rank_milestone'; position: number }
+  | { type: 'achievement'; name: string; rewardXp: number }
+  | { type: 'level_up'; level: number }
+  | { type: 'streak_milestone'; days: number }
   | { type: 'raw'; title: string; body: string };
 
 @Injectable()
@@ -316,9 +328,124 @@ export class NotificationsService {
         return wrongText(locale, kind.text, kind.coins);
       case 'timeout':
         return timeoutText(locale, kind.text);
+      case 'rank_milestone':
+        return rankMilestoneText(locale, kind.position);
+      case 'achievement':
+        return achievementText(locale, kind.name, kind.rewardXp);
+      case 'level_up':
+        return levelUpText(locale, kind.level, titleForLevel(kind.level, locale));
+      case 'streak_milestone':
+        return streakMilestoneText(locale, kind.days);
       case 'raw':
         return { title: kind.title, body: kind.body };
     }
+  }
+
+  // ── Group 3 + 4: leaderboard + engagement pushes (spec §9.3–§9.4) ─────────
+  //
+  // Each method respects the global daily cap (10/user/day, spec §9.5)
+  // but bypasses the per-match question quota — these events can fire
+  // outside a match context. Fire-and-forget from the caller.
+
+  /** "You entered the Top N" — fires when user hits rank 1/10/50/100 on a match board. */
+  async pushRankMilestone(
+    userId: string,
+    fixtureId: number,
+    position: number,
+  ): Promise<void> {
+    try {
+      if (!(await this.withinDailyCap(userId))) return;
+      await this.sendToUser(
+        userId,
+        { type: 'rank_milestone', position },
+        {
+          type: 'rank_milestone',
+          route: '/leaderboard',
+          fixtureId: String(fixtureId),
+          position: String(position),
+        },
+      );
+    } catch (e) {
+      this.logger.error(
+        `pushRankMilestone failed user=${userId} pos=${position}: ${(e as Error).message}`,
+      );
+    }
+  }
+
+  /** Achievement badge unlocked. */
+  async pushAchievement(
+    userId: string,
+    name: string,
+    rewardXp: number,
+  ): Promise<void> {
+    try {
+      if (!(await this.withinDailyCap(userId))) return;
+      await this.sendToUser(
+        userId,
+        { type: 'achievement', name, rewardXp },
+        {
+          type: 'achievement',
+          route: '/profile',
+          achievementName: name,
+          rewardXp: String(rewardXp),
+        },
+      );
+    } catch (e) {
+      this.logger.error(
+        `pushAchievement failed user=${userId} name=${name}: ${(e as Error).message}`,
+      );
+    }
+  }
+
+  /** Level-up notification. Title is resolved per-locale inside [render]. */
+  async pushLevelUp(userId: string, level: number): Promise<void> {
+    try {
+      if (!(await this.withinDailyCap(userId))) return;
+      await this.sendToUser(
+        userId,
+        { type: 'level_up', level },
+        {
+          type: 'level_up',
+          route: '/profile',
+          level: String(level),
+        },
+      );
+    } catch (e) {
+      this.logger.error(
+        `pushLevelUp failed user=${userId} level=${level}: ${(e as Error).message}`,
+      );
+    }
+  }
+
+  /** Streak-day milestone (7 / 30 / 100). */
+  async pushStreakMilestone(userId: string, days: number): Promise<void> {
+    try {
+      if (!(await this.withinDailyCap(userId))) return;
+      await this.sendToUser(
+        userId,
+        { type: 'streak_milestone', days },
+        {
+          type: 'streak_milestone',
+          route: '/profile',
+          days: String(days),
+        },
+      );
+    } catch (e) {
+      this.logger.error(
+        `pushStreakMilestone failed user=${userId} days=${days}: ${(e as Error).message}`,
+      );
+    }
+  }
+
+  /** Gate for all Group 3+4 pushes — 10/user/day cap per spec §9.5. */
+  private async withinDailyCap(userId: string): Promise<boolean> {
+    const gate = await tryIncrementDailyQuota(this.redis, userId);
+    if (!gate.allowed) {
+      this.logger.log(
+        `push blocked (daily cap) user=${userId} n=${gate.current}`,
+      );
+    }
+    return gate.allowed;
   }
 }
 

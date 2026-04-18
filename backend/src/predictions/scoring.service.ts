@@ -75,11 +75,20 @@ export class ScoringService {
         },
       });
 
-      // Add XP
-      await this.usersService.addXp(prediction.userId, xpEarned);
+      // Add XP (may level up)
+      const xpResult = await this.usersService.addXp(prediction.userId, xpEarned);
+      if (xpResult?.leveledUp) {
+        void this.notifications.pushLevelUp(prediction.userId, xpResult.level);
+      }
 
-      // Update streak
-      await this.usersService.updateStreak(prediction.userId);
+      // Update streak (may cross a 7/30/100 milestone)
+      const streakResult = await this.usersService.updateStreak(prediction.userId);
+      if (streakResult.crossedMilestone) {
+        void this.notifications.pushStreakMilestone(
+          prediction.userId,
+          streakResult.newStreak,
+        );
+      }
 
       // Update leaderboard (question already fetched above)
       if (question) {
@@ -105,8 +114,11 @@ export class ScoringService {
         await this.redis.zadd(`lb:country:${(user as any).countryCode}`, user.coins, prediction.userId);
       }
 
-      // Check achievements
-      await this.achievementService.checkAndUnlock(prediction.userId);
+      // Check achievements — any new unlocks fire their own FCM push.
+      const unlocked = await this.achievementService.checkAndUnlock(prediction.userId);
+      for (const a of unlocked) {
+        void this.notifications.pushAchievement(prediction.userId, a.name, a.rewardXp);
+      }
 
       // Check rank milestones (top 10/50/100 on match leaderboard)
       if (question) {
@@ -122,6 +134,11 @@ export class ScoringService {
                 message: `Climbed to Top ${position}!|Leo lên Top ${position}!`,
               },
             });
+            void this.notifications.pushRankMilestone(
+              prediction.userId,
+              question.fixtureId,
+              position,
+            );
           }
         }
       }

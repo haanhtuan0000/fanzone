@@ -6,7 +6,16 @@ import '../../app/router.dart';
 /// Toast kind drives the colour + emoji chosen by [styleFor]. Kept as a
 /// plain enum (not pulled from the FCM `data.type` string) so the client
 /// never trusts a server-controlled string to drive UI code paths.
-enum ToastType { newQuestion, correct, wrong, timeout }
+enum ToastType {
+  newQuestion,
+  correct,
+  wrong,
+  timeout,
+  rankMilestone,
+  achievement,
+  levelUp,
+  streakMilestone,
+}
 
 class ToastStyle {
   final Color background;
@@ -15,7 +24,7 @@ class ToastStyle {
 }
 
 /// Pure style map — tested in isolation so future changes to colour/emoji
-/// can't drift silently away from spec §9.2 Table 32.
+/// can't drift silently away from spec §9.2–§9.4.
 ToastStyle styleFor(ToastType type) {
   switch (type) {
     case ToastType.newQuestion:
@@ -26,6 +35,14 @@ ToastStyle styleFor(ToastType type) {
       return const ToastStyle(background: AppColors.red, emoji: '❌');
     case ToastType.timeout:
       return const ToastStyle(background: AppColors.amber, emoji: '⏰');
+    case ToastType.rankMilestone:
+      return const ToastStyle(background: AppColors.gold, emoji: '🏆');
+    case ToastType.achievement:
+      return const ToastStyle(background: AppColors.purple, emoji: '🏅');
+    case ToastType.levelUp:
+      return const ToastStyle(background: AppColors.blue, emoji: '⬆️');
+    case ToastType.streakMilestone:
+      return const ToastStyle(background: AppColors.amber, emoji: '🔥');
   }
 }
 
@@ -71,6 +88,34 @@ class InAppToast {
     _show(
       ToastType.timeout,
       'Đã hết giờ: $questionText · Câu tiếp đang chờ!',
+    );
+  }
+
+  static void rankMilestone({required int position}) {
+    _show(
+      ToastType.rankMilestone,
+      'Bạn vừa lọt vào Top $position! Hạng #$position',
+    );
+  }
+
+  static void achievement({required String name, required int rewardXp}) {
+    _show(
+      ToastType.achievement,
+      'Mở khóa: $name · +$rewardXp XP',
+    );
+  }
+
+  static void levelUp({required int level}) {
+    _show(
+      ToastType.levelUp,
+      'Lên cấp! Level $level',
+    );
+  }
+
+  static void streakMilestone({required int days}) {
+    _show(
+      ToastType.streakMilestone,
+      'Streak $days ngày! Tiếp tục dự đoán.',
     );
   }
 

@@ -25,12 +25,14 @@ export class AchievementService {
     });
   }
 
-  async checkAndUnlock(userId: string) {
+  async checkAndUnlock(
+    userId: string,
+  ): Promise<Array<{ name: string; rewardXp: number }>> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return [];
 
     const achievements = await this.prisma.achievement.findMany();
-    const unlocked: string[] = [];
+    const unlocked: Array<{ name: string; rewardXp: number }> = [];
 
     for (const achievement of achievements) {
       const existing = await this.prisma.userAchievement.findUnique({
@@ -89,7 +91,7 @@ export class AchievementService {
       });
 
       if (earned && !existing?.earnedAt) {
-        unlocked.push(achievement.name);
+        unlocked.push({ name: achievement.name, rewardXp: achievement.rewardXp });
       }
     }
 

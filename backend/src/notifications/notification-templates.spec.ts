@@ -1,7 +1,11 @@
 import {
+  achievementText,
   correctText,
+  levelUpText,
   newQuestionText,
   pickLocale,
+  rankMilestoneText,
+  streakMilestoneText,
   timeoutText,
   wrongText,
 } from './notification-templates';
@@ -61,6 +65,36 @@ describe('notification-templates', () => {
     it('title is always literal "FanZone" regardless of locale', () => {
       expect(newQuestionText('vi', 't', 1, 1).title).toBe('FanZone');
       expect(newQuestionText('en', 't', 1, 1).title).toBe('FanZone');
+    });
+  });
+
+  describe('Stage 4 template text', () => {
+    it('rankMilestone renders locale-aware body and embeds position', () => {
+      expect(rankMilestoneText('vi', 10).body).toContain('Top 10');
+      expect(rankMilestoneText('vi', 10).body).toContain('Hạng #10');
+      expect(rankMilestoneText('en', 10).body).toContain('Top 10');
+      expect(rankMilestoneText('en', 10).body).toContain('Rank #10');
+    });
+
+    it('achievement embeds both name and rewardXp', () => {
+      const vi = achievementText('vi', 'First 100 Predictions', 50).body;
+      const en = achievementText('en', 'First 100 Predictions', 50).body;
+      expect(vi).toContain('First 100 Predictions');
+      expect(vi).toContain('+50 XP');
+      expect(vi).toContain('Mở khóa');
+      expect(en).toContain('Unlocked');
+    });
+
+    it('levelUp embeds level + title', () => {
+      expect(levelUpText('vi', 6, 'Fan Thường').body).toContain('Level 6');
+      expect(levelUpText('vi', 6, 'Fan Thường').body).toContain('Fan Thường');
+      expect(levelUpText('en', 6, 'Regular Fan').body).toContain('Level 6');
+      expect(levelUpText('en', 6, 'Regular Fan').body).toContain('Regular Fan');
+    });
+
+    it('streakMilestone embeds day count in both locales', () => {
+      expect(streakMilestoneText('vi', 30).body).toContain('30 ngày');
+      expect(streakMilestoneText('en', 30).body).toContain('30-day streak');
     });
   });
 });

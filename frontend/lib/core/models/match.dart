@@ -2,6 +2,11 @@ class MatchData {
   final int fixtureId;
   final String homeTeam;
   final String awayTeam;
+  /// API-Football team IDs — used by Stage 4 to detect fixtures involving
+  /// the user's favourite team (comparison by ID instead of name avoids
+  /// locale + alias mismatches like "Real Madrid" vs "R. Madrid").
+  final int? homeTeamId;
+  final int? awayTeamId;
   final String? homeLogoUrl;
   final String? awayLogoUrl;
   final int homeScore;
@@ -23,6 +28,8 @@ class MatchData {
     required this.fixtureId,
     required this.homeTeam,
     required this.awayTeam,
+    this.homeTeamId,
+    this.awayTeamId,
     this.homeLogoUrl,
     this.awayLogoUrl,
     this.homeScore = 0,
@@ -60,6 +67,8 @@ class MatchData {
       fixtureId: fixture['id'] as int? ?? 0,
       homeTeam: (teams['home']?['name'] as String?) ?? 'Home',
       awayTeam: (teams['away']?['name'] as String?) ?? 'Away',
+      homeTeamId: teams['home']?['id'] as int?,
+      awayTeamId: teams['away']?['id'] as int?,
       homeLogoUrl: teams['home']?['logo'] as String?,
       awayLogoUrl: teams['away']?['logo'] as String?,
       homeScore: goals['home'] as int? ?? 0,
@@ -82,6 +91,8 @@ class MatchData {
       fixtureId: fixtureId,
       homeTeam: homeTeam,
       awayTeam: awayTeam,
+      homeTeamId: homeTeamId,
+      awayTeamId: awayTeamId,
       homeLogoUrl: homeLogoUrl,
       awayLogoUrl: awayLogoUrl,
       homeScore: homeScore,

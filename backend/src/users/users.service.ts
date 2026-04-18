@@ -19,6 +19,32 @@ const TITLES: Record<number, { vi: string; en: string }> = {
   51: { vi: 'Huyền Thoại', en: 'Legend' },
 };
 
+/**
+ * Streak-count milestones that trigger a notification in Stage 4. A
+ * crossing (going *to* one of these via the normal +1 increment path)
+ * fires a push; merely being at or above a threshold does not.
+ */
+const STREAK_MILESTONES = [7, 30, 100] as const;
+export type StreakMilestone = (typeof STREAK_MILESTONES)[number];
+
+/**
+ * Resolve the user's rank title for a given level + locale. Exported so
+ * the notifications layer can render "Level 6: Chuyên gia" / "Expert"
+ * bodies without reaching into the private map.
+ */
+export function titleForLevel(level: number, locale: 'vi' | 'en'): string {
+  let title = TITLES[1];
+  for (const [minLevel, t] of Object.entries(TITLES).sort(
+    ([a], [b]) => Number(b) - Number(a),
+  )) {
+    if (level >= Number(minLevel)) {
+      title = t;
+      break;
+    }
+  }
+  return title[locale];
+}
+
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
@@ -142,40 +168,51 @@ export class UsersService {
     return { level: newLevel, currentXp: newXp, leveledUp: newLevel > user.level };
   }
 
-  async updateStreak(userId: string) {
+  async updateStreak(
+    userId: string,
+  ): Promise<{ newStreak: number; crossedMilestone: StreakMilestone | null }> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return;
+    if (!user) return { newStreak: 0, crossedMilestone: null };
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    let newStreak = user.streakDays;
+    let crossed: StreakMilestone | null = null;
+
     if (user.lastActiveDate) {
       const lastActive = new Date(user.lastActiveDate);
       lastActive.setHours(0, 0, 0, 0);
+      const diffDays = Math.floor(
+        (today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24),
+      );
 
-      const diffDays = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 0) return; // Already active today
+      if (diffDays === 0) return { newStreak, crossedMilestone: null };
       if (diffDays === 1) {
-        // Consecutive day
+        newStreak = user.streakDays + 1;
+        if (STREAK_MILESTONES.includes(newStreak as StreakMilestone)) {
+          crossed = newStreak as StreakMilestone;
+        }
         await this.prisma.user.update({
           where: { id: userId },
-          data: { streakDays: user.streakDays + 1, lastActiveDate: today },
+          data: { streakDays: newStreak, lastActiveDate: today },
         });
       } else {
-        // Streak broken
+        newStreak = 1;
         await this.prisma.user.update({
           where: { id: userId },
           data: { streakDays: 1, lastActiveDate: today },
         });
       }
     } else {
-      // First activity
+      newStreak = 1;
       await this.prisma.user.update({
         where: { id: userId },
         data: { streakDays: 1, lastActiveDate: today },
       });
     }
+
+    return { newStreak, crossedMilestone: crossed };
   }
 
   private getTitle(level: number): { vi: string; en: string } {

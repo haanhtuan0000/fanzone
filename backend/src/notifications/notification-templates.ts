@@ -15,7 +15,15 @@
  * [pickLocale]; the switch above the ternary has no else-if chain.
  */
 
-export type NotifType = 'new_question' | 'correct' | 'wrong' | 'timeout';
+export type NotifType =
+  | 'new_question'
+  | 'correct'
+  | 'wrong'
+  | 'timeout'
+  | 'rank_milestone'
+  | 'achievement'
+  | 'level_up'
+  | 'streak_milestone';
 export type Locale = 'vi' | 'en';
 
 export interface NotifText {
@@ -35,6 +43,14 @@ const TEMPLATES = {
       `❌ Tiếc quá! ${t} · −${c}🪙 · Thử lại câu tiếp`,
     timeout: (t: string) =>
       `⏰ Đã hết giờ cho câu: ${t} · Câu tiếp đang chờ!`,
+    rankMilestone: (p: number) =>
+      `🏆 Bạn vừa lọt vào Top ${p}! Hạng #${p}`,
+    achievement: (name: string, xp: number) =>
+      `🏅 Mở khóa: ${name}! · +${xp} XP · Xem ngay`,
+    levelUp: (level: number, title: string) =>
+      `⬆️ Lên cấp! Level ${level}: ${title}`,
+    streakMilestone: (days: number) =>
+      `🔥×${days} Streak ${days} ngày! Tiếp tục dự đoán để giữ chuỗi.`,
   },
   en: {
     newQuestion: (t: string, s: number, r: number) =>
@@ -45,6 +61,14 @@ const TEMPLATES = {
       `❌ Tough luck! ${t} · −${c}🪙 · Try the next one`,
     timeout: (t: string) =>
       `⏰ Time's up for: ${t} · Next question is coming!`,
+    rankMilestone: (p: number) =>
+      `🏆 You're in the Top ${p}! Rank #${p}`,
+    achievement: (name: string, xp: number) =>
+      `🏅 Unlocked: ${name}! · +${xp} XP · Tap to view`,
+    levelUp: (level: number, title: string) =>
+      `⬆️ Level up! Level ${level}: ${title}`,
+    streakMilestone: (days: number) =>
+      `🔥×${days} ${days}-day streak! Keep predicting to stay on it.`,
   },
 } as const;
 
@@ -85,4 +109,28 @@ export function wrongText(locale: Locale, text: string, coins: number): NotifTex
 
 export function timeoutText(locale: Locale, text: string): NotifText {
   return { title: TITLE, body: TEMPLATES[locale].timeout(text) };
+}
+
+export function rankMilestoneText(locale: Locale, position: number): NotifText {
+  return { title: TITLE, body: TEMPLATES[locale].rankMilestone(position) };
+}
+
+export function achievementText(
+  locale: Locale,
+  name: string,
+  rewardXp: number,
+): NotifText {
+  return { title: TITLE, body: TEMPLATES[locale].achievement(name, rewardXp) };
+}
+
+export function levelUpText(
+  locale: Locale,
+  level: number,
+  title: string,
+): NotifText {
+  return { title: TITLE, body: TEMPLATES[locale].levelUp(level, title) };
+}
+
+export function streakMilestoneText(locale: Locale, days: number): NotifText {
+  return { title: TITLE, body: TEMPLATES[locale].streakMilestone(days) };
 }

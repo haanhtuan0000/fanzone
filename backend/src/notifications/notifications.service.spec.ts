@@ -325,4 +325,76 @@ describe('NotificationsService', () => {
       expect(mockSendEachForMulticast).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('Stage 4 Group 3+4 pushes (rank/achievement/levelUp/streak)', () => {
+    beforeEach(() => {
+      prisma.userDevice.findMany.mockResolvedValue([
+        { fcmToken: 'tok', locale: 'vi' },
+      ]);
+      mockSendEachForMulticast.mockResolvedValue({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      });
+    });
+
+    it('pushRankMilestone sends rank_milestone data with position', async () => {
+      await service.pushRankMilestone('u1', 42, 10);
+      expect(mockSendEachForMulticast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: 'rank_milestone',
+            route: '/leaderboard',
+            position: '10',
+          }),
+        }),
+      );
+    });
+
+    it('pushAchievement forwards name + rewardXp as strings', async () => {
+      await service.pushAchievement('u1', 'First 100', 25);
+      expect(mockSendEachForMulticast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: 'achievement',
+            achievementName: 'First 100',
+            rewardXp: '25',
+          }),
+        }),
+      );
+    });
+
+    it('pushLevelUp data contains level but NOT title (title is per-device locale in body)', async () => {
+      await service.pushLevelUp('u1', 6);
+      expect(mockSendEachForMulticast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: 'level_up',
+            level: '6',
+          }),
+        }),
+      );
+      const body = mockSendEachForMulticast.mock.calls[0][0].notification.body as string;
+      expect(body).toMatch(/Level 6/);
+      // VI device → VI title "Fan Thường" (level 6 threshold)
+      expect(body).toContain('Fan Thường');
+    });
+
+    it('pushStreakMilestone forwards day count', async () => {
+      await service.pushStreakMilestone('u1', 30);
+      expect(mockSendEachForMulticast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ type: 'streak_milestone', days: '30' }),
+        }),
+      );
+    });
+
+    it('blocks sends after the per-user daily cap of 10 is reached', async () => {
+      // Pre-seed daily counter to 10 so the next INCR → 11 fails the gate.
+      const todayKey = `fcm:d:u1:${new Date().toISOString().slice(0, 10)}`;
+      redis.__counters.set(todayKey, 10);
+      await service.pushRankMilestone('u1', 42, 1);
+      expect(mockSendEachForMulticast).not.toHaveBeenCalled();
+    });
+  });
 });

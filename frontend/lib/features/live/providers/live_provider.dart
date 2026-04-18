@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/match.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/notifications/notification_service.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../services/match_service.dart';
 import '../stale_match_filter.dart';
 
@@ -117,8 +119,19 @@ class LiveState {
 class LiveNotifier extends StateNotifier<LiveState> {
   final MatchService _matchService;
   final ApiClient? _apiClient;
+  /// Fires once per successful fixture load with the loaded list.
+  /// The provider wires this to scan for user's favourite-team matches
+  /// and schedule the Stage 4 "match in 2h" local alarms. Kept as a
+  /// callback instead of a `ref.read` inside the notifier so this
+  /// file stays decoupled from auth state.
+  final void Function(List<MatchData>)? _onMatchesLoaded;
 
-  LiveNotifier(this._matchService, [this._apiClient]) : super(const LiveState(isLoading: true)) {
+  LiveNotifier(
+    this._matchService,
+    this._apiClient, {
+    void Function(List<MatchData>)? onMatchesLoaded,
+  })  : _onMatchesLoaded = onMatchesLoaded,
+        super(const LiveState(isLoading: true)) {
     _loadMatches();
   }
 
@@ -167,6 +180,9 @@ class LiveNotifier extends StateNotifier<LiveState> {
 
       // Fetch prediction summary for the "Answered" category (async, non-blocking)
       _fetchPredictionSummary();
+
+      // Stage 4 hook: let the provider scan for favourite-team fixtures.
+      _onMatchesLoaded?.call(uniqueMatches);
     } catch (e) {
       state = state.copyWith(isLoading: false, isRefreshing: false, error: e.toString());
     }
@@ -293,5 +309,29 @@ final matchServiceProvider = Provider<MatchService>((ref) => MatchService());
 final liveStateProvider = StateNotifierProvider<LiveNotifier, LiveState>((ref) {
   final matchService = ref.watch(matchServiceProvider);
   final apiClient = ref.watch(apiClientProvider);
-  return LiveNotifier(matchService, apiClient);
+  return LiveNotifier(
+    matchService,
+    apiClient,
+    onMatchesLoaded: (matches) {
+      // Stage 4 §9.4: schedule a local "match in 2h" reminder for any
+      // NS fixture that involves the user's favourite team and is still
+      // ≥2h away. Re-scheduling the same ID is idempotent (overwrites).
+      final user = ref.read(authStateProvider).user;
+      final favTeamId = user?.favoriteTeamId;
+      if (favTeamId == null) return;
+      final now = DateTime.now();
+      for (final m in matches) {
+        final isFav = m.homeTeamId == favTeamId || m.awayTeamId == favTeamId;
+        final k = m.kickoffTime;
+        if (!isFav || k == null) continue;
+        if (k.difference(now) <= const Duration(hours: 2)) continue;
+        final favTeam = m.homeTeamId == favTeamId ? m.homeTeam : m.awayTeam;
+        NotificationService.scheduleFavoriteTeamReminder(
+          fixtureId: m.fixtureId,
+          team: favTeam,
+          kickoffTime: k,
+        );
+      }
+    },
+  );
 });

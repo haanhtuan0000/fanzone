@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/question.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_endpoints.dart';
+import '../../../core/notifications/notification_service.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../live/providers/live_provider.dart';
 import '../../profile/providers/profile_provider.dart';
@@ -112,13 +113,20 @@ class PredictState {
 class PredictNotifier extends StateNotifier<PredictState> {
   final ApiClient _apiClient;
   final void Function(int delta) _onCoinsChanged;
+  /// Fires when the user's first prediction on a given fixture is
+  /// accepted. Used to schedule the Stage 4 FT-summary local alarm;
+  /// the provider is wired to look up the current match via ref and
+  /// hand kickoffTime + team names to NotificationService.
+  final void Function(int fixtureId)? _onFirstPrediction;
   int? _currentFixtureId;
 
   bool _loading = false;
   bool _autoSubmitting = false;
   Timer? _pollTimer;
 
-  PredictNotifier(this._apiClient, this._onCoinsChanged) : super(const PredictState());
+  PredictNotifier(this._apiClient, this._onCoinsChanged, {void Function(int)? onFirstPrediction})
+      : _onFirstPrediction = onFirstPrediction,
+        super(const PredictState());
 
   /// Fetch API data with one retry on failure (handles token refresh, network hiccups)
   Future<dynamic> _fetchWithRetry(Future<Response> Function() call) async {
@@ -396,6 +404,8 @@ class PredictNotifier extends StateNotifier<PredictState> {
       final isFirst = data['isFirstPrediction'] as bool? ?? false;
       if (isFirst) {
         state = state.copyWith(showFirstPredictionBonus: true);
+        final fixtureId = state.fixtureId ?? state.activeQuestion?.fixtureId;
+        if (fixtureId != null) _onFirstPrediction?.call(fixtureId);
       }
 
       _pollForResult(questionId);
@@ -480,11 +490,32 @@ class PredictNotifier extends StateNotifier<PredictState> {
 
 final predictStateProvider = StateNotifierProvider<PredictNotifier, PredictState>((ref) {
   final apiClient = ref.watch(apiClientProvider);
-  final notifier = PredictNotifier(apiClient, (delta) {
-    ref.read(userCoinsProvider.notifier).state += delta;
-    // Refresh profile when coins change (prediction result came in)
-    ref.invalidate(profileStateProvider);
-  });
+  final notifier = PredictNotifier(
+    apiClient,
+    (delta) {
+      ref.read(userCoinsProvider.notifier).state += delta;
+      // Refresh profile when coins change (prediction result came in)
+      ref.invalidate(profileStateProvider);
+    },
+    onFirstPrediction: (fixtureId) {
+      // Stage 4: schedule the FT-summary local alarm once the user has
+      // skin in the match. We look up the kickoff + team names from the
+      // live state (the matches list was already loaded to get here).
+      final live = ref.read(liveStateProvider);
+      final all = [...live.liveMatches, ...live.notStartedMatches, ...live.answeredMatches];
+      final idx = all.indexWhere((m) => m.fixtureId == fixtureId);
+      if (idx < 0) return;
+      final match = all[idx];
+      final kickoff = match.kickoffTime;
+      if (kickoff == null) return;
+      NotificationService.scheduleFtSummary(
+        fixtureId: fixtureId,
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
+        kickoffTime: kickoff,
+      );
+    },
+  );
 
   // Load questions when a live match becomes available
   ref.listen<LiveState>(liveStateProvider, (prev, next) {

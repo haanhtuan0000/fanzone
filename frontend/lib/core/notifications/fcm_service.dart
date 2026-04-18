@@ -94,6 +94,27 @@ class FcmService {
         case 'timeout':
           InAppToast.timeout(questionText: data['questionText'] ?? '');
           break;
+        case 'rank_milestone':
+          InAppToast.rankMilestone(
+            position: int.tryParse(data['position'] ?? '') ?? 0,
+          );
+          break;
+        case 'achievement':
+          InAppToast.achievement(
+            name: data['achievementName'] ?? '',
+            rewardXp: int.tryParse(data['rewardXp'] ?? '') ?? 0,
+          );
+          break;
+        case 'level_up':
+          InAppToast.levelUp(
+            level: int.tryParse(data['level'] ?? '') ?? 0,
+          );
+          break;
+        case 'streak_milestone':
+          InAppToast.streakMilestone(
+            days: int.tryParse(data['days'] ?? '') ?? 0,
+          );
+          break;
         default:
           debugPrint('[FCM] foreground: unknown type=$type data=$data');
       }
